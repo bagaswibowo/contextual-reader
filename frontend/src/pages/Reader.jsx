@@ -142,43 +142,21 @@ export function Reader() {
   }
 
   const getAlignedClauseTokens = (text, transliteration) => {
-    if (!text || !transliteration) return []
+    if (!text || !transliteration) return { mode: 'none', tokens: [], fullText: '' }
     
-    // Check if text has spaces between words (like English, Indonesian, Spanish, Russian, Korean)
-    const textHasSpaces = text.trim().includes(' ')
-    
-    if (textHasSpaces) {
-      const textWords = text.trim().split(/\s+/).filter(Boolean)
-      const latinWords = transliteration.trim().split(/\s+/).filter(Boolean)
-      const maxLength = Math.max(textWords.length, latinWords.length)
+    const textWords = text.trim().split(/\s+/).filter(Boolean)
+    const latinWords = transliteration.trim().split(/\s+/).filter(Boolean)
+
+    if (textWords.length > 1 && Math.abs(textWords.length - latinWords.length) <= 2) {
+      const maxLength = Math.min(textWords.length, latinWords.length)
       const tokens = []
       for (let i = 0; i < maxLength; i++) {
-        tokens.push({
-          script: textWords[i] || '',
-          latin: latinWords[i] || ''
-        })
+        tokens.push({ script: textWords[i], latin: latinWords[i] })
       }
-      return tokens
+      return { mode: 'chips', tokens, fullText: transliteration }
     }
 
-    // For unspaced Asian scripts (Japanese, Mandarin Chinese, Thai), split by punctuation clauses
-    const delims = /[,.!?、。;\n]/
-    const scriptClauses = text.split(delims).map(c => c.trim()).filter(Boolean)
-    const latinClauses = transliteration.split(delims).map(c => c.trim()).filter(Boolean)
-
-    if (scriptClauses.length > 0 && latinClauses.length > 0) {
-      const maxLength = Math.max(scriptClauses.length, latinClauses.length)
-      const tokens = []
-      for (let i = 0; i < maxLength; i++) {
-        tokens.push({
-          script: scriptClauses[i] || '',
-          latin: latinClauses[i] || ''
-        })
-      }
-      return tokens
-    }
-
-    return [{ script: text, latin: transliteration }]
+    return { mode: 'paragraph', tokens: [], fullText: transliteration }
   }
 
   const getOriginalLanguageInfo = (langCode) => {
@@ -868,18 +846,32 @@ export function Reader() {
                         🔤 Panduan Cara Baca Latin ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
                       </span>
 
-                      <div className="flex flex-col gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
-                        {getAlignedClauseTokens(activeSentencePopup.translation, activeSentencePopup.transliteration).map((item, idx) => (
-                          <div key={idx} className="p-2.5 rounded-lg bg-gray-50 dark:bg-dark-border/40 border border-gray-200 dark:border-dark-border space-y-1">
-                            <span className="font-heading font-bold text-sm sm:text-base text-eel dark:text-dark-text block break-words">
-                              {item.script}
-                            </span>
-                            <span className="font-mono text-xs font-bold text-duo-blue block break-words tracking-tight">
-                              {item.latin}
-                            </span>
+                      {(() => {
+                        const alignResult = getAlignedClauseTokens(activeSentencePopup.translation, activeSentencePopup.transliteration)
+                        if (alignResult.mode === 'chips') {
+                          return (
+                            <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
+                              {alignResult.tokens.map((item, idx) => (
+                                <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2 py-1 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
+                                  <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
+                                    {item.script}
+                                  </span>
+                                  <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
+                                    {item.latin}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[30vh] overflow-y-auto">
+                            <p className="font-mono text-xs sm:text-sm font-bold text-duo-blue leading-relaxed break-words tracking-tight">
+                              {alignResult.fullText}
+                            </p>
                           </div>
-                        ))}
-                      </div>
+                        )
+                      })()}
                     </div>
                   )}
                 </div>
