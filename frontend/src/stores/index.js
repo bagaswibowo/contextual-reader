@@ -45,6 +45,7 @@ export const useReaderStore = create(
       showWordHints: true,
       lineHeight: 1.8,
       targetLanguage: 'id',
+      motherLanguage: 'id',
       translationEngine: 'google', // 'google' | 'omni' | 'custom'
       customBaseUrl: '',
       customApiKey: '',
@@ -57,6 +58,7 @@ export const useReaderStore = create(
       setShowWordHints: (show) => set({ showWordHints: show }),
       setLineHeight: (height) => set({ lineHeight: Math.max(1.4, Math.min(2.5, height)) }),
       setTargetLanguage: (targetLanguage) => set({ targetLanguage }),
+      setMotherLanguage: (motherLanguage) => set({ motherLanguage }),
       setTranslationEngine: (translationEngine) => set({ translationEngine }),
       setCustomBaseUrl: (customBaseUrl) => set({ customBaseUrl }),
       setCustomApiKey: (customApiKey) => set({ customApiKey }),

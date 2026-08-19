@@ -60,6 +60,7 @@ export const translationsApi = {
       sentence_id: sentenceId,
       word,
       target_lang: targetLang,
+      mother_lang: customConfig.mother_lang || 'id',
       engine,
       custom_base_url: customConfig.customBaseUrl,
       custom_api_key: customConfig.customApiKey,
@@ -69,6 +70,7 @@ export const translationsApi = {
     api.post('/translations/sentence/', {
       sentence_id: sentenceId,
       target_lang: targetLang,
+      mother_lang: customConfig.mother_lang || 'id',
       engine,
       custom_base_url: customConfig.customBaseUrl,
       custom_api_key: customConfig.customApiKey,

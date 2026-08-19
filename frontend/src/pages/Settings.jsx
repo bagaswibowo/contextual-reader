@@ -6,12 +6,13 @@ import { coreApi } from '../utils/api'
 import { AVAILABLE_LANGUAGES } from '../constants/languages'
 
 export function Settings() {
-  const { theme, setTheme } = useTheme()
-  const { 
-    fontSize, setFontSize, 
-    fontFamily, setFontFamily, 
+  const {
+    theme, setTheme,
+    fontSize, setFontSize,
+    fontFamily, setFontFamily,
     lineHeight, setLineHeight,
     targetLanguage, setTargetLanguage,
+    motherLanguage, setMotherLanguage,
     translationEngine, setTranslationEngine,
     customBaseUrl, setCustomBaseUrl,
     customApiKey, setCustomApiKey,
@@ -49,20 +50,37 @@ export function Settings() {
               Engine Penerjemah & Bahasa Target
             </h3>
 
-            {/* Default Target Language Dropdown (22 Languages) */}
-            <div className="space-y-2">
-              <label className="font-bold text-sm block">Bahasa Target Utama:</label>
-              <select
-                value={targetLanguage || 'id'}
-                onChange={(e) => setTargetLanguage(e.target.value)}
-                className="input-duo py-2.5 px-4 text-sm font-extrabold w-full cursor-pointer bg-white dark:bg-dark-card border-2 border-duo-blue/40 rounded-duo"
-              >
-                {AVAILABLE_LANGUAGES.map(l => (
-                  <option key={l.code} value={l.code}>
-                    {l.flag} {l.name} ({l.code})
-                  </option>
-                ))}
-              </select>
+            {/* Default Target Language & Mother Tongue Language Dropdown */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="font-bold text-sm block">Bahasa Target Utama (Pembelajaran):</label>
+                <select
+                  value={targetLanguage || 'id'}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  className="input-duo py-2.5 px-4 text-sm font-extrabold w-full cursor-pointer bg-white dark:bg-dark-card border-2 border-duo-blue/40 rounded-duo"
+                >
+                  {AVAILABLE_LANGUAGES.map(l => (
+                    <option key={l.code} value={l.code}>
+                      {l.flag} {l.name} ({l.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="font-bold text-sm block">Bahasa Induk (Bahasa Asal Pengguna):</label>
+                <select
+                  value={motherLanguage || 'id'}
+                  onChange={(e) => setMotherLanguage(e.target.value)}
+                  className="input-duo py-2.5 px-4 text-sm font-extrabold w-full cursor-pointer bg-white dark:bg-dark-card border-2 border-duo-green/40 rounded-duo"
+                >
+                  {AVAILABLE_LANGUAGES.map(l => (
+                    <option key={l.code} value={l.code}>
+                      {l.flag} {l.name} ({l.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Translation Engine Selector */}

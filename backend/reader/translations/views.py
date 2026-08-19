@@ -17,6 +17,7 @@ class TranslationViewSet(viewsets.ViewSet):
         sentence_id = request.data.get('sentence_id')
         word = request.data.get('word')
         target_lang = request.data.get('target_lang', 'id')
+        mother_lang = request.data.get('mother_lang', 'id')
         engine = request.data.get('engine', 'google')
         custom_base_url = request.data.get('custom_base_url')
         custom_api_key = request.data.get('custom_api_key')
@@ -34,7 +35,7 @@ class TranslationViewSet(viewsets.ViewSet):
             return Response({'error': 'Sentence not found'}, status=404)
         
         translation = translation_service.translate_word_contextual(
-            sentence, word, target_lang=target_lang, engine=engine,
+            sentence, word, target_lang=target_lang, mother_lang=mother_lang, engine=engine,
             custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
         )
         return Response(WordTranslationSerializer(translation).data)
@@ -44,6 +45,7 @@ class TranslationViewSet(viewsets.ViewSet):
         """Get full sentence translation via Google Translate or LLM / Custom AI Provider"""
         sentence_id = request.data.get('sentence_id')
         target_lang = request.data.get('target_lang', 'id')
+        mother_lang = request.data.get('mother_lang', 'id')
         engine = request.data.get('engine', 'google')
         custom_base_url = request.data.get('custom_base_url')
         custom_api_key = request.data.get('custom_api_key')
@@ -61,7 +63,7 @@ class TranslationViewSet(viewsets.ViewSet):
             return Response({'error': 'Sentence not found'}, status=404)
         
         translation = translation_service.translate_sentence(
-            sentence, target_lang=target_lang, engine=engine,
+            sentence, target_lang=target_lang, mother_lang=mother_lang, engine=engine,
             custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
         )
         return Response(SentenceTranslationSerializer(translation).data)

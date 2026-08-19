@@ -158,7 +158,7 @@ class GoogleTranslateClient:
     BASE_URL = "https://translate.googleapis.com/translate_a/single"
     
     @staticmethod
-    def translate_word(word: str, target_lang: str = "id") -> Dict:
+    def translate_word(word: str, target_lang: str = "id", mother_lang: str = "id") -> Dict:
         params = {
             "client": "gtx",
             "sl": "auto",
@@ -185,11 +185,11 @@ class GoogleTranslateClient:
                 if len(res[0][1]) > 3 and res[0][1][3]:
                     ipa = res[0][1][3] or ""
 
-            # Fetch Indonesian mother-tongue meaning if target_lang is not 'id'
+            # Fetch mother-tongue meaning if target_lang is different from mother_lang
             indonesian_meaning = ""
-            if target_lang.lower() != 'id':
+            if target_lang.lower() != mother_lang.lower():
                 try:
-                    id_params = {"client": "gtx", "sl": "auto", "tl": "id", "dt": "t", "q": word}
+                    id_params = {"client": "gtx", "sl": "auto", "tl": mother_lang, "dt": "t", "q": word}
                     id_res = requests.get(GoogleTranslateClient.BASE_URL, params=id_params, headers=headers, timeout=5).json()
                     if id_res and isinstance(id_res, list) and len(id_res) > 0 and id_res[0]:
                         meanings = []
@@ -236,7 +236,7 @@ class GoogleTranslateClient:
             }
 
     @staticmethod
-    def translate_sentence(text: str, target_lang: str = "id") -> Dict:
+    def translate_sentence(text: str, target_lang: str = "id", mother_lang: str = "id") -> Dict:
         cleaned_text = re.sub(r'\s+', ' ', text).strip()
         params = {
             "client": "gtx",
@@ -264,7 +264,7 @@ class GoogleTranslateClient:
                             transliteration += item[3] + " "
             
             grammar = GrammarAnalyzer.analyze(cleaned_text)
-            token_pairs = UniversalWordTokenizer.get_token_pairs(translated_text.strip(), target_lang, mother_lang="id")
+            token_pairs = UniversalWordTokenizer.get_token_pairs(translated_text.strip(), target_lang, mother_lang=mother_lang)
             grammar_details = grammar["grammar_details"]
             grammar_details["token_pairs"] = token_pairs
 
@@ -336,16 +336,16 @@ class TranslationService:
         key = ':'.join([prefix] + list(parts))
         return hashlib.sha256(key.encode()).hexdigest()[:32]
     
-    def translate_word_contextual(self, sentence: Sentence, word: str, target_lang: str = "id", engine: str = "google",
+    def translate_word_contextual(self, sentence: Sentence, word: str, target_lang: str = "id", mother_lang: str = "id", engine: str = "google",
                                   custom_base_url: str = None, custom_api_key: str = None, custom_model: str = None) -> WordTranslation:
         """Get word translation via Google Translate (free & multi-meaning) or OmniRoute LLM / Custom AI Provider"""
-        cache_key = self._cache_key('word_trans', str(sentence.id), word.lower(), target_lang, engine, custom_model or '')
+        cache_key = self._cache_key('word_trans', str(sentence.id), word.lower(), target_lang, mother_lang, engine, custom_model or '')
         cached = cache.get(cache_key)
         if cached:
             return cached
         
         if engine == "google":
-            data = GoogleTranslateClient.translate_word(word, target_lang=target_lang)
+            data = GoogleTranslateClient.translate_word(word, target_lang=target_lang, mother_lang=mother_lang)
         else:
             client = LLMClient(base_url=custom_base_url, api_key=custom_api_key, model=custom_model)
             prompt = self._build_word_prompt(sentence.text, word, target_lang)
@@ -356,7 +356,7 @@ class TranslationService:
                 ])
                 data = json.loads(response)
             except Exception:
-                data = GoogleTranslateClient.translate_word(word, target_lang=target_lang)
+                data = GoogleTranslateClient.translate_word(word, target_lang=target_lang, mother_lang=mother_lang)
         
         translation, _ = WordTranslation.objects.update_or_create(
             sentence=sentence,
@@ -401,16 +401,16 @@ class TranslationService:
             'user': f'Kalimat: "{sentence}"\nKata target: "{word}"'
         }
     
-    def translate_sentence(self, sentence: Sentence, target_lang: str = "id", engine: str = "google",
+    def translate_sentence(self, sentence: Sentence, target_lang: str = "id", mother_lang: str = "id", engine: str = "google",
                            custom_base_url: str = None, custom_api_key: str = None, custom_model: str = None) -> SentenceTranslation:
         """Get full sentence translation via Google Translate or OmniRoute LLM / Custom AI Provider"""
-        cache_key = self._cache_key('sent_trans', str(sentence.id), target_lang, engine, custom_model or '')
+        cache_key = self._cache_key('sent_trans', str(sentence.id), target_lang, mother_lang, engine, custom_model or '')
         cached = cache.get(cache_key)
         if cached:
             return cached
         
         if engine == "google":
-            data = GoogleTranslateClient.translate_sentence(sentence.text, target_lang=target_lang)
+            data = GoogleTranslateClient.translate_sentence(sentence.text, target_lang=target_lang, mother_lang=mother_lang)
         else:
             client = LLMClient(base_url=custom_base_url, api_key=custom_api_key, model=custom_model)
             grammar = GrammarAnalyzer.analyze(sentence.text)
@@ -433,7 +433,7 @@ class TranslationService:
                     {'role': 'user', 'content': sentence.text}
                 ])
                 parsed = json.loads(response)
-                token_pairs = UniversalWordTokenizer.get_token_pairs(parsed.get('indonesian_text', sentence.text), target_lang, mother_lang="id")
+                token_pairs = UniversalWordTokenizer.get_token_pairs(parsed.get('indonesian_text', sentence.text), target_lang, mother_lang=mother_lang)
                 grammar_details = grammar['grammar_details']
                 grammar_details['token_pairs'] = token_pairs
                 data = {
@@ -445,7 +445,7 @@ class TranslationService:
                     'notes': parsed.get('notes', '')
                 }
             except Exception:
-                data = GoogleTranslateClient.translate_sentence(sentence.text, target_lang=target_lang)
+                data = GoogleTranslateClient.translate_sentence(sentence.text, target_lang=target_lang, mother_lang=mother_lang)
         
         translation, _ = SentenceTranslation.objects.update_or_create(
             sentence=sentence,

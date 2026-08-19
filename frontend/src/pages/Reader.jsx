@@ -20,7 +20,9 @@ export function Reader() {
     fontSize, setFontSize, 
     fontFamily, setFontFamily, 
     lineHeight, setLineHeight,
-    targetLanguage, setTargetLanguage, translationEngine,
+    targetLanguage, setTargetLanguage,
+    motherLanguage, setMotherLanguage,
+    translationEngine,
     customBaseUrl, customApiKey, customModel
   } = useReaderStore()
 
@@ -129,7 +131,7 @@ export function Reader() {
     })
 
     try {
-      const customConfig = { customBaseUrl, customApiKey, customModel }
+      const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
       const res = await translationsApi.word(sentenceId, cleanedWord, langToUse, translationEngine || 'google', customConfig)
       if (typeof res.data === 'string' && res.data.includes('<!doctype html>')) {
         throw new Error('Terjadi kesalahan server internal. Silakan coba lagi.')
@@ -239,7 +241,7 @@ export function Reader() {
     })
 
     try {
-      const customConfig = { customBaseUrl, customApiKey, customModel }
+      const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
       const res = await translationsApi.sentence(sentenceId, langToUse, translationEngine || 'google', customConfig)
       let text = res.data.indonesian_text || ''
       let notes = res.data.notes || ''
@@ -725,10 +727,12 @@ export function Reader() {
                                     </div>
                                   )}
 
-                                  {/* Layer 3: Indonesian Mother-Tongue Meaning (If target language is foreign) */}
-                                  {(activeWordPopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && (
+                                  {/* Layer 3: Mother-Tongue Meaning (If target language is different from user's mother language) */}
+                                  {(activeWordPopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && (
                                     <div className="pt-1.5 flex items-center gap-1.5 text-duo-green font-bold text-xs border-t border-duo-green/20">
-                                      <span className="text-[10px] uppercase tracking-wider font-extrabold opacity-90 text-duo-green">🇮🇩 Arti Indonesia:</span>
+                                      <span className="text-[10px] uppercase tracking-wider font-extrabold opacity-90 text-duo-green">
+                                        {AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.flag || '🌐'} Arti ({AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.name || 'Indonesia'}):
+                                      </span>
                                       <span className="bg-duo-green/20 text-duo-green px-2 py-0.5 rounded font-extrabold text-sm sm:text-base">
                                         {activeWordPopup.data?.indonesian_meaning || 'Memuat...'}
                                       </span>
@@ -983,8 +987,8 @@ export function Reader() {
                     {activeSentencePopup.translation}
                   </p>
 
-                  {/* 3-Layer Interleaved Aligned Cards: Only for Non-Indonesian Target Languages */}
-                  {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
+                  {/* 3-Layer Interleaved Aligned Cards: Only when target language is different from user's mother language */}
+                  {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
                       <span className="text-xs sm:text-sm font-extrabold text-duo-blue uppercase tracking-wider flex items-center gap-1.5">
                         <Languages className="w-4 h-4 text-duo-blue shrink-0" />
@@ -1002,7 +1006,7 @@ export function Reader() {
                             <span className="font-mono text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
                               {item.latin}
                             </span>
-                            {/* Layer 3: Terjemahan Bahasa Indonesia */}
+                            {/* Layer 3: Terjemahan Bahasa Induk Pengguna */}
                             <span className="text-xs font-bold text-duo-green bg-duo-green/10 px-1.5 py-0.5 rounded mt-1 max-w-[130px] truncate">
                               {item.meaning}
                             </span>
@@ -1010,7 +1014,7 @@ export function Reader() {
                         ))}
                       </div>
                     </div>
-                  ) : (activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && activeSentencePopup.transliteration ? (
+                  ) : (activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.transliteration ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
                       <span className="text-xs sm:text-sm font-extrabold text-duo-blue uppercase tracking-wider flex items-center gap-1.5">
                         <Languages className="w-4 h-4 text-duo-blue shrink-0" />
