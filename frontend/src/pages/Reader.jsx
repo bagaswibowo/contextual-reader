@@ -141,36 +141,44 @@ export function Reader() {
     }
   }
 
-  const getAlignedTokens = (text, transliteration) => {
+  const getAlignedClauseTokens = (text, transliteration) => {
     if (!text || !transliteration) return []
     
-    const textWords = text.trim().split(/\s+/).filter(Boolean)
-    const latinWords = transliteration.trim().split(/\s+/).filter(Boolean)
-
-    if (textWords.length === 0 || latinWords.length === 0) return []
+    // Check if text has spaces between words (like English, Indonesian, Spanish, Russian, Korean)
+    const textHasSpaces = text.trim().includes(' ')
     
-    // If text is unspaced (e.g. Japanese or Chinese without spaces)
-    if (textWords.length === 1 && text.length >= 3 && latinWords.length > 1) {
-      const avgChars = Math.max(1, Math.round(text.length / latinWords.length))
+    if (textHasSpaces) {
+      const textWords = text.trim().split(/\s+/).filter(Boolean)
+      const latinWords = transliteration.trim().split(/\s+/).filter(Boolean)
+      const maxLength = Math.max(textWords.length, latinWords.length)
       const tokens = []
-      let curIdx = 0
-      for (let i = 0; i < latinWords.length; i++) {
-        const charChunk = text.slice(curIdx, curIdx + avgChars) || text[i] || ''
-        curIdx += avgChars
-        tokens.push({ char: charChunk, latin: latinWords[i] })
+      for (let i = 0; i < maxLength; i++) {
+        tokens.push({
+          script: textWords[i] || '',
+          latin: latinWords[i] || ''
+        })
       }
       return tokens
     }
-    
-    const maxLength = Math.max(textWords.length, latinWords.length)
-    const tokens = []
-    for (let i = 0; i < maxLength; i++) {
-      tokens.push({
-        char: textWords[i] || '',
-        latin: latinWords[i] || ''
-      })
+
+    // For unspaced Asian scripts (Japanese, Mandarin Chinese, Thai), split by punctuation clauses
+    const delims = /[,.!?、。;\n]/
+    const scriptClauses = text.split(delims).map(c => c.trim()).filter(Boolean)
+    const latinClauses = transliteration.split(delims).map(c => c.trim()).filter(Boolean)
+
+    if (scriptClauses.length > 0 && latinClauses.length > 0) {
+      const maxLength = Math.max(scriptClauses.length, latinClauses.length)
+      const tokens = []
+      for (let i = 0; i < maxLength; i++) {
+        tokens.push({
+          script: scriptClauses[i] || '',
+          latin: latinClauses[i] || ''
+        })
+      }
+      return tokens
     }
-    return tokens
+
+    return [{ script: text, latin: transliteration }]
   }
 
   const getOriginalLanguageInfo = (langCode) => {
@@ -848,30 +856,31 @@ export function Reader() {
                     </div>
                   </div>
 
-                  {/* Character/Word-by-Word Interleaved Aligned Latin Cards */}
-                  {activeSentencePopup.transliteration ? (
-                    <div className="space-y-2 pt-1">
+                  {/* Primary Translation Script Display */}
+                  <p className="font-heading font-extrabold text-base sm:text-lg text-eel dark:text-dark-text leading-relaxed pt-1 break-words">
+                    {activeSentencePopup.translation}
+                  </p>
+
+                  {/* Aligned Latin Transliteration Guide Cards */}
+                  {activeSentencePopup.transliteration && (
+                    <div className="space-y-2 pt-2 border-t border-duo-blue/20">
                       <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
-                        🔤 Terjemahan & Cara Baca Latin Per-Huruf/Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
+                        🔤 Panduan Cara Baca Latin ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
                       </span>
 
-                      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
-                        {getAlignedTokens(activeSentencePopup.translation, activeSentencePopup.transliteration).map((item, idx) => (
-                          <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2 py-1 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
-                            <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
-                              {item.char}
+                      <div className="flex flex-col gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
+                        {getAlignedClauseTokens(activeSentencePopup.translation, activeSentencePopup.transliteration).map((item, idx) => (
+                          <div key={idx} className="p-2.5 rounded-lg bg-gray-50 dark:bg-dark-border/40 border border-gray-200 dark:border-dark-border space-y-1">
+                            <span className="font-heading font-bold text-sm sm:text-base text-eel dark:text-dark-text block break-words">
+                              {item.script}
                             </span>
-                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
+                            <span className="font-mono text-xs font-bold text-duo-blue block break-words tracking-tight">
                               {item.latin}
                             </span>
                           </div>
                         ))}
                       </div>
                     </div>
-                  ) : (
-                    <p className="font-heading font-extrabold text-base sm:text-lg text-eel dark:text-dark-text leading-relaxed pt-1 break-words">
-                      {activeSentencePopup.translation}
-                    </p>
                   )}
                 </div>
 
