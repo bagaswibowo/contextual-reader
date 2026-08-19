@@ -41,6 +41,7 @@ export function Reader() {
 
   // TTS State
   const [isPlayingTTS, setIsPlayingTTS] = useState(false)
+  const [playingAudioKey, setPlayingAudioKey] = useState(null)
   const [voices, setVoices] = useState([])
   const synthRef = useRef(typeof window !== 'undefined' ? window.speechSynthesis : null)
   const audioRef = useRef(null)
@@ -333,16 +334,37 @@ export function Reader() {
     return currentVoices.find(v => v.lang.toLowerCase().replace('_', '-').startsWith('ja')) || null
   }
 
-  // Natural Text-To-Speech Audio Engine with Female Voice Support
-  const speakText = (text, langCode = 'en') => {
+  // Stop any active playing audio
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+    }
+    if (synthRef.current) {
+      synthRef.current.cancel()
+    }
+    setPlayingAudioKey(null)
+  }
+
+  // Natural Text-To-Speech Audio Engine with Play/Stop Toggle & Female Voice Support
+  const speakText = (text, langCode = 'en', audioKey = null) => {
     if (!text) return
+
+    // If clicking the same audio currently playing -> STOP IT!
+    if (audioKey && playingAudioKey === audioKey) {
+      stopAudio()
+      return
+    }
+
+    stopAudio()
+    if (audioKey) setPlayingAudioKey(audioKey)
+
     const cleanText = text.trim().slice(0, 300)
     const lang = (langCode || 'en').toLowerCase()
     
     // Priority 1: Web SpeechSynthesis API with Native Female Voice Selection
     if (synthRef.current) {
       try {
-        synthRef.current.cancel()
         const utterance = new SpeechSynthesisUtterance(cleanText)
         utterance.lang = getSpeechLangCode(langCode)
         utterance.rate = 0.95
@@ -356,6 +378,9 @@ export function Reader() {
         } else if (lang === 'zh-cn' || lang === 'zh') {
           utterance.pitch = 1.15
         }
+
+        utterance.onend = () => setPlayingAudioKey(null)
+        utterance.onerror = () => setPlayingAudioKey(null)
         
         synthRef.current.speak(utterance)
         return
@@ -366,15 +391,11 @@ export function Reader() {
     const encodedText = encodeURIComponent(cleanText)
     const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodedText}`
     
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.src = googleTtsUrl
-      audioRef.current.play().catch(() => {})
-    } else {
-      const audio = new Audio(googleTtsUrl)
-      audioRef.current = audio
-      audio.play().catch(() => {})
-    }
+    const audio = new Audio(googleTtsUrl)
+    audioRef.current = audio
+    audio.onended = () => setPlayingAudioKey(null)
+    audio.onerror = () => setPlayingAudioKey(null)
+    audio.play().catch(() => setPlayingAudioKey(null))
   }
 
   // Read entire chapter via TTS
@@ -619,13 +640,19 @@ export function Reader() {
                                       /{activeWordPopup.data.ipa}/
                                     </span>
                                   )}
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.word, book?.language || 'en'); }}
-                                    className="p-1 rounded-full text-duo-blue hover:bg-duo-blue/10"
-                                    title="Dengarkan pengucapan kata asli"
-                                  >
-                                    <Volume2 className="w-4 h-4" />
-                                  </button>
+                                  {(() => {
+                                    const audioKey = `word_orig_${activeWordPopup.word}`
+                                    const isPlaying = playingAudioKey === audioKey
+                                    return (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.word, book?.language || 'en', audioKey); }}
+                                        className={`p-1 rounded-full transition-colors ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-blue hover:bg-duo-blue/10'}`}
+                                        title={isPlaying ? "Berhenti" : "Dengarkan pengucapan kata asli"}
+                                      >
+                                        {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
+                                      </button>
+                                    )
+                                  })()}
                                 </div>
                                 {activeWordPopup.data?.is_false_friend && (
                                   <span className="badge-red mt-1 inline-flex items-center gap-1 text-[10px]">
@@ -664,13 +691,19 @@ export function Reader() {
                                     <p className="font-heading font-extrabold text-xl text-eel dark:text-dark-text">
                                       {activeWordPopup.data?.contextual_meaning}
                                     </p>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id'); }}
-                                      className="p-1 rounded-full text-duo-green hover:bg-duo-green/20 shrink-0"
-                                      title="Dengarkan pengucapan terjemahan"
-                                    >
-                                      <Volume2 className="w-4 h-4" />
-                                    </button>
+                                    {(() => {
+                                      const audioKey = `word_trans_${activeWordPopup.data?.contextual_meaning}`
+                                      const isPlaying = playingAudioKey === audioKey
+                                      return (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id', audioKey); }}
+                                          className={`p-1 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
+                                          title={isPlaying ? "Berhenti" : "Dengarkan pengucapan terjemahan"}
+                                        >
+                                          {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
+                                        </button>
+                                      )
+                                    })()}
                                   </div>
                                   {activeWordPopup.data?.transliteration && (
                                     <div className="pt-1 flex items-center gap-1 text-duo-green font-mono font-bold text-xs">
@@ -858,13 +891,19 @@ export function Reader() {
                         </span>
                       )
                     })()}
-                    <button
-                      onClick={() => speakText(activeSentencePopup.text, book?.language || 'en')}
-                      className="p-1 rounded-full text-gray-500 hover:text-eel dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-border"
-                      title="Dengarkan pengucapan kalimat asli"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
+                    {(() => {
+                      const audioKey = `sent_orig_${activeSentencePopup.sentenceId}`
+                      const isPlaying = playingAudioKey === audioKey
+                      return (
+                        <button
+                          onClick={() => speakText(activeSentencePopup.text, book?.language || 'en', audioKey)}
+                          className={`p-1 rounded-full transition-colors ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-gray-500 hover:text-eel dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-border'}`}
+                          title={isPlaying ? "Berhenti" : "Dengarkan pengucapan kalimat asli"}
+                        >
+                          {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
+                        </button>
+                      )
+                    })()}
                   </div>
                   <p className="font-body text-sm sm:text-base italic text-eel dark:text-dark-text leading-relaxed break-words">
                     "{activeSentencePopup.text}"
@@ -880,13 +919,19 @@ export function Reader() {
                     </span>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => speakText(activeSentencePopup.translation, activeSentencePopup.lang || targetLanguage || 'id')}
-                        className="p-1 rounded-full text-duo-blue hover:bg-duo-blue/20"
-                        title="Dengarkan suara terjemahan kalimat"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </button>
+                      {(() => {
+                        const audioKey = `sent_trans_${activeSentencePopup.sentenceId}_${activeSentencePopup.lang}`
+                        const isPlaying = playingAudioKey === audioKey
+                        return (
+                          <button
+                            onClick={() => speakText(activeSentencePopup.translation, activeSentencePopup.lang || targetLanguage || 'id', audioKey)}
+                            className={`p-1 rounded-full transition-colors ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-blue hover:bg-duo-blue/20'}`}
+                            title={isPlaying ? "Berhenti" : "Dengarkan suara terjemahan kalimat"}
+                          >
+                            {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
+                          </button>
+                        )
+                      })()}
 
                       {/* Compact Language Selector Dropdown */}
                       <div className="flex items-center gap-1.5">
