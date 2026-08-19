@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, ChevronDown, Volume2, Globe, Bookmark, 
   Check, Plus, Sparkles, BookOpen, Sun, Moon, Type, 
-  SlidersHorizontal, AlertTriangle, X, Play, Square 
+  SlidersHorizontal, AlertTriangle, X, Play, Square,
+  GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText
 } from 'lucide-react'
 import { booksApi, translationsApi, vocabularyApi } from '../utils/api'
 import { useReaderStore, useVocabularyStore } from '../stores'
@@ -963,23 +964,24 @@ export function Reader() {
                   {/* 3-Layer Interleaved Aligned Cards: Only for Non-Indonesian Target Languages */}
                   {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
-                      <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
-                        🔤 Terjemahan 3 Layer Per-Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
+                      <span className="text-xs sm:text-sm font-extrabold text-duo-blue uppercase tracking-wider flex items-center gap-1.5">
+                        <Languages className="w-4 h-4 text-duo-blue shrink-0" />
+                        <span>Terjemahan 3 Layer Per-Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})</span>
                       </span>
 
                       <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
                         {activeSentencePopup.grammar_details.token_pairs.map((item, idx) => (
                           <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
                             {/* Layer 1: Aksara/Kata Target */}
-                            <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
+                            <span className="font-heading font-extrabold text-base sm:text-lg text-eel dark:text-dark-text leading-tight">
                               {item.word}
                             </span>
                             {/* Layer 2: Cara Baca Latin */}
-                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
+                            <span className="font-mono text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
                               {item.latin}
                             </span>
                             {/* Layer 3: Terjemahan Bahasa Indonesia */}
-                            <span className="text-[10px] font-bold text-duo-green bg-duo-green/10 px-1.5 py-0.5 rounded mt-1 max-w-[120px] truncate">
+                            <span className="text-xs font-bold text-duo-green bg-duo-green/10 px-1.5 py-0.5 rounded mt-1 max-w-[130px] truncate">
                               {item.meaning}
                             </span>
                           </div>
@@ -988,8 +990,9 @@ export function Reader() {
                     </div>
                   ) : (activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && activeSentencePopup.transliteration ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
-                      <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
-                        🔤 Panduan Cara Baca Latin ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
+                      <span className="text-xs sm:text-sm font-extrabold text-duo-blue uppercase tracking-wider flex items-center gap-1.5">
+                        <Languages className="w-4 h-4 text-duo-blue shrink-0" />
+                        <span>Panduan Cara Baca Latin ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})</span>
                       </span>
 
                       <div className="p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[30vh] overflow-y-auto">
@@ -1001,45 +1004,53 @@ export function Reader() {
                   ) : null}
                 </div>
 
-                {/* SECTION 3: 🎓 Analisis Tata Bahasa & 16 Tenses */}
+                {/* SECTION 3: Analisis Tata Bahasa & 16 Tenses */}
                 {activeSentencePopup.tense && (
-                  <div className="p-3.5 sm:p-4 rounded-duo bg-duo-purple/10 border-2 border-duo-purple space-y-2">
-                    <span className="badge-purple inline-flex items-center gap-1 text-xs font-extrabold">
-                      🎓 Analisis Tata Bahasa & Tenses
-                    </span>
+                  <div className="p-4 sm:p-5 rounded-duo bg-duo-purple/10 border-2 border-duo-purple space-y-3">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-5 h-5 text-duo-purple shrink-0" />
+                      <span className="font-heading font-extrabold text-sm sm:text-base text-duo-purple uppercase tracking-wider">
+                        Analisis Tata Bahasa & 16 Tenses
+                      </span>
+                    </div>
 
-                    <div className="space-y-1.5 pt-1 text-xs">
-                      <div className="flex items-start gap-1.5">
-                        <span className="font-extrabold text-duo-purple shrink-0">📌 Tenses:</span>
-                        <span className="font-bold text-eel dark:text-dark-text">{activeSentencePopup.tense}</span>
+                    <div className="space-y-2.5 pt-1 text-sm sm:text-base">
+                      <div className="flex items-start gap-2 bg-white/80 dark:bg-dark-card/80 p-2.5 rounded-lg border border-duo-purple/20">
+                        <Clock className="w-4 h-4 text-duo-purple shrink-0 mt-0.5" />
+                        <span className="font-bold text-duo-purple shrink-0">Tenses:</span>
+                        <span className="font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.tense}</span>
                       </div>
 
                       {activeSentencePopup.structure && (
-                        <div className="flex items-start gap-1.5">
-                          <span className="font-extrabold text-duo-purple shrink-0">🧩 Pola Kalimat:</span>
-                          <span className="font-semibold text-eel dark:text-dark-text">{activeSentencePopup.structure}</span>
+                        <div className="flex items-start gap-2 bg-white/80 dark:bg-dark-card/80 p-2.5 rounded-lg border border-duo-purple/20">
+                          <GitBranch className="w-4 h-4 text-duo-blue shrink-0 mt-0.5" />
+                          <span className="font-bold text-duo-blue shrink-0">Pola Kalimat:</span>
+                          <span className="font-bold text-eel dark:text-dark-text">{activeSentencePopup.structure}</span>
                         </div>
                       )}
 
                       {/* Verbs / Nouns / Adjectives Breakdown */}
                       {activeSentencePopup.grammar_details && (
-                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-duo-purple/20">
+                        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-duo-purple/20">
                           {activeSentencePopup.grammar_details.verbs?.length > 0 && (
-                            <div className="text-[11px]">
-                              <span className="font-bold text-duo-green mr-1">⚡ Verb (Kata Kerja):</span>
-                              <span className="font-mono text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.verbs.join(', ')}</span>
+                            <div className="flex items-center gap-1.5 bg-duo-green/10 px-2.5 py-1 rounded-md border border-duo-green/20 text-xs sm:text-sm">
+                              <Zap className="w-3.5 h-3.5 text-duo-green shrink-0" />
+                              <span className="font-bold text-duo-green">Verb (Kata Kerja):</span>
+                              <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.verbs.join(', ')}</span>
                             </div>
                           )}
                           {activeSentencePopup.grammar_details.nouns?.length > 0 && (
-                            <div className="text-[11px]">
-                              <span className="font-bold text-duo-blue mr-1">🏷️ Noun (Kata Benda):</span>
-                              <span className="font-mono text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.nouns.join(', ')}</span>
+                            <div className="flex items-center gap-1.5 bg-duo-blue/10 px-2.5 py-1 rounded-md border border-duo-blue/20 text-xs sm:text-sm">
+                              <Tag className="w-3.5 h-3.5 text-duo-blue shrink-0" />
+                              <span className="font-bold text-duo-blue">Noun (Kata Benda):</span>
+                              <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.nouns.join(', ')}</span>
                             </div>
                           )}
                           {activeSentencePopup.grammar_details.adjectives?.length > 0 && (
-                            <div className="text-[11px]">
-                              <span className="font-bold text-yellow-600 dark:text-duo-yellow mr-1">🎨 Adjective (Kata Sifat):</span>
-                              <span className="font-mono text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.adjectives.join(', ')}</span>
+                            <div className="flex items-center gap-1.5 bg-duo-yellow/10 px-2.5 py-1 rounded-md border border-duo-yellow/20 text-xs sm:text-sm">
+                              <Palette className="w-3.5 h-3.5 text-duo-yellow shrink-0" />
+                              <span className="font-bold text-yellow-600 dark:text-duo-yellow">Adjective (Kata Sifat):</span>
+                              <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.adjectives.join(', ')}</span>
                             </div>
                           )}
                         </div>
@@ -1048,13 +1059,16 @@ export function Reader() {
                   </div>
                 )}
 
-                {/* SECTION 4: 💡 Catatan Konteks & Istilah (Jika Ada) */}
+                {/* SECTION 4: Catatan Konteks & Istilah */}
                 {activeSentencePopup.notes && (
-                  <div className="p-3.5 sm:p-4 rounded-duo bg-duo-yellow/10 border-2 border-duo-yellow">
-                    <span className="badge-yellow mb-2 inline-flex items-center gap-1 text-xs">
-                      💡 Catatan Konteks & Istilah
-                    </span>
-                    <p className="font-ui font-semibold text-sm text-yellow-900 dark:text-duo-yellow leading-relaxed break-words">
+                  <div className="p-4 sm:p-5 rounded-duo bg-duo-yellow/10 border-2 border-duo-yellow space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Lightbulb className="w-5 h-5 text-duo-yellow shrink-0" />
+                      <span className="font-heading font-extrabold text-sm sm:text-base text-yellow-900 dark:text-duo-yellow uppercase tracking-wider">
+                        Catatan Konteks & Istilah
+                      </span>
+                    </div>
+                    <p className="font-ui font-bold text-sm sm:text-base text-yellow-900 dark:text-duo-yellow leading-relaxed break-words pt-1">
                       {activeSentencePopup.notes}
                     </p>
                   </div>
