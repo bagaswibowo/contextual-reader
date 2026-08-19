@@ -10,7 +10,7 @@ services:
     environment:
       - SECRET_KEY=xxx
       - DEBUG=0
-      - OMNIROUTE_URL=http://100.127.238.166:20129/v1
+      - OMNIROUTE_URL=http://xxx:20129/v1
       - OMNIROUTE_MODEL=auto/best-free
       - ALLOWED_HOSTS=*
       - CORS_ALLOW_ALL_ORIGINS=True

@@ -112,7 +112,7 @@ npm run dev
 | :--- | :--- | :--- |
 | `SECRET_KEY` | Django Secret Key | `xxx` |
 | `DEBUG` | Django Debug Mode | `0` |
-| `OMNIROUTE_URL` | OmniRoute LLM Proxy Endpoint | `http://100.127.238.166:20129/v1` |
+| `OMNIROUTE_URL` | OmniRoute LLM Proxy Endpoint | `http://xxx:20129/v1` |
 | `OMNIROUTE_MODEL` | OmniRoute Model Target | `auto/best-free` |
 | `TUNNEL_TOKEN` | Cloudflare Tunnel Token | `xxx` |
 

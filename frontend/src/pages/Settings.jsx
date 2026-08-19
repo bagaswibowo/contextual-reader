@@ -224,8 +224,8 @@ export function Settings() {
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-gray-500">OmniRoute LLM Provider:</span>
-                <span className="font-mono bg-duo-blue/10 text-duo-blue px-2 py-0.5 rounded font-bold">
-                  http://100.127.238.166:20129/v1 (auto/best-free)
+                <span className="font-mono text-gray-700 dark:text-dark-text bg-gray-100 dark:bg-dark-border px-2 py-0.5 rounded">
+                  http://xxx:20129/v1 (auto/best-free)
                 </span>
               </div>
 

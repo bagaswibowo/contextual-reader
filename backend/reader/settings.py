@@ -107,7 +107,7 @@ CACHES = {
 }
 
 # OmniRoute configuration
-OMNIROUTE_URL = os.environ.get('OMNIROUTE_URL', 'http://100.127.238.166:20129/v1')
+OMNIROUTE_URL = os.environ.get('OMNIROUTE_URL', 'http://xxx:20129/v1')
 OMNIROUTE_MODEL = os.environ.get('OMNIROUTE_MODEL', 'auto/best-free')
 
 # Book processing
