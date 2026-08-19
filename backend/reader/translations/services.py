@@ -25,33 +25,40 @@ POS_MAP = {
 
 
 class AsianTokenizer:
-    """Segment Asian non-space scripts (Japanese, Mandarin) into word tokens with Rōmaji / Pīnyīn Latin guide"""
+    """Segment Non-Latin scripts (Arabic, Russian, Japanese, Mandarin, Thai, Korean) into word tokens with Latin guide"""
 
     @staticmethod
     def get_token_pairs(text: str, target_lang: str) -> List[Dict]:
-        if not text or target_lang.lower() not in ['ja', 'zh-cn', 'zh', 'ko', 'ar', 'ru', 'th']:
+        clean_lang = (target_lang or 'id').lower()
+        if not text or clean_lang not in ['ja', 'zh-cn', 'zh', 'ko', 'ar', 'ru', 'th', 'hi']:
             return []
         
-        pattern = r'([\u4e00-\u9faf]+|[\u3040-\u309f]+|[\u30a0-\u30ff]+|[a-zA-Z0-9]+|[^\s\w])'
-        raw_tokens = [t.strip() for t in re.findall(pattern, text) if t.strip() and not re.match(r'^[,\.!\?、。;\s]+$', t)]
+        # Flat non-capturing regex pattern matching Arabic, Cyrillic, Thai, Hangul, Devanagari, CJK, and Latin
+        pattern = r'[\u0600-\u06ff]+|[\u0400-\u04ff]+|[\u0e00-\u0e7f]+|[\uac00-\ud7af]+|[\u0900-\u097f]+|[\u4e00-\u9faf]+|[\u3040-\u309f]+|[\u30a0-\u30ff]+|[a-zA-Z0-9]+'
+        raw_tokens = [t.strip() for t in re.findall(pattern, text) if t and t.strip() and not re.match(r'^[,\.!\?、。;\s\-\u060c\u061b]+$', t)]
         
         if not raw_tokens:
             return []
         
-        # Group particles with words for meaningful word tokens
-        grouped = []
-        cur = ""
-        for t in raw_tokens:
-            cur += t
-            if len(cur) >= 2 or re.search(r'[\u4e00-\u9faf]', t):
+        if clean_lang in ['ar', 'ru', 'ko', 'hi', 'th']:
+            grouped = raw_tokens
+        else:
+            grouped = []
+            cur = ""
+            for t in raw_tokens:
+                cur += t
+                if len(cur) >= 2 or re.search(r'[\u4e00-\u9faf]', t):
+                    grouped.append(cur)
+                    cur = ""
+            if cur:
                 grouped.append(cur)
-                cur = ""
-        if cur:
-            grouped.append(cur)
             
         pairs = []
-        for token in grouped[:20]:  # limit to 20 token pairs for sub-second speed
-            params = {"client": "gtx", "sl": "auto", "tl": target_lang, "dt": ["t", "rm"], "q": token}
+        for token in grouped[:25]:  # limit to 25 token pairs for sub-second speed
+            clean_tok = re.sub(r'[\u060c\u061b,\.!\?]', '', token).strip()
+            if not clean_tok:
+                continue
+            params = {"client": "gtx", "sl": "auto", "tl": target_lang, "dt": ["t", "rm"], "q": clean_tok}
             headers = {"User-Agent": "Mozilla/5.0"}
             try:
                 res = requests.get("https://translate.googleapis.com/translate_a/single", params=params, headers=headers, timeout=3).json()
@@ -61,9 +68,9 @@ class AsianTokenizer:
                         romaji = res[0][1][2]
                     elif len(res[0][0]) > 2 and res[0][0][2]:
                         romaji = res[0][0][2]
-                pairs.append({"word": token, "latin": romaji or token})
+                pairs.append({"word": clean_tok, "latin": romaji or clean_tok})
             except Exception:
-                pairs.append({"word": token, "latin": token})
+                pairs.append({"word": clean_tok, "latin": clean_tok})
                 
         return pairs
 
@@ -111,7 +118,7 @@ class GrammarAnalyzer:
                 if w_lower not in [n['word'].lower() for n in nouns] and len(nouns) < 5:
                     nouns.append({'word': w, 'pos': '🏷️ Noun (Kata Benda)'})
             elif re.search(r'(al|ive|ous|ful|able|ible|ic|ent|ant)$', w_lower):
-                if w_lower not in [a['word'].lower() for a in adjectives] and len(adjectives) < 5:
+                if w_lower not in [a['word'].lower() for a in adjectives]:
                     adjectives.append({'word': w, 'pos': '🎨 Adjective (Kata Sifat)'})
 
         subj = words[0] if words else 'Subject'
