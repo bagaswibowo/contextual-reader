@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: contextual-reader-backend
+    restart: unless-stopped
+    environment:
+      - SECRET_KEY=xxx
+      - DEBUG=0
+      - OMNIROUTE_URL=http://100.127.238.166:20129/v1
+      - OMNIROUTE_MODEL=auto/best-free
+      - ALLOWED_HOSTS=*
+      - CORS_ALLOW_ALL_ORIGINS=True
+    volumes:
+      - backend_data:/app/db_data
+      - backend_media:/app/media
+    networks:
+      - reader-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: contextual-reader-frontend
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    depends_on:
+      - backend
+    networks:
+      - reader-net
+
+  cftunnel-reader:
+    image: cloudflare/cloudflared:latest
+    container_name: cftunnel-reader
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+
+volumes:
+  backend_data:
+  backend_media:
+
+networks:
+  reader-net:
+    driver: bridge

@@ -1,0 +1,221 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #FFFFFF;
+    --color-text: #4B4B4B;
+    --color-text-muted: #6B6B6B;
+    --color-border: #E0E0E0;
+    --color-card: #FAFAFA;
+  }
+
+  html.dark {
+    --color-bg: #131F24;
+    --color-text: #E0E0E0;
+    --color-text-muted: #888888;
+    --color-border: #2D2D2D;
+    --color-card: #1A1A1A;
+    color-scheme: dark;
+  }
+
+  html.sepia {
+    --color-bg: #FBF3E4;
+    --color-text: #433422;
+    --color-text-muted: #7F6C55;
+    --color-border: #E8D8C3;
+    --color-card: #F5E9D6;
+    color-scheme: light;
+  }
+
+  * {
+    @apply border-gray-200 dark:border-dark-border;
+  }
+
+  body {
+    @apply bg-white dark:bg-dark-bg text-eel dark:text-dark-text font-ui antialiased transition-colors duration-200;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  html.sepia body {
+    background-color: #FBF3E4;
+    color: #433422;
+  }
+
+  html.sepia header, 
+  html.sepia .card-duo, 
+  html.sepia .toolbar-duo {
+    background-color: #F5E9D6 !important;
+    border-color: #E8D8C3 !important;
+    color: #433422 !important;
+  }
+
+  html.sepia .reading-text {
+    color: #433422 !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-duo-green ring-offset-2 ring-offset-white dark:ring-offset-dark-bg;
+  }
+}
+
+@layer components {
+  /* Duolingo-style 3D buttons */
+  .btn-duo {
+    @apply font-ui font-extrabold rounded-duo px-6 py-3 transition-all duration-100
+           shadow-[0_4px_0_0] active:translate-y-[4px] active:shadow-none
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn-duo bg-duo-green text-white shadow-[0_4px_0_0_#46A302]
+           hover:bg-duo-green-light active:bg-duo-green-dark;
+  }
+
+  .btn-secondary {
+    @apply btn-duo bg-duo-blue text-white shadow-[0_4px_0_0_#1598D9]
+           hover:bg-blue-400 active:bg-blue-600;
+  }
+
+  .btn-danger {
+    @apply btn-duo bg-duo-red text-white shadow-[0_4px_0_0_#E03E3E]
+           hover:bg-red-500 active:bg-red-700;
+  }
+
+  .btn-warning {
+    @apply btn-duo bg-duo-yellow text-eel shadow-[0_4px_0_0_#E6B300]
+           hover:bg-yellow-400 active:bg-yellow-600;
+  }
+
+  .btn-ghost {
+    @apply font-ui font-bold rounded-duo px-4 py-2 text-eel dark:text-dark-text
+           bg-transparent hover:bg-gray-100 dark:hover:bg-dark-border
+           active:scale-[0.98] transition-all duration-100;
+  }
+
+  /* Card/Popup with thick border */
+  .card-duo {
+    @apply bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border
+           rounded-duo-lg shadow-lg;
+  }
+
+  .popup-duo {
+    @apply card-duo animate-bounce-in z-50 max-w-sm w-full;
+  }
+
+  /* Input fields */
+  .input-duo {
+    @apply w-full px-4 py-3 rounded-duo border-2 border-gray-200 dark:border-dark-border
+           bg-white dark:bg-dark-card text-eel dark:text-dark-text
+           placeholder:text-gray-400 dark:placeholder:text-dark-muted
+           focus:border-duo-green focus:ring-2 focus:ring-duo-green/20
+           transition-all duration-200 font-ui;
+  }
+
+  /* Progress bar */
+  .progress-duo {
+    @apply h-2 bg-gray-200 dark:bg-dark-border rounded-full overflow-hidden;
+  }
+
+  .progress-duo-fill {
+    @apply h-full bg-duo-green rounded-full transition-all duration-500 ease-out;
+  }
+
+  /* Word highlight in reader */
+  .word-clickable {
+    @apply underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-dark-border
+           cursor-pointer transition-all duration-150
+           hover:decoration-duo-green hover:decoration-2;
+  }
+
+  .word-clickable:focus-visible {
+    @apply bg-duo-green/10 rounded-sm px-0.5 -ml-0.5 mr-0.5;
+  }
+
+  /* Translate icon in margin */
+  .translate-icon {
+    @apply w-5 h-5 opacity-30 hover:opacity-100 hover:text-duo-blue
+           transition-all duration-200 cursor-pointer
+           dark:text-dark-muted dark:hover:text-duo-blue;
+  }
+
+  .translate-icon:focus-visible {
+    @apply opacity-100 text-duo-blue ring-2 ring-duo-blue ring-offset-2 ring-offset-white dark:ring-offset-dark-bg rounded-full;
+  }
+
+  /* Badge */
+  .badge-duo {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold;
+  }
+
+  .badge-green { @apply badge-duo bg-duo-green/10 text-duo-green; }
+  .badge-blue { @apply badge-duo bg-duo-blue/10 text-duo-blue; }
+  .badge-yellow { @apply badge-duo bg-duo-yellow/10 text-yellow-700 dark:text-duo-yellow; }
+  .badge-red { @apply badge-duo bg-duo-red/10 text-duo-red; }
+  .badge-purple { @apply badge-duo bg-duo-purple/10 text-duo-purple; }
+
+  /* Toolbar */
+  .toolbar-duo {
+    @apply bg-white dark:bg-dark-card border-b-2 border-gray-200 dark:border-dark-border
+           px-4 py-3 flex items-center justify-between gap-4;
+  }
+
+  /* Heading styles */
+  .heading-1 {
+    @apply font-heading font-extrabold text-3xl md:text-4xl text-eel dark:text-dark-text;
+  }
+
+  .heading-2 {
+    @apply font-heading font-bold text-2xl md:text-3xl text-eel dark:text-dark-text;
+  }
+
+  .heading-3 {
+    @apply font-heading font-semibold text-xl md:text-2xl text-eel dark:text-dark-text;
+  }
+
+  /* Body text for reading */
+  .reading-text {
+    @apply font-body text-lg leading-[1.8] text-eel dark:text-dark-text;
+  }
+
+  .reading-text p {
+    @apply mb-[1.5em];
+  }
+}
+
+@layer utilities {
+  /* Text selection */
+  ::selection {
+    @apply bg-duo-green/30 text-eel dark:text-dark-text;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-dark-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-600;
+  }
+
+  /* Animation utilities */
+  .animate-in {
+    animation: animateIn 0.3s ease-out forwards;
+  }
+
+  @keyframes animateIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
