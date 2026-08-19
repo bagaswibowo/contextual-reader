@@ -678,18 +678,20 @@ export function Reader() {
                               <p className="text-xs text-duo-red py-2 font-bold">{activeWordPopup.error}</p>
                             ) : (
                               <div className="space-y-3 text-sm">
-                                {/* Emerald Green Accent Box */}
-                                <div className="p-3.5 rounded-duo bg-duo-green/10 border-2 border-duo-green space-y-1">
+                                {/* Emerald Green Accent Box: 3-Layer Word Translation */}
+                                <div className="p-3.5 sm:p-4 rounded-duo bg-duo-green/10 border-2 border-duo-green space-y-2">
                                   <div className="flex items-center justify-between mb-1">
                                     <span className="text-[10px] font-extrabold tracking-wider text-duo-green uppercase flex items-center gap-1">
-                                      <Sparkles className="w-3 h-3" /> Arti Kontekstual
+                                      <Sparkles className="w-3.5 h-3.5" /> Arti Kontekstual ({activeWordPopup.lang === 'zh-CN' ? '🇨🇳 Mandarin' : activeWordPopup.lang === 'ja' ? '🇯🇵 Jepang' : activeWordPopup.lang === 'es' ? '🇪🇸 Spanyol' : activeWordPopup.lang === 'fr' ? '🇫🇷 Prancis' : '🌐 Target'})
                                     </span>
                                     <span className="text-[10px] font-bold text-duo-green bg-duo-green/20 px-1.5 py-0.5 rounded">
                                       {Math.round((activeWordPopup.data?.confidence || 0.9) * 100)}% Cocok
                                     </span>
                                   </div>
+
+                                  {/* Layer 1: Target Language Word */}
                                   <div className="flex items-center justify-between gap-2">
-                                    <p className="font-heading font-extrabold text-xl text-eel dark:text-dark-text">
+                                    <p className="font-heading font-extrabold text-2xl text-eel dark:text-dark-text">
                                       {activeWordPopup.data?.contextual_meaning}
                                     </p>
                                     {(() => {
@@ -698,7 +700,7 @@ export function Reader() {
                                       return (
                                         <button
                                           onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id', audioKey); }}
-                                          className={`p-1 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
+                                          className={`p-1.5 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
                                           title={isPlaying ? "Berhenti" : "Dengarkan pengucapan terjemahan"}
                                         >
                                           {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
@@ -706,10 +708,21 @@ export function Reader() {
                                       )
                                     })()}
                                   </div>
+
+                                  {/* Layer 2: Latin Pronunciation Guide (Pīnyīn / Rōmaji / Latin) */}
                                   {activeWordPopup.data?.transliteration && (
-                                    <div className="pt-1 flex items-center gap-1 text-duo-green font-mono font-bold text-xs">
-                                      <span className="text-[10px] uppercase opacity-75">🔤 Cara Baca:</span>
-                                      <span className="bg-duo-green/20 px-1.5 py-0.5 rounded">{activeWordPopup.data.transliteration}</span>
+                                    <div className="pt-1 flex items-center gap-1.5 text-duo-blue font-mono font-bold text-xs">
+                                      <Languages className="w-3.5 h-3.5 text-duo-blue shrink-0" />
+                                      <span className="text-[10px] uppercase opacity-80">Cara Baca:</span>
+                                      <span className="bg-duo-blue/20 text-duo-blue px-2 py-0.5 rounded font-extrabold">{activeWordPopup.data.transliteration}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Layer 3: Indonesian Mother-Tongue Meaning (If target language is foreign) */}
+                                  {activeWordPopup.data?.indonesian_meaning && (activeWordPopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && (
+                                    <div className="pt-1 flex items-center gap-1.5 text-duo-green font-bold text-xs border-t border-duo-green/20">
+                                      <span className="text-[10px] uppercase opacity-80 text-duo-green">🇮🇩 Arti Indonesia:</span>
+                                      <span className="bg-duo-green/20 text-duo-green px-2 py-0.5 rounded font-extrabold">{activeWordPopup.data.indonesian_meaning}</span>
                                     </div>
                                   )}
                                 </div>

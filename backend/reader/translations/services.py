@@ -11,16 +11,16 @@ from reader.books.models import Sentence
 
 
 POS_MAP = {
-    'noun': '🏷️ Kata Benda (Noun)',
-    'verb': '⚡ Kata Kerja (Verb)',
-    'adjective': '🎨 Kata Sifat (Adjective)',
-    'adverb': '📍 Kata Keterangan (Adverb)',
-    'preposition': '🧭 Kata Depan (Preposition)',
-    'pronoun': '👤 Kata Ganti (Pronoun)',
-    'conjunction': '🔗 Kata Hubung (Conjunction)',
-    'interjection': '💥 Kata Seru (Interjection)',
-    'abbreviation': '🔤 Singkatan (Abbreviation)',
-    'phrase': '💬 Ungkapan (Phrase)',
+    'noun': 'Kata Benda (Noun)',
+    'verb': 'Kata Kerja (Verb)',
+    'adjective': 'Kata Sifat (Adjective)',
+    'adverb': 'Kata Keterangan (Adverb)',
+    'preposition': 'Kata Depan (Preposition)',
+    'pronoun': 'Kata Ganti (Pronoun)',
+    'conjunction': 'Kata Hubung (Conjunction)',
+    'interjection': 'Kata Seru (Interjection)',
+    'abbreviation': 'Singkatan (Abbreviation)',
+    'phrase': 'Ungkapan (Phrase)',
 }
 
 
@@ -128,13 +128,13 @@ class GrammarAnalyzer:
                 continue
             if re.search(r'(ing|ed|es|ized|ated|ised)$', w_lower) or w_lower in ['is', 'are', 'was', 'were', 'have', 'has', 'had', 'use', 'differ']:
                 if w_lower not in [v['word'].lower() for v in verbs] and len(verbs) < 5:
-                    verbs.append({'word': w, 'pos': '⚡ Verb (Kata Kerja)'})
+                    verbs.append({'word': w, 'pos': 'Verb (Kata Kerja)'})
             elif re.search(r'(tion|ment|ence|ance|ity|ness|er|or|system|user|device|time|trial)$', w_lower) or w_lower in ['user', 'system', 'device', 'time', 'data', 'figure']:
                 if w_lower not in [n['word'].lower() for n in nouns] and len(nouns) < 5:
-                    nouns.append({'word': w, 'pos': '🏷️ Noun (Kata Benda)'})
+                    nouns.append({'word': w, 'pos': 'Noun (Kata Benda)'})
             elif re.search(r'(al|ive|ous|ful|able|ible|ic|ent|ant)$', w_lower):
                 if w_lower not in [a['word'].lower() for a in adjectives]:
-                    adjectives.append({'word': w, 'pos': '🎨 Adjective (Kata Sifat)'})
+                    adjectives.append({'word': w, 'pos': 'Adjective (Kata Sifat)'})
 
         subj = words[0] if words else 'Subject'
         verb = verbs[0]['word'] if verbs else 'Predicate'
@@ -185,6 +185,17 @@ class GoogleTranslateClient:
                 if len(res[0][1]) > 3 and res[0][1][3]:
                     ipa = res[0][1][3] or ""
 
+            # Fetch Indonesian mother-tongue meaning if target_lang is not 'id'
+            indonesian_meaning = ""
+            if target_lang.lower() != 'id':
+                try:
+                    id_params = {"client": "gtx", "sl": "auto", "tl": "id", "dt": "t", "q": word}
+                    id_res = requests.get(GoogleTranslateClient.BASE_URL, params=id_params, headers=headers, timeout=3).json()
+                    if id_res and len(id_res) > 0 and id_res[0] and len(id_res[0]) > 0 and id_res[0][0][0]:
+                        indonesian_meaning = id_res[0][0][0]
+                except Exception:
+                    pass
+
             other_meanings = []
             if len(res) > 1 and res[1]:
                 for pos_group in res[1]:
@@ -192,7 +203,7 @@ class GoogleTranslateClient:
                     meanings_list = pos_group[1]
                     if meanings_list:
                         pos_clean = pos_name.lower().strip() if pos_name else ''
-                        indonesian_pos = POS_MAP.get(pos_clean, f'📝 {pos_name.capitalize()}' if pos_name else '')
+                        indonesian_pos = POS_MAP.get(pos_clean, f'{pos_name.capitalize()}' if pos_name else '')
                         label = f"{indonesian_pos}: {', '.join(meanings_list[:4])}" if indonesian_pos else ', '.join(meanings_list[:4])
                         other_meanings.append(label)
 
@@ -201,6 +212,7 @@ class GoogleTranslateClient:
             return {
                 "contextual_meaning": primary or word,
                 "transliteration": transliteration,
+                "indonesian_meaning": indonesian_meaning,
                 "other_meanings": other_meanings,
                 "insight": insight,
                 "ipa": ipa,
@@ -211,6 +223,7 @@ class GoogleTranslateClient:
             return {
                 "contextual_meaning": word,
                 "transliteration": "",
+                "indonesian_meaning": "",
                 "other_meanings": [str(e)],
                 "insight": "",
                 "ipa": "",
@@ -350,6 +363,7 @@ class TranslationService:
                 'word': word,
                 'contextual_meaning': data.get('contextual_meaning', ''),
                 'transliteration': data.get('transliteration', ''),
+                'indonesian_meaning': data.get('indonesian_meaning', ''),
                 'other_meanings': data.get('other_meanings', []),
                 'insight': data.get('insight', f"Tips Pemula: Kata '{word}' sering digunakan dalam pola frasa umum."),
                 'ipa': data.get('ipa', ''),
@@ -366,12 +380,13 @@ class TranslationService:
         return {
             'system': (
                 f'Anda adalah kamus penerjemah pemula bahasa ke kode "{target_lang}". '
-                'Berikan kelas kata dalam Bahasa Indonesia yang ramah pemula seperti "🏷️ Kata Benda (Noun)", "⚡ Kata Kerja (Verb)", "🎨 Kata Sifat (Adjective)", "📍 Kata Keterangan (Adverb)". '
+                'Berikan kelas kata dalam Bahasa Indonesia yang ramah pemula seperti "Kata Benda (Noun)", "Kata Kerja (Verb)", "Kata Sifat (Adjective)", "Kata Keterangan (Adverb)". '
                 'Berikan output HANYA dalam format JSON berikut:\n'
                 '{\n'
                 '  "contextual_meaning": "arti utama yang PALING SESUAI konteks kalimat",\n'
                 '  "transliteration": "panduan cara baca latin jika terjemahan menggunakan karakter non-latin",\n'
-                '  "other_meanings": ["⚡ Kata Kerja (Verb): arti 1, arti 2", "🏷️ Kata Benda (Noun): arti 3"],\n'
+                '  "indonesian_meaning": "terjemahan kata ke Bahasa Indonesia jika bahasa target bukan Indonesia",\n'
+                '  "other_meanings": ["Kata Kerja (Verb): arti 1, arti 2", "Kata Benda (Noun): arti 3"],\n'
                 '  "insight": "Tips penggunaan kata untuk pemula",\n'
                 '  "ipa": "IPA pronunciation",\n'
                 '  "audio_url": "",\n'
