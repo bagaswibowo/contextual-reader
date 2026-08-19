@@ -131,16 +131,23 @@ export function Reader() {
     try {
       const customConfig = { customBaseUrl, customApiKey, customModel }
       const res = await translationsApi.word(sentenceId, cleanedWord, langToUse, translationEngine || 'google', customConfig)
+      if (typeof res.data === 'string' && res.data.includes('<!doctype html>')) {
+        throw new Error('Terjadi kesalahan server internal. Silakan coba lagi.')
+      }
       setActiveWordPopup(prev => ({
         ...prev,
         loading: false,
         data: res.data
       }))
     } catch (err) {
+      let errMsg = err.message || 'Gagal menerjemahkan kata/frasa'
+      if (typeof errMsg === 'string' && errMsg.includes('<!doctype html>')) {
+        errMsg = 'Terjadi kesalahan server internal (500). Silakan coba lagi.'
+      }
       setActiveWordPopup(prev => ({
         ...prev,
         loading: false,
-        error: err.message || 'Gagal menerjemahkan kata/frasa'
+        error: errMsg
       }))
     }
   }
