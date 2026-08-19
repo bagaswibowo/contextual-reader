@@ -839,41 +839,39 @@ export function Reader() {
                     {activeSentencePopup.translation}
                   </p>
 
-                  {/* Aligned Latin Transliteration Guide Cards */}
-                  {activeSentencePopup.transliteration && (
+                  {/* Character/Word-by-Word Interleaved Aligned Latin Cards */}
+                  {activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
+                    <div className="space-y-2 pt-2 border-t border-duo-blue/20">
+                      <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
+                        🔤 Terjemahan & Cara Baca Latin Per-Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
+                      </span>
+
+                      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
+                        {activeSentencePopup.grammar_details.token_pairs.map((item, idx) => (
+                          <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
+                            <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
+                              {item.word}
+                            </span>
+                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-1">
+                              {item.latin}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : activeSentencePopup.transliteration ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
                       <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
                         🔤 Panduan Cara Baca Latin ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
                       </span>
 
-                      {(() => {
-                        const alignResult = getAlignedClauseTokens(activeSentencePopup.translation, activeSentencePopup.transliteration)
-                        if (alignResult.mode === 'chips') {
-                          return (
-                            <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
-                              {alignResult.tokens.map((item, idx) => (
-                                <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2 py-1 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
-                                  <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
-                                    {item.script}
-                                  </span>
-                                  <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
-                                    {item.latin}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )
-                        }
-                        return (
-                          <div className="p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[30vh] overflow-y-auto">
-                            <p className="font-mono text-xs sm:text-sm font-bold text-duo-blue leading-relaxed break-words tracking-tight">
-                              {alignResult.fullText}
-                            </p>
-                          </div>
-                        )
-                      })()}
+                      <div className="p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[30vh] overflow-y-auto">
+                        <p className="font-mono text-xs sm:text-sm font-bold text-duo-blue leading-relaxed break-words tracking-tight">
+                          {activeSentencePopup.transliteration}
+                        </p>
+                      </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* SECTION 3: 🎓 Analisis Tata Bahasa & 16 Tenses */}

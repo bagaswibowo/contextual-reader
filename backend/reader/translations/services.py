@@ -24,6 +24,50 @@ POS_MAP = {
 }
 
 
+class AsianTokenizer:
+    """Segment Asian non-space scripts (Japanese, Mandarin) into word tokens with Rōmaji / Pīnyīn Latin guide"""
+
+    @staticmethod
+    def get_token_pairs(text: str, target_lang: str) -> List[Dict]:
+        if not text or target_lang.lower() not in ['ja', 'zh-cn', 'zh', 'ko', 'ar', 'ru', 'th']:
+            return []
+        
+        pattern = r'([\u4e00-\u9faf]+|[\u3040-\u309f]+|[\u30a0-\u30ff]+|[a-zA-Z0-9]+|[^\s\w])'
+        raw_tokens = [t.strip() for t in re.findall(pattern, text) if t.strip() and not re.match(r'^[,\.!\?、。;\s]+$', t)]
+        
+        if not raw_tokens:
+            return []
+        
+        # Group particles with words for meaningful word tokens
+        grouped = []
+        cur = ""
+        for t in raw_tokens:
+            cur += t
+            if len(cur) >= 2 or re.search(r'[\u4e00-\u9faf]', t):
+                grouped.append(cur)
+                cur = ""
+        if cur:
+            grouped.append(cur)
+            
+        pairs = []
+        for token in grouped[:20]:  # limit to 20 token pairs for sub-second speed
+            params = {"client": "gtx", "sl": "auto", "tl": target_lang, "dt": ["t", "rm"], "q": token}
+            headers = {"User-Agent": "Mozilla/5.0"}
+            try:
+                res = requests.get("https://translate.googleapis.com/translate_a/single", params=params, headers=headers, timeout=3).json()
+                romaji = ""
+                if res and len(res) > 0 and res[0]:
+                    if len(res[0]) > 1 and res[0][1] and len(res[0][1]) > 2:
+                        romaji = res[0][1][2]
+                    elif len(res[0][0]) > 2 and res[0][0][2]:
+                        romaji = res[0][0][2]
+                pairs.append({"word": token, "latin": romaji or token})
+            except Exception:
+                pairs.append({"word": token, "latin": token})
+                
+        return pairs
+
+
 class GrammarAnalyzer:
     """Analyze sentence tenses (from 16 English tenses) and S+V+O syntax structure"""
 
@@ -181,13 +225,16 @@ class GoogleTranslateClient:
                             transliteration += item[3] + " "
             
             grammar = GrammarAnalyzer.analyze(cleaned_text)
+            token_pairs = AsianTokenizer.get_token_pairs(translated_text.strip(), target_lang)
+            grammar_details = grammar["grammar_details"]
+            grammar_details["token_pairs"] = token_pairs
 
             return {
                 "indonesian_text": translated_text.strip() or cleaned_text,
                 "transliteration": transliteration.strip(),
                 "tense": grammar["tense"],
                 "structure": grammar["structure"],
-                "grammar_details": grammar["grammar_details"],
+                "grammar_details": grammar_details,
                 "notes": f"Analisis Tata Bahasa: Kalimat ini disusun menggunakan struktur {grammar['structure']}."
             }
         except Exception:
