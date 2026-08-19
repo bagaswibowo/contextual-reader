@@ -93,10 +93,10 @@ export function Reader() {
     }
   }
 
-  // Handle word click -> contextual translation
+  // Handle word or multi-word phrase click -> contextual translation
   const handleWordClick = async (event, sentenceId, rawWord, wIdx, overrideLang) => {
-    // Clean punctuation from word
-    const cleanedWord = rawWord.replace(/^[^\w]+|[^\w]+$/g, '')
+    // Clean punctuation from word or multi-word phrase while preserving spaces
+    const cleanedWord = rawWord.replace(/^[^\w]+|[^\w]+$/g, '').replace(/\s+/g, ' ')
     if (!cleanedWord || cleanedWord.length < 2) return
 
     const langToUse = overrideLang || targetLanguage || 'id'
@@ -122,8 +122,22 @@ export function Reader() {
       setActiveWordPopup(prev => ({
         ...prev,
         loading: false,
-        error: err.message || 'Gagal menerjemahkan kata'
+        error: err.message || 'Gagal menerjemahkan kata/frasa'
       }))
+    }
+  }
+
+  // Handle multi-word text selection (e.g. "VIP membership" or "human computer interaction")
+  const handleTextSelection = (event, sentenceId) => {
+    const selection = window.getSelection()
+    if (!selection) return
+    const selectedText = selection.toString().trim()
+    if (selectedText.length >= 2 && selectedText.includes(' ')) {
+      const cleanedPhrase = selectedText.replace(/^[^\w]+|[^\w]+$/g, '').replace(/\s+/g, ' ')
+      if (cleanedPhrase.length >= 2) {
+        if (event && event.stopPropagation) event.stopPropagation()
+        handleWordClick(event, sentenceId, cleanedPhrase)
+      }
     }
   }
 
@@ -508,6 +522,8 @@ export function Reader() {
             return (
               <div 
                 key={sent.id || sIdx}
+                onMouseUp={(e) => handleTextSelection(e, sent.id)}
+                onTouchEnd={(e) => handleTextSelection(e, sent.id)}
                 className="group relative flex items-start justify-between gap-2 p-1 sm:p-1.5 rounded-duo hover:bg-gray-50 dark:hover:bg-dark-border/40 transition-colors"
               >
                 {/* Sentence text with clickable words */}
