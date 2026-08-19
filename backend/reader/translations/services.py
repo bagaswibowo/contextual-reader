@@ -25,7 +25,7 @@ POS_MAP = {
 
 
 class AsianTokenizer:
-    """Segment Non-Latin scripts (Arabic, Russian, Japanese, Mandarin, Thai, Korean) into word tokens with Latin guide"""
+    """Segment Non-Latin scripts (Arabic, Russian, Japanese, Mandarin, Thai, Korean) into word/character tokens with Latin guide"""
 
     @staticmethod
     def get_token_pairs(text: str, target_lang: str) -> List[Dict]:
@@ -33,16 +33,17 @@ class AsianTokenizer:
         if not text or clean_lang not in ['ja', 'zh-cn', 'zh', 'ko', 'ar', 'ru', 'th', 'hi']:
             return []
         
-        # Flat non-capturing regex pattern matching Arabic, Cyrillic, Thai, Hangul, Devanagari, CJK, and Latin
-        pattern = r'[\u0600-\u06ff]+|[\u0400-\u04ff]+|[\u0e00-\u0e7f]+|[\uac00-\ud7af]+|[\u0900-\u097f]+|[\u4e00-\u9faf]+|[\u3040-\u309f]+|[\u30a0-\u30ff]+|[a-zA-Z0-9]+'
-        raw_tokens = [t.strip() for t in re.findall(pattern, text) if t and t.strip() and not re.match(r'^[,\.!\?、。;\s\-\u060c\u061b]+$', t)]
-        
-        if not raw_tokens:
-            return []
-        
-        if clean_lang in ['ar', 'ru', 'ko', 'hi', 'th']:
-            grouped = raw_tokens
+        # For Mandarin Chinese (zh-CN), extract individual Hanzi characters for 1-to-1 Pīnyīn alignment
+        if clean_lang in ['zh-cn', 'zh']:
+            raw_tokens = [c for c in text if re.match(r'[\u4e00-\u9faf]', c)]
+            grouped = raw_tokens[:30]
+        elif clean_lang in ['ar', 'ru', 'ko', 'hi', 'th']:
+            pattern = r'[\u0600-\u06ff]+|[\u0400-\u04ff]+|[\u0e00-\u0e7f]+|[\uac00-\ud7af]+|[\u0900-\u097f]+|[a-zA-Z0-9]+'
+            grouped = [t.strip() for t in re.findall(pattern, text) if t and t.strip() and not re.match(r'^[,\.!\?、。;\s\-\u060c\u061b]+$', t)][:25]
         else:
+            # Japanese: group Kana/Kanji tokens
+            pattern = r'[\u4e00-\u9faf]+|[\u3040-\u309f]+|[\u30a0-\u30ff]+|[a-zA-Z0-9]+'
+            raw_tokens = [t.strip() for t in re.findall(pattern, text) if t and t.strip() and not re.match(r'^[,\.!\?、。;\s\-]+$', t)]
             grouped = []
             cur = ""
             for t in raw_tokens:
@@ -52,9 +53,10 @@ class AsianTokenizer:
                     cur = ""
             if cur:
                 grouped.append(cur)
+            grouped = grouped[:25]
             
         pairs = []
-        for token in grouped[:25]:  # limit to 25 token pairs for sub-second speed
+        for token in grouped:
             clean_tok = re.sub(r'[\u060c\u061b,\.!\?]', '', token).strip()
             if not clean_tok:
                 continue
