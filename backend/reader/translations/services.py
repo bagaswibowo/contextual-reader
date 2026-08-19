@@ -190,9 +190,13 @@ class GoogleTranslateClient:
             if target_lang.lower() != 'id':
                 try:
                     id_params = {"client": "gtx", "sl": "auto", "tl": "id", "dt": "t", "q": word}
-                    id_res = requests.get(GoogleTranslateClient.BASE_URL, params=id_params, headers=headers, timeout=3).json()
-                    if id_res and len(id_res) > 0 and id_res[0] and len(id_res[0]) > 0 and id_res[0][0][0]:
-                        indonesian_meaning = id_res[0][0][0]
+                    id_res = requests.get(GoogleTranslateClient.BASE_URL, params=id_params, headers=headers, timeout=5).json()
+                    if id_res and isinstance(id_res, list) and len(id_res) > 0 and id_res[0]:
+                        meanings = []
+                        for item in id_res[0]:
+                            if isinstance(item, list) and len(item) > 0 and item[0]:
+                                meanings.append(item[0].strip())
+                        indonesian_meaning = ' '.join(meanings).strip()
                 except Exception:
                     pass
 

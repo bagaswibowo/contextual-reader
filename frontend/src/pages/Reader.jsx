@@ -719,10 +719,12 @@ export function Reader() {
                                   )}
 
                                   {/* Layer 3: Indonesian Mother-Tongue Meaning (If target language is foreign) */}
-                                  {activeWordPopup.data?.indonesian_meaning && (activeWordPopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && (
-                                    <div className="pt-1 flex items-center gap-1.5 text-duo-green font-bold text-xs border-t border-duo-green/20">
-                                      <span className="text-[10px] uppercase opacity-80 text-duo-green">🇮🇩 Arti Indonesia:</span>
-                                      <span className="bg-duo-green/20 text-duo-green px-2 py-0.5 rounded font-extrabold">{activeWordPopup.data.indonesian_meaning}</span>
+                                  {(activeWordPopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && (
+                                    <div className="pt-1.5 flex items-center gap-1.5 text-duo-green font-bold text-xs border-t border-duo-green/20">
+                                      <span className="text-[10px] uppercase tracking-wider font-extrabold opacity-90 text-duo-green">🇮🇩 Arti Indonesia:</span>
+                                      <span className="bg-duo-green/20 text-duo-green px-2 py-0.5 rounded font-extrabold text-sm sm:text-base">
+                                        {activeWordPopup.data?.indonesian_meaning || 'Memuat...'}
+                                      </span>
                                     </div>
                                   )}
                                 </div>
