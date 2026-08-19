@@ -19,7 +19,8 @@ export function Reader() {
     fontSize, setFontSize, 
     fontFamily, setFontFamily, 
     lineHeight, setLineHeight,
-    targetLanguage, setTargetLanguage, translationEngine
+    targetLanguage, setTargetLanguage, translationEngine,
+    customBaseUrl, customApiKey, customModel
   } = useReaderStore()
 
   // Book & Chapter state
@@ -39,7 +40,7 @@ export function Reader() {
   const [savingVocab, setSavingVocab] = useState(false)
 
   // TTS State
-  // TTS synth & Audio refs
+  const [isPlayingTTS, setIsPlayingTTS] = useState(false)
   const synthRef = useRef(window.speechSynthesis || null)
   const audioRef = useRef(null)
 
@@ -113,7 +114,8 @@ export function Reader() {
     })
 
     try {
-      const res = await translationsApi.word(sentenceId, cleanedWord, langToUse, translationEngine || 'google')
+      const customConfig = { customBaseUrl, customApiKey, customModel }
+      const res = await translationsApi.word(sentenceId, cleanedWord, langToUse, translationEngine || 'google', customConfig)
       setActiveWordPopup(prev => ({
         ...prev,
         loading: false,
@@ -215,7 +217,8 @@ export function Reader() {
     })
 
     try {
-      const res = await translationsApi.sentence(sentenceId, langToUse, translationEngine || 'google')
+      const customConfig = { customBaseUrl, customApiKey, customModel }
+      const res = await translationsApi.sentence(sentenceId, langToUse, translationEngine || 'google', customConfig)
       let text = res.data.indonesian_text || ''
       let notes = res.data.notes || ''
 

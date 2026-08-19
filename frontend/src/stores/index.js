@@ -44,8 +44,11 @@ export const useReaderStore = create(
       showTranslations: true,
       showWordHints: true,
       lineHeight: 1.8,
-      targetLanguage: 'id', // 'id', 'es', 'fr', 'de', 'ja', 'zh-CN', 'ar', etc.
-      translationEngine: 'google', // 'google' | 'omniroute'
+      targetLanguage: 'id',
+      translationEngine: 'google', // 'google' | 'omni' | 'custom'
+      customBaseUrl: '',
+      customApiKey: '',
+      customModel: '',
       
       setFontSize: (size) => set({ fontSize: Math.max(12, Math.min(32, size)) }),
       setFontFamily: (family) => set({ fontFamily: family }),
@@ -55,6 +58,9 @@ export const useReaderStore = create(
       setLineHeight: (height) => set({ lineHeight: Math.max(1.4, Math.min(2.5, height)) }),
       setTargetLanguage: (targetLanguage) => set({ targetLanguage }),
       setTranslationEngine: (translationEngine) => set({ translationEngine }),
+      setCustomBaseUrl: (customBaseUrl) => set({ customBaseUrl }),
+      setCustomApiKey: (customApiKey) => set({ customApiKey }),
+      setCustomModel: (customModel) => set({ customModel }),
     }),
     {
       name: 'reader-settings',
@@ -62,70 +68,27 @@ export const useReaderStore = create(
   )
 )
 
-export const useTranslationStore = create((set) => ({
-  wordCache: new Map(),
-  sentenceCache: new Map(),
-  pendingRequests: new Set(),
-
-  getWordTranslation: (sentenceId, word) => {
-    const key = `${sentenceId}:${word.toLowerCase()}`
-    return get().wordCache.get(key)
-  },
-  setWordTranslation: (sentenceId, word, data) => {
-    const key = `${sentenceId}:${word.toLowerCase()}`
-    set((state) => {
-      const newCache = new Map(state.wordCache)
-      newCache.set(key, data)
-      return { wordCache: newCache }
-    })
-  },
-
-  getSentenceTranslation: (sentenceId) => {
-    return get().sentenceCache.get(sentenceId)
-  },
-  setSentenceTranslation: (sentenceId, data) => {
-    set((state) => {
-      const newCache = new Map(state.sentenceCache)
-      newCache.set(sentenceId, data)
-      return { sentenceCache: newCache }
-    })
-  },
-
-  isPending: (key) => get().pendingRequests.has(key),
-  setPending: (key, pending) => {
-    set((state) => {
-      const newPending = new Set(state.pendingRequests)
-      if (pending) newPending.add(key)
-      else newPending.delete(key)
-      return { pendingRequests: newPending }
-    })
-  },
-
-  clearCache: () => set({ wordCache: new Map(), sentenceCache: new Map() }),
-}))
-
 export const useVocabularyStore = create(
   persist(
-    (set) => ({
-      entries: [],
-      currentSession: null,
-      reviewQueue: [],
-      
-      setEntries: (entries) => set({ entries }),
-      addEntry: (entry) => set((state) => ({ entries: [entry, ...state.entries] })),
-      updateEntry: (id, data) => set((state) => ({
-        entries: state.entries.map(e => e.id === id ? { ...e, ...data } : e)
+    (set, get) => ({
+      vocabulary: [],
+      dueItems: [],
+      reviewSession: null,
+      loading: false,
+
+      setVocabulary: (vocabulary) => set({ vocabulary }),
+      setDueItems: (dueItems) => set({ dueItems }),
+      addVocabulary: (item) => set((state) => ({ vocabulary: [item, ...state.vocabulary] })),
+      removeVocabulary: (id) => set((state) => ({
+        vocabulary: state.vocabulary.filter(v => v.id !== id)
       })),
-      removeEntry: (id) => set((state) => ({
-        entries: state.entries.filter(e => e.id !== id)
-      })),
-      
-      setCurrentSession: (session) => set({ currentSession: session }),
-      setReviewQueue: (queue) => set({ reviewQueue: queue }),
+
+      setReviewSession: (session) => set({ reviewSession: session }),
+      setLoading: (loading) => set({ loading }),
     }),
     {
-      name: 'vocabulary-storage',
-      partialize: (state) => ({ entries: state.entries }),
+      name: 'vocab-storage',
+      partialize: (state) => ({ vocabulary: state.vocabulary }),
     }
   )
 )

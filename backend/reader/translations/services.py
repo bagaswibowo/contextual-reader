@@ -1,4 +1,4 @@
-# Translation services - Google Translate GTX + OmniRoute + Grammar & Tenses Analyzer
+# Translation services - Google Translate GTX + OmniRoute + LLM Custom Provider + Grammar & Tenses Analyzer
 import json
 import re
 import requests
@@ -166,8 +166,8 @@ class GoogleTranslateClient:
             other_meanings = []
             if len(res) > 1 and res[1]:
                 for pos_group in res[1]:
-                    pos_name = pos_group[0]  # noun, verb, adjective, etc.
-                    meanings_list = pos_group[1]  # ['detik', 'sekon', ...]
+                    pos_name = pos_group[0]
+                    meanings_list = pos_group[1]
                     if meanings_list:
                         pos_clean = pos_name.lower().strip() if pos_name else ''
                         indonesian_pos = POS_MAP.get(pos_clean, f'📝 {pos_name.capitalize()}' if pos_name else '')
@@ -248,26 +248,26 @@ class GoogleTranslateClient:
             }
 
 
-class OmniRouteClient:
-    """Client for OmniRoute API (OpenAI-compatible)"""
+class LLMClient:
+    """OpenAI-compatible LLM Client supporting OmniRoute Proxy and Custom AI Providers (OpenAI, OpenRouter, Custom API Key)"""
     
-    def __init__(self):
-        self.base_url = settings.OMNIROUTE_URL.rstrip('/')
-        self.model = settings.OMNIROUTE_MODEL
+    def __init__(self, base_url: str = None, api_key: str = None, model: str = None):
+        self.base_url = (base_url or settings.OMNIROUTE_URL).rstrip('/')
+        self.model = model or settings.OMNIROUTE_MODEL
+        self.api_key = api_key or getattr(settings, 'OMNIROUTE_API_KEY', 'omniroute-local')
         self.session = requests.Session()
-        self.session.headers.update({'Content-Type': 'application/json'})
+        self.session.headers.update({
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.api_key}'
+        })
     
-    def chat_completion(self, messages: List[Dict], temperature: float = 0.3, 
-                        max_tokens: int = 1000, response_format: Optional[Dict] = None) -> Dict:
+    def chat_completion(self, messages: List[Dict], temperature: float = 0.3, max_tokens: int = 1000) -> Dict:
         payload = {
             'model': self.model,
             'messages': messages,
             'temperature': temperature,
             'max_tokens': max_tokens,
         }
-        if response_format:
-            payload['response_format'] = response_format
-        
         response = self.session.post(
             f'{self.base_url}/chat/completions',
             json=payload,
@@ -278,57 +278,46 @@ class OmniRouteClient:
     
     def get_completion_text(self, messages: List[Dict]) -> str:
         result = self.chat_completion(messages)
-        return result['choices'][0]['message']['content']
+        choices = result.get('choices', [])
+        if choices and len(choices) > 0:
+            msg = choices[0].get('message', {})
+            content = msg.get('content', '')
+            if content:
+                return content
+            text = choices[0].get('text', '')
+            if text:
+                return text
+        return ""
 
 
 class TranslationService:
-    """High-level translation service with caching and Multi-Engine Support"""
-    
-    def __init__(self):
-        self.omni_client = OmniRouteClient()
+    """High-level translation service with caching and Multi-Engine / Custom Provider Support"""
     
     def _cache_key(self, prefix: str, *parts: str) -> str:
         key = ':'.join([prefix] + list(parts))
         return hashlib.sha256(key.encode()).hexdigest()[:32]
     
-    def translate_word_contextual(self, sentence: Sentence, word: str, target_lang: str = "id", engine: str = "google") -> WordTranslation:
-        """Get word translation via Google Translate (free & multi-meaning) or OmniRoute LLM"""
-        cache_key = self._cache_key('word_trans', str(sentence.id), word.lower(), target_lang, engine)
+    def translate_word_contextual(self, sentence: Sentence, word: str, target_lang: str = "id", engine: str = "google",
+                                  custom_base_url: str = None, custom_api_key: str = None, custom_model: str = None) -> WordTranslation:
+        """Get word translation via Google Translate (free & multi-meaning) or OmniRoute LLM / Custom AI Provider"""
+        cache_key = self._cache_key('word_trans', str(sentence.id), word.lower(), target_lang, engine, custom_model or '')
         cached = cache.get(cache_key)
         if cached:
             return cached
         
-        try:
-            translation = WordTranslation.objects.filter(
-                sentence=sentence, word_lower=word.lower(), target_lang=target_lang, engine=engine
-            ).first()
-            if translation:
-                cache.set(cache_key, translation, timeout=86400 * 30)
-                return translation
-        except Exception:
-            pass
-        
         if engine == "google":
             data = GoogleTranslateClient.translate_word(word, target_lang=target_lang)
         else:
-            # LLM fallback
+            client = LLMClient(base_url=custom_base_url, api_key=custom_api_key, model=custom_model)
             prompt = self._build_word_prompt(sentence.text, word, target_lang)
-            response = self.omni_client.get_completion_text([
-                {'role': 'system', 'content': prompt['system']},
-                {'role': 'user', 'content': prompt['user']}
-            ])
             try:
+                response = client.get_completion_text([
+                    {'role': 'system', 'content': prompt['system']},
+                    {'role': 'user', 'content': prompt['user']}
+                ])
                 data = json.loads(response)
-            except json.JSONDecodeError:
-                data = {
-                    'contextual_meaning': word,
-                    'transliteration': '',
-                    'other_meanings': [],
-                    'insight': f"Tips Pemula: Kata '{word}' merupakan kosakata penting dalam teks ini.",
-                    'ipa': '',
-                    'is_false_friend': False,
-                    'confidence': 0.5
-                }
+            except Exception:
+                data = GoogleTranslateClient.translate_word(word, target_lang=target_lang)
         
         translation, _ = WordTranslation.objects.update_or_create(
             sentence=sentence,
@@ -371,37 +360,23 @@ class TranslationService:
             'user': f'Kalimat: "{sentence}"\nKata target: "{word}"'
         }
     
-    def translate_sentence(self, sentence: Sentence, target_lang: str = "id", engine: str = "google") -> SentenceTranslation:
-        """Get full sentence translation via Google Translate (free) or OmniRoute LLM with 16 Tenses & S+V+O Grammar Analysis"""
-        cache_key = self._cache_key('sent_trans', str(sentence.id), target_lang, engine)
+    def translate_sentence(self, sentence: Sentence, target_lang: str = "id", engine: str = "google",
+                           custom_base_url: str = None, custom_api_key: str = None, custom_model: str = None) -> SentenceTranslation:
+        """Get full sentence translation via Google Translate or OmniRoute LLM / Custom AI Provider"""
+        cache_key = self._cache_key('sent_trans', str(sentence.id), target_lang, engine, custom_model or '')
         cached = cache.get(cache_key)
         if cached:
             return cached
         
-        try:
-            translation = SentenceTranslation.objects.filter(
-                sentence=sentence, target_lang=target_lang, engine=engine
-            ).first()
-            if translation and translation.indonesian_text.strip():
-                cache.set(cache_key, translation, timeout=86400 * 30)
-                return translation
-        except Exception:
-            pass
-        
         if engine == "google":
             data = GoogleTranslateClient.translate_sentence(sentence.text, target_lang=target_lang)
-            indonesian_text = data['indonesian_text']
-            transliteration = data['transliteration']
-            tense = data['tense']
-            structure = data['structure']
-            grammar_details = data['grammar_details']
-            notes = data['notes']
         else:
+            client = LLMClient(base_url=custom_base_url, api_key=custom_api_key, model=custom_model)
             grammar = GrammarAnalyzer.analyze(sentence.text)
             prompt = (
-                'Anda adalah penerjemah bahasa yang sangat alami, alami, dan elegan. '
-                f'Terjemahkan kalimat berikut secara profesional ke kode bahasa "{target_lang}". '
-                'Tentukan jenis dari 16 Tenses bahasa Inggris dan tentukan struktur sintaksis Subjek + Predikat/Verb + Objek. '
+                'Anda adalah penerjemah sastra dan akademis profesional. '
+                f'Terjemahkan kalimat berikut ke kode bahasa "{target_lang}" secara alami, presisi, dan elegan. '
+                'Tentukan jenis dari 16 Tenses bahasa Inggris dan pola sintaksis Subjek + Predikat/Verb + Objek. '
                 'Output HANYA JSON:\n'
                 '{\n'
                 '  "indonesian_text": "terjemahan murni yang natural dan mengalir",\n'
@@ -411,38 +386,38 @@ class TranslationService:
                 '  "notes": "catatan konteks atau penjelasan istilah (kosongkan jika tidak ada)"\n'
                 '}'
             )
-            response = self.omni_client.get_completion_text([
-                {'role': 'system', 'content': prompt},
-                {'role': 'user', 'content': sentence.text}
-            ])
             try:
+                response = client.get_completion_text([
+                    {'role': 'system', 'content': prompt},
+                    {'role': 'user', 'content': sentence.text}
+                ])
                 parsed = json.loads(response)
-                indonesian_text = parsed.get('indonesian_text', '').strip()
-                transliteration = parsed.get('transliteration', '').strip()
-                tense = parsed.get('tense', grammar['tense'])
-                structure = parsed.get('structure', grammar['structure'])
+                token_pairs = AsianTokenizer.get_token_pairs(parsed.get('indonesian_text', sentence.text), target_lang)
                 grammar_details = grammar['grammar_details']
-                notes = parsed.get('notes', '').strip()
-            except json.JSONDecodeError:
-                indonesian_text = response.strip()
-                transliteration = ""
-                tense = grammar['tense']
-                structure = grammar['structure']
-                grammar_details = grammar['grammar_details']
-                notes = ""
+                grammar_details['token_pairs'] = token_pairs
+                data = {
+                    'indonesian_text': parsed.get('indonesian_text', sentence.text),
+                    'transliteration': parsed.get('transliteration', ''),
+                    'tense': parsed.get('tense', grammar['tense']),
+                    'structure': parsed.get('structure', grammar['structure']),
+                    'grammar_details': grammar_details,
+                    'notes': parsed.get('notes', '')
+                }
+            except Exception:
+                data = GoogleTranslateClient.translate_sentence(sentence.text, target_lang=target_lang)
         
         translation, _ = SentenceTranslation.objects.update_or_create(
             sentence=sentence,
             target_lang=target_lang,
             engine=engine,
             defaults={
-                'indonesian_text': indonesian_text,
-                'transliteration': transliteration,
-                'tense': tense,
-                'structure': structure,
-                'grammar_details': grammar_details,
-                'notes': notes,
-                'model_used': "google-gtx" if engine == "google" else self.omni_client.model,
+                'indonesian_text': data.get('indonesian_text', sentence.text),
+                'transliteration': data.get('transliteration', ''),
+                'tense': data.get('tense', ''),
+                'structure': data.get('structure', ''),
+                'grammar_details': data.get('grammar_details', {}),
+                'notes': data.get('notes', ''),
+                'model_used': "google-gtx" if engine == "google" else (custom_model or settings.OMNIROUTE_MODEL),
             }
         )
         

@@ -13,11 +13,14 @@ class TranslationViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'])
     def word(self, request):
-        """Get word translation via Google Translate (free & multi-meaning) or LLM"""
+        """Get word translation via Google Translate (free & multi-meaning) or LLM / Custom AI Provider"""
         sentence_id = request.data.get('sentence_id')
         word = request.data.get('word')
         target_lang = request.data.get('target_lang', 'id')
         engine = request.data.get('engine', 'google')
+        custom_base_url = request.data.get('custom_base_url')
+        custom_api_key = request.data.get('custom_api_key')
+        custom_model = request.data.get('custom_model')
         
         if not sentence_id or not word:
             return Response(
@@ -31,16 +34,20 @@ class TranslationViewSet(viewsets.ViewSet):
             return Response({'error': 'Sentence not found'}, status=404)
         
         translation = translation_service.translate_word_contextual(
-            sentence, word, target_lang=target_lang, engine=engine
+            sentence, word, target_lang=target_lang, engine=engine,
+            custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
         )
         return Response(WordTranslationSerializer(translation).data)
     
     @action(detail=False, methods=['post'])
     def sentence(self, request):
-        """Get full sentence translation"""
+        """Get full sentence translation via Google Translate or LLM / Custom AI Provider"""
         sentence_id = request.data.get('sentence_id')
         target_lang = request.data.get('target_lang', 'id')
         engine = request.data.get('engine', 'google')
+        custom_base_url = request.data.get('custom_base_url')
+        custom_api_key = request.data.get('custom_api_key')
+        custom_model = request.data.get('custom_model')
         
         if not sentence_id:
             return Response(
@@ -54,7 +61,8 @@ class TranslationViewSet(viewsets.ViewSet):
             return Response({'error': 'Sentence not found'}, status=404)
         
         translation = translation_service.translate_sentence(
-            sentence, target_lang=target_lang, engine=engine
+            sentence, target_lang=target_lang, engine=engine,
+            custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
         )
         return Response(SentenceTranslationSerializer(translation).data)
     
@@ -64,16 +72,20 @@ class TranslationViewSet(viewsets.ViewSet):
         sentence_ids = request.data.get('sentence_ids', [])
         target_lang = request.data.get('target_lang', 'id')
         engine = request.data.get('engine', 'google')
+        custom_base_url = request.data.get('custom_base_url')
+        custom_api_key = request.data.get('custom_api_key')
+        custom_model = request.data.get('custom_model')
         
         if not sentence_ids:
             return Response({'error': 'sentence_ids required'}, status=400)
         
-        sentences = Sentence.objects.filter(id__in=sentence_ids)
         results = []
+        sentences = Sentence.objects.filter(id__in=sentence_ids)
         for sentence in sentences:
-            translation = translation_service.translate_sentence(
-                sentence, target_lang=target_lang, engine=engine
+            t = translation_service.translate_sentence(
+                sentence, target_lang=target_lang, engine=engine,
+                custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
             )
-            results.append(SentenceTranslationSerializer(translation).data)
+            results.append(SentenceTranslationSerializer(t).data)
         
         return Response(results)

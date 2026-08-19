@@ -55,9 +55,34 @@ export const booksApi = {
 }
 
 export const translationsApi = {
-  word: (sentenceId, word, targetLang = 'id', engine = 'google') => api.post('/translations/word/', { sentence_id: sentenceId, word, target_lang: targetLang, engine }),
-  sentence: (sentenceId, targetLang = 'id', engine = 'google') => api.post('/translations/sentence/', { sentence_id: sentenceId, target_lang: targetLang, engine }),
-  batchSentence: (sentenceIds, targetLang = 'id', engine = 'google') => api.post('/translations/batch-sentence/', { sentence_ids: sentenceIds, target_lang: targetLang, engine }),
+  word: (sentenceId, word, targetLang = 'id', engine = 'google', customConfig = {}) => 
+    api.post('/translations/word/', {
+      sentence_id: sentenceId,
+      word,
+      target_lang: targetLang,
+      engine,
+      custom_base_url: customConfig.customBaseUrl,
+      custom_api_key: customConfig.customApiKey,
+      custom_model: customConfig.customModel
+    }),
+  sentence: (sentenceId, targetLang = 'id', engine = 'google', customConfig = {}) => 
+    api.post('/translations/sentence/', {
+      sentence_id: sentenceId,
+      target_lang: targetLang,
+      engine,
+      custom_base_url: customConfig.customBaseUrl,
+      custom_api_key: customConfig.customApiKey,
+      custom_model: customConfig.customModel
+    }),
+  batchSentence: (sentenceIds, targetLang = 'id', engine = 'google', customConfig = {}) => 
+    api.post('/translations/batch-sentence/', {
+      sentence_ids: sentenceIds,
+      target_lang: targetLang,
+      engine,
+      custom_base_url: customConfig.customBaseUrl,
+      custom_api_key: customConfig.customApiKey,
+      custom_model: customConfig.customModel
+    }),
 }
 
 export const vocabularyApi = {
