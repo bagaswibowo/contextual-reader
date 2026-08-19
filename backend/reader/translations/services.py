@@ -25,7 +25,7 @@ POS_MAP = {
 
 
 class AsianTokenizer:
-    """Segment Non-Latin scripts (Arabic, Russian, Japanese, Mandarin, Thai, Korean) into word/character tokens with Latin guide"""
+    """Segment Non-Latin scripts (Japanese, Mandarin, Korean, Arabic, Russian, Thai) into 3-Layer Word Tokens: [Aksara -> Latin -> Meaning ID]"""
 
     @staticmethod
     def get_token_pairs(text: str, target_lang: str) -> List[Dict]:
@@ -33,10 +33,10 @@ class AsianTokenizer:
         if not text or clean_lang not in ['ja', 'zh-cn', 'zh', 'ko', 'ar', 'ru', 'th', 'hi']:
             return []
         
-        # For Mandarin Chinese (zh-CN), extract individual Hanzi characters for 1-to-1 Pīnyīn alignment
+        # For Mandarin Chinese (zh-CN), extract individual Hanzi characters for 1-to-1 Pīnyīn & Meaning alignment
         if clean_lang in ['zh-cn', 'zh']:
             raw_tokens = [c for c in text if re.match(r'[\u4e00-\u9faf]', c)]
-            grouped = raw_tokens[:30]
+            grouped = raw_tokens[:25]
         elif clean_lang in ['ar', 'ru', 'ko', 'hi', 'th']:
             pattern = r'[\u0600-\u06ff]+|[\u0400-\u04ff]+|[\u0e00-\u0e7f]+|[\uac00-\ud7af]+|[\u0900-\u097f]+|[a-zA-Z0-9]+'
             grouped = [t.strip() for t in re.findall(pattern, text) if t and t.strip() and not re.match(r'^[,\.!\?、。;\s\-\u060c\u061b]+$', t)][:25]
@@ -60,19 +60,33 @@ class AsianTokenizer:
             clean_tok = re.sub(r'[\u060c\u061b,\.!\?]', '', token).strip()
             if not clean_tok:
                 continue
-            params = {"client": "gtx", "sl": "auto", "tl": target_lang, "dt": ["t", "rm"], "q": clean_tok}
+            
+            # Fetch 3 layers: [Original Script Token -> Latin Transliteration -> Indonesian Meaning]
+            params = {
+                "client": "gtx",
+                "sl": clean_lang,
+                "tl": "id",  # Translate to Indonesian mother tongue
+                "dt": ["t", "rm"],
+                "q": clean_tok
+            }
             headers = {"User-Agent": "Mozilla/5.0"}
             try:
                 res = requests.get("https://translate.googleapis.com/translate_a/single", params=params, headers=headers, timeout=3).json()
+                meaning = ""
                 romaji = ""
-                if res and len(res) > 0 and res[0]:
-                    if len(res[0]) > 1 and res[0][1] and len(res[0][1]) > 2:
-                        romaji = res[0][1][2]
+                if res and len(res) > 0 and res[0] and len(res[0]) > 0:
+                    if len(res[0][0]) > 0 and res[0][0][0]:
+                        meaning = res[0][0][0]
+                    if len(res[0]) > 1 and res[0][1]:
+                        if len(res[0][1]) > 3 and res[0][1][3]:
+                            romaji = res[0][1][3]
+                        elif len(res[0][1]) > 2 and res[0][1][2]:
+                            romaji = res[0][1][2]
                     elif len(res[0][0]) > 2 and res[0][0][2]:
                         romaji = res[0][0][2]
-                pairs.append({"word": clean_tok, "latin": romaji or clean_tok})
+                pairs.append({"word": clean_tok, "latin": romaji or clean_tok, "meaning": meaning or clean_tok})
             except Exception:
-                pairs.append({"word": clean_tok, "latin": clean_tok})
+                pairs.append({"word": clean_tok, "latin": clean_tok, "meaning": clean_tok})
                 
         return pairs
 

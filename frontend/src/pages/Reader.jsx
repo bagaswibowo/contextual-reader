@@ -869,21 +869,27 @@ export function Reader() {
                     {activeSentencePopup.translation}
                   </p>
 
-                  {/* Character/Word-by-Word Interleaved Aligned Latin Cards */}
+                  {/* 3-Layer Interleaved Aligned Cards: [Aksara -> Latin Transliteration -> Terjemahan Bahasa Induk] */}
                   {activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
                       <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
-                        🔤 Terjemahan & Cara Baca Latin Per-Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
+                        🔤 Terjemahan 3 Layer Per-Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
                       </span>
 
                       <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
                         {activeSentencePopup.grammar_details.token_pairs.map((item, idx) => (
                           <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
+                            {/* Layer 1: Aksara Asli */}
                             <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
                               {item.word}
                             </span>
-                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-1">
+                            {/* Layer 2: Cara Baca Latin */}
+                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
                               {item.latin}
+                            </span>
+                            {/* Layer 3: Terjemahan Bahasa Indonesia */}
+                            <span className="text-[10px] font-bold text-duo-green bg-duo-green/10 px-1.5 py-0.5 rounded mt-1 max-w-[120px] truncate">
+                              {item.meaning}
                             </span>
                           </div>
                         ))}
