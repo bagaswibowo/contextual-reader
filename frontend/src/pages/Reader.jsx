@@ -39,8 +39,9 @@ export function Reader() {
   const [savingVocab, setSavingVocab] = useState(false)
 
   // TTS State
-  const [isPlayingTTS, setIsPlayingTTS] = useState(false)
+  // TTS synth & Audio refs
   const synthRef = useRef(window.speechSynthesis || null)
+  const audioRef = useRef(null)
 
   // Load Book metadata & TOC
   useEffect(() => {
@@ -290,15 +291,41 @@ export function Reader() {
     return map[code] || 'en-US'
   }
 
-  // Text-To-Speech Pronunciation for any language
+  // Natural Google Translate Text-To-Speech Audio Engine
   const speakText = (text, langCode = 'en') => {
-    if (!synthRef.current || !text) return
-    synthRef.current.cancel()
-    const locale = getSpeechLangCode(langCode)
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = locale
-    utterance.rate = 0.9
-    synthRef.current.speak(utterance)
+    if (!text) return
+    const cleanText = text.trim().slice(0, 200)
+    const encodedText = encodeURIComponent(cleanText)
+    const lang = (langCode || 'en').toLowerCase()
+    
+    // Official Google Translate Neural Voice Stream
+    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodedText}`
+    
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = googleTtsUrl
+      audioRef.current.play().catch(() => {
+        if (synthRef.current) {
+          synthRef.current.cancel()
+          const utterance = new SpeechSynthesisUtterance(cleanText)
+          utterance.lang = getSpeechLangCode(langCode)
+          utterance.rate = 0.9
+          synthRef.current.speak(utterance)
+        }
+      })
+    } else {
+      const audio = new Audio(googleTtsUrl)
+      audioRef.current = audio
+      audio.play().catch(() => {
+        if (synthRef.current) {
+          synthRef.current.cancel()
+          const utterance = new SpeechSynthesisUtterance(cleanText)
+          utterance.lang = getSpeechLangCode(langCode)
+          utterance.rate = 0.9
+          synthRef.current.speak(utterance)
+        }
+      })
+    }
   }
 
   // Read entire chapter via TTS
