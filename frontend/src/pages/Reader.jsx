@@ -41,8 +41,21 @@ export function Reader() {
 
   // TTS State
   const [isPlayingTTS, setIsPlayingTTS] = useState(false)
-  const synthRef = useRef(window.speechSynthesis || null)
+  const [voices, setVoices] = useState([])
+  const synthRef = useRef(typeof window !== 'undefined' ? window.speechSynthesis : null)
   const audioRef = useRef(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      const updateVoices = () => {
+        try {
+          setVoices(window.speechSynthesis.getVoices())
+        } catch (e) {}
+      }
+      updateVoices()
+      window.speechSynthesis.onvoiceschanged = updateVoices
+    }
+  }, [])
 
   // Load Book metadata & TOC
   useEffect(() => {
@@ -294,40 +307,73 @@ export function Reader() {
     return map[code] || 'en-US'
   }
 
-  // Natural Google Translate Text-To-Speech Audio Engine
+  const getFemaleJapaneseVoice = () => {
+    let currentVoices = voices
+    if ((!currentVoices || currentVoices.length === 0) && synthRef.current) {
+      try {
+        currentVoices = synthRef.current.getVoices()
+      } catch (e) {}
+    }
+    
+    if (!currentVoices || currentVoices.length === 0) return null
+
+    const femaleJaNames = [
+      'kyoko', 'nanami', 'haruka', 'google 日本語', 'google japanese',
+      'female', 'woman', 'sayaka', 'ayumi', 'otoya'
+    ]
+    
+    for (const name of femaleJaNames) {
+      const v = currentVoices.find(voice => 
+        voice.lang.toLowerCase().replace('_', '-').startsWith('ja') && 
+        voice.name.toLowerCase().includes(name)
+      )
+      if (v) return v
+    }
+
+    return currentVoices.find(v => v.lang.toLowerCase().replace('_', '-').startsWith('ja')) || null
+  }
+
+  // Natural Text-To-Speech Audio Engine with Female Voice Support
   const speakText = (text, langCode = 'en') => {
     if (!text) return
-    const cleanText = text.trim().slice(0, 200)
-    const encodedText = encodeURIComponent(cleanText)
+    const cleanText = text.trim().slice(0, 300)
     const lang = (langCode || 'en').toLowerCase()
     
-    // Official Google Translate Neural Voice Stream
+    // Priority 1: Web SpeechSynthesis API with Native Female Voice Selection
+    if (synthRef.current) {
+      try {
+        synthRef.current.cancel()
+        const utterance = new SpeechSynthesisUtterance(cleanText)
+        utterance.lang = getSpeechLangCode(langCode)
+        utterance.rate = 0.95
+        
+        if (lang === 'ja') {
+          const femaleVoice = getFemaleJapaneseVoice()
+          if (femaleVoice) {
+            utterance.voice = femaleVoice
+          }
+          utterance.pitch = 1.25 // Higher feminine pitch contour for Japanese female voice
+        } else if (lang === 'zh-cn' || lang === 'zh') {
+          utterance.pitch = 1.15
+        }
+        
+        synthRef.current.speak(utterance)
+        return
+      } catch (e) {}
+    }
+
+    // Fallback: Official Google Translate Neural Audio Stream
+    const encodedText = encodeURIComponent(cleanText)
     const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodedText}`
     
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.src = googleTtsUrl
-      audioRef.current.play().catch(() => {
-        if (synthRef.current) {
-          synthRef.current.cancel()
-          const utterance = new SpeechSynthesisUtterance(cleanText)
-          utterance.lang = getSpeechLangCode(langCode)
-          utterance.rate = 0.9
-          synthRef.current.speak(utterance)
-        }
-      })
+      audioRef.current.play().catch(() => {})
     } else {
       const audio = new Audio(googleTtsUrl)
       audioRef.current = audio
-      audio.play().catch(() => {
-        if (synthRef.current) {
-          synthRef.current.cancel()
-          const utterance = new SpeechSynthesisUtterance(cleanText)
-          utterance.lang = getSpeechLangCode(langCode)
-          utterance.rate = 0.9
-          synthRef.current.speak(utterance)
-        }
-      })
+      audio.play().catch(() => {})
     }
   }
 
