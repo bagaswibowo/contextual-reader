@@ -257,10 +257,19 @@ export function Reader() {
         notes = parts[1].replace(/\)$/, '').trim()
       }
 
+      let motherText = null
+      if (langToUse.toLowerCase() !== (motherLanguage || 'id').toLowerCase()) {
+        try {
+          const motherRes = await translationsApi.sentence(sentenceId, motherLanguage || 'id', translationEngine || 'google', customConfig)
+          motherText = motherRes.data.indonesian_text || null
+        } catch (e) {}
+      }
+
       setActiveSentencePopup(prev => ({
         ...prev,
         loading: false,
         translation: text,
+        motherTranslation: motherText,
         transliteration: res.data.transliteration,
         tense: res.data.tense,
         structure: res.data.structure,
@@ -399,7 +408,8 @@ export function Reader() {
 
     // Fallback: Official Google Translate Neural Audio Stream
     const encodedText = encodeURIComponent(cleanText)
-    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodedText}`
+    const googleTtsLang = lang === 'zh-cn' || lang === 'zh' ? 'zh-CN' : lang === 'ja' ? 'ja' : lang
+    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleTtsLang}&client=tw-ob&q=${encodedText}`
     
     const audio = new Audio(googleTtsUrl)
     audioRef.current = audio
@@ -986,6 +996,19 @@ export function Reader() {
                   <p className="font-heading font-extrabold text-base sm:text-lg text-eel dark:text-dark-text leading-relaxed pt-1 break-words">
                     {activeSentencePopup.translation}
                   </p>
+
+                  {/* Mother Tongue Sentence Translation (If Target Language is different from Mother Language) */}
+                  {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.motherTranslation && (
+                    <div className="p-3 rounded-duo bg-duo-green/10 border border-duo-green/30 space-y-1">
+                      <span className="text-[11px] font-extrabold text-duo-green uppercase tracking-wider flex items-center gap-1">
+                        <span>{AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.flag || '🌐'}</span>
+                        <span>Terjemahan ({AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.name || 'Indonesia'}):</span>
+                      </span>
+                      <p className="font-heading font-extrabold text-sm sm:text-base text-duo-green leading-relaxed break-words">
+                        {activeSentencePopup.motherTranslation}
+                      </p>
+                    </div>
+                  )}
 
                   {/* 3-Layer Interleaved Aligned Cards: Only when target language is different from user's mother language */}
                   {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
