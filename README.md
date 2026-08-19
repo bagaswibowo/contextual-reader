@@ -1,93 +1,61 @@
-# 📖 Contextual Reader (v1.0)
+# Contextual Reader
 
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Django](https://img.shields.io/badge/Django-4.2+-092E20?style=flat-square&logo=django&logoColor=white)](https://djangoproject.com)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+Contextual Reader is a web-based English reader application designed for language learners. It provides instant per-word dictionary lookup, sentence translation, 16-tense grammar structure analysis (S+V+O), and spaced-repetition vocabulary review (SM-2 algorithm).
 
-**Contextual Reader** adalah aplikasi web pembaca buku berbahasa Inggris (EPUB, PDF, TXT) berdesain ala **Duolingo** yang dirancang khusus untuk pembelajar bahasa Inggris dari tingkat pemula hingga lanjut. 
-
-Aplikasi ini dilengkapi penerjemah kata kontekstual instan, analisis tata bahasa & 16 jenis *tenses* pada kalimat utuh, kelas kata ramah pemula (*Parts of Speech*), serta sistem review kosakata berbasis **Spaced Repetition (Algoritma SM-2)**.
+The application features a Duolingo-inspired 3D UI system with full mobile-first responsiveness and supports reading EPUB, PDF, and TXT documents up to 100MB.
 
 ---
 
-## 🌟 Fitur Utama
+## Technical Features
 
-- 🎨 **Duolingo-Inspired UI System:**
-  - Warna solid cerah (Green `#58CC02`, Blue `#1CB0F6`, Yellow `#FFC800`), font Baloo 2 / Nunito, tombol 3D press, dan antarmuka *Mobile-First Responsive Design*.
-  - Mode Tampilan Pembaca: Terang ☀️, Sepia 📜, dan Gelap 🌙.
+### Reading & Translation Engine
+* **Instant Word Translation:** Free Google Translate GTX engine returning primary translation, IPA phonetics, and parts of speech breakdown (Noun, Verb, Adjective, Adverb).
+* **Multi-Language Support:** Translates into 22+ target languages (Indonesian, Spanish, French, German, Japanese, Mandarin, Korean, Arabic, etc.).
+* **OmniRoute LLM Integration:** Optional routing to local OmniRoute proxy (`auto/best-free` model) for complex literary translations.
+* **16 Tenses & Grammar Analyzer:** Rule-based parser classifying sentence tenses and extracting S+V+O syntax patterns alongside verb, noun, and adjective lists.
 
-- ⚡ **Ekstraksi Buku Super Cepat (Sub-2 Detik):**
-  - Pemrosesan berkas PDF, EPUB, dan TXT tebal (1.000+ halaman) tanpa hambatan menggunakan `pdfplumber` dan penyusunan batch database SQLite `bulk_create` (0.1 detik).
+### Fast Document Parsing
+* **Sub-2s PDF/EPUB Extractor:** Uses `pdfplumber` vector text parsing to process 1,000+ page books in under 2 seconds without CPU-blocking OCR loops.
+* **Batch Database Insertion:** Saves 20,000+ extracted sentences per book using SQLite `bulk_create` (0.1s execution time).
 
-- 🌐 **Free Multi-Language Dictionary Engine:**
-  - **Google Translate GTX Client (0 API Cost):** Mengembalikan terjemahan kontekstual, IPA fonetik, serta daftar variasi makna per kelas kata.
-  - **Dukungan 22+ Bahasa Target:** Menerjemahkan kata dan kalimat ke Bahasa Indonesia 🇮🇩, Spanyol 🇪🇸, Prancis 🇫🇷, Jerman 🇩🇪, Jepang 🇯🇵, Mandarin 🇨🇳, Korea 🇰🇷, Arab 🇸🇦, dll.
-  - **OmniRoute LLM Engine (`auto/best-free`):** Integrasi AI LLM proxy untuk terjemahan sastra/akademis yang elegan.
+### Vocabulary & Spaced Repetition
+* **Flashcard Review:** Implements the SuperMemo (SM-2) algorithm for interval-based vocabulary retention.
+* **Book Isolation:** Vocabulary entries tracked per book and globally with context snippets.
 
-- 🎓 **Analisis Tata Bahasa & 16 Jenis Tenses:**
-  - Klasifikasi otomatis **16 Jenis Tenses Bahasa Inggris** (Simple Past, Present Continuous, Present Perfect, Past Perfect, dll.).
-  - Analisis struktur sintaksis kalimat **Subjek + Predikat/Verb + Objek (S+V+O)**.
-  - Ekstraksi daftar kata kerja (*Verbs*), kata benda (*Nouns*), dan kata sifat (*Adjectives*).
-
-- 🏷️ **Kelas Kata Ramah Pemula (*Parts of Speech*):**
-  - Penjelasan kelas kata interaktif:
-    - 🏷️ **Kata Benda (Noun)**
-    - ⚡ **Kata Kerja (Verb)**
-    - 🎨 **Kata Sifat (Adjective)**
-    - 📍 **Kata Keterangan (Adverb)**
-
-- 🧠 **Sistem Kosakata & Flashcard Review (SM-2):**
-  - Menyimpan kata berkesan ke perpustakaan kosakata pribadi.
-  - Sesi latihan flashcard berbasis jadwal **Spaced Repetition (SuperMemo SM-2)** untuk memperkuat ingatan memori jangka panjang.
+### Responsive UI & Reading Modes
+* **Mobile-First Responsive Layout:** Includes mobile bottom navigation, touch-pill language selectors, and a collapsible display settings bottom sheet (`[ Aa ]`).
+* **Reader Themes:** Light, Sepia (`#FBF3E4`), and Dark (`#131F24`) high-contrast themes.
 
 ---
 
-## 🏗️ Arsitektur & Teknologi
+## Tech Stack
 
-### Backend
-- **Framework:** Django 4.2+ & Django REST Framework
-- **Runtime:** Python 3.11
-- **Database:** SQLite 3 (Komposit Unique Index)
-- **Parser Engine:** `pdfplumber`, `ebooklib`
-
-### Frontend
-- **Framework:** React 18 + Vite
-- **Styling:** Tailwind CSS + Lucide Icons
-- **State Management:** Zustand (Persisted Storage)
-
-### Infrastructure & Deployment
-- **Containerization:** Docker & Docker Compose
-- **Web Server:** Nginx (SPA Routing & 100MB Body Limit)
-- **Tunneling:** Cloudflare Tunnel (`cloudflared`)
+* **Backend:** Python 3.11, Django 4.2+, Django REST Framework, SQLite 3.
+* **Frontend:** React 18, Vite, Tailwind CSS 3.4, Zustand (persisted state).
+* **DevOps:** Docker, Docker Compose, Nginx, Cloudflare Tunnel (`cloudflared`).
 
 ---
 
-## 📁 Struktur Direktori Proyek
+## Project Structure
 
 ```text
 contextual-reader/
 ├── backend/
 │   ├── reader/
-│   │   ├── books/           # Manajemen upload & parser EPUB/PDF/TXT
-│   │   ├── translations/    # Google Translate GTX & OmniRoute LLM service
-│   │   ├── vocabulary/      # Sistem kosakata & Spaced Repetition (SM-2)
-│   │   ├── core/            # Health checks & shared utilities
-│   │   └── settings.py      # Konfigurasi Django
+│   │   ├── books/           # Upload handling & document parsers (EPUB, PDF, TXT)
+│   │   ├── translations/    # Google Translate GTX & OmniRoute services + Grammar analyzer
+│   │   ├── vocabulary/      # Flashcards & SM-2 algorithm
+│   │   └── settings.py      # Django configuration
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # Layout & Navigation components
+│   │   ├── components/      # Navigation, Layout, and Modal components
 │   │   ├── pages/           # Library, Reader, Vocabulary, Settings
-│   │   ├── stores/          # Zustand state management
-│   │   ├── styles/          # Tailwind CSS global styles
-│   │   └── utils/           # Axios API Client
+│   │   ├── stores/          # Zustand state stores
+│   │   └── styles/          # Tailwind globals
 │   ├── nginx.conf
 │   ├── Dockerfile
-│   ├── tailwind.config.js
 │   └── vite.config.js
 ├── docker-compose.yml
 ├── deploy.sh
@@ -96,40 +64,40 @@ contextual-reader/
 
 ---
 
-## 🚀 Panduan Instalasi & Jalankan Proyek
+## Installation & Deployment
 
-### 1. Menggunakan Docker Compose (Direkomendasikan)
+### Quick Start with Docker Compose
 
-1. Clone repositori ini:
+1. Clone the repository:
    ```bash
    git clone https://github.com/bagaswibowo/contextual-reader.git
    cd contextual-reader
    ```
 
-2. Jalankan container via Docker Compose:
+2. Build and start services:
    ```bash
    docker compose up -d --build
    ```
 
-3. Akses aplikasi melalui browser:
-   - Frontend: `http://localhost:8088` (atau via domain reverse proxy Anda)
-   - Backend API: `http://localhost:8000/api/`
+3. Access endpoints:
+   * Frontend SPA: `http://localhost:8088`
+   * Backend REST API: `http://localhost:8000/api/`
 
 ---
 
-### 2. Jalankan secara Manual (Tanpa Docker)
+### Manual Setup (Development)
 
-#### Setup Backend (Django):
+#### Backend Setup
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
 
-#### Setup Frontend (React):
+#### Frontend Setup
 ```bash
 cd frontend
 npm install
@@ -138,22 +106,18 @@ npm run dev
 
 ---
 
-## ⚙️ Variabel Lingkungan (*Environment Variables*)
+## Environment Variables
 
-| Variabel | Deskripsi | Default / Example |
+| Variable | Description | Example / Default |
 | :--- | :--- | :--- |
-| `SECRET_KEY` | Kunci rahasia Django | `xxx` |
-| `DEBUG` | Mode debug Django | `0` (False) |
-| `OMNIROUTE_URL` | Endpoint OmniRoute LLM Proxy | `http://100.127.238.166:20129/v1` |
-| `OMNIROUTE_MODEL` | Model AI OmniRoute | `auto/best-free` |
-| `TUNNEL_TOKEN` | Token Cloudflare Tunnel | `xxx` |
+| `SECRET_KEY` | Django Secret Key | `xxx` |
+| `DEBUG` | Django Debug Mode | `0` |
+| `OMNIROUTE_URL` | OmniRoute LLM Proxy Endpoint | `http://100.127.238.166:20129/v1` |
+| `OMNIROUTE_MODEL` | OmniRoute Model Target | `auto/best-free` |
+| `TUNNEL_TOKEN` | Cloudflare Tunnel Token | `xxx` |
 
 ---
 
-## 📝 Lisensi
+## License
 
-Proyek ini dilisensikan di bawah [Lisensi MIT](LICENSE).
-
----
-
-Developed with ❤️ for English Learners by **[Bagas Wibowo](https://github.com/bagaswibowo)**.
+Distributed under the MIT License.
