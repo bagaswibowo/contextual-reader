@@ -1,5 +1,6 @@
 # Book processing services
 import re
+import requests
 import ebooklib
 from ebooklib import epub
 import pdfplumber
@@ -22,6 +23,52 @@ class ParsedSentence:
     end_char: int
 
 
+class LanguageDetector:
+    """Auto-detect book language from sample text using frequency analysis + Google Translate GTX fallback"""
+
+    COMMON_ID_WORDS = {'yang', 'dan', 'di', 'ini', 'dengan', 'untuk', 'pada', 'adalah', 'dari', 'ke', 'akan', 'atau', 'bisa', 'juga', 'perilaku', 'pengguna', 'sistem'}
+    COMMON_EN_WORDS = {'the', 'and', 'to', 'of', 'a', 'in', 'is', 'that', 'for', 'it', 'as', 'was', 'with', 'be', 'by', 'on', 'are'}
+    COMMON_ES_WORDS = {'de', 'la', 'que', 'el', 'en', 'y', 'a', 'los', 'del', 'se', 'las', 'por', 'un', 'para', 'con', 'no', 'una'}
+
+    @staticmethod
+    def detect(sample_text: str) -> str:
+        if not sample_text or len(sample_text.strip()) < 10:
+            return "en"
+        
+        # Clean front-matter & copyright boilerplate
+        cleaned = re.sub(r'copyright|all rights reserved|isbn|publisher|published|http\S+', '', sample_text, flags=re.I)
+        words = set(re.findall(r'\b[a-z]{2,}\b', cleaned.lower()))
+
+        # Direct fast frequency check for top languages
+        id_score = len(words.intersection(LanguageDetector.COMMON_ID_WORDS))
+        en_score = len(words.intersection(LanguageDetector.COMMON_EN_WORDS))
+        es_score = len(words.intersection(LanguageDetector.COMMON_ES_WORDS))
+
+        if id_score >= 3 and id_score > en_score and id_score > es_score:
+            return "id"
+        if es_score >= 3 and es_score > en_score and es_score > id_score:
+            return "es"
+        if en_score >= 3 and en_score > id_score:
+            return "en"
+
+        # Fallback to Google Translate GTX auto-detection
+        params = {
+            "client": "gtx",
+            "sl": "auto",
+            "tl": "en",
+            "dt": "t",
+            "q": cleaned[:500]
+        }
+        headers = {"User-Agent": "Mozilla/5.0"}
+        try:
+            res = requests.get("https://translate.googleapis.com/translate_a/single", params=params, headers=headers, timeout=5).json()
+            if len(res) > 2 and isinstance(res[2], str) and res[2]:
+                return res[2].lower()
+            return "en"
+        except Exception:
+            return "en"
+
+
 class BookParser:
     """Parse EPUB, PDF, TXT files into chapters and sentences"""
     
@@ -38,43 +85,79 @@ class BookParser:
     
     @staticmethod
     def _parse_epub(file_path: str) -> List[ParsedChapter]:
-        book = epub.read_epub(file_path)
         chapters = []
-        chapter_index = 0
+        book = epub.read_epub(file_path)
         
         for item in book.get_items():
             if item.get_type() == ebooklib.ITEM_DOCUMENT:
                 content = item.get_content().decode('utf-8', errors='ignore')
-                text = BookParser._clean_html(content)
-                if text.strip() and len(text.strip()) > 30:
-                    title = BookParser._extract_title(text) or f"Chapter {chapter_index + 1}"
+                text = re.sub(r'<[^>]+>', ' ', content)
+                text = re.sub(r'\s+', ' ', text).strip()
+                
+                if text and len(text) > 100:
+                    title_match = re.search(r'<h[1-3][^>]*>(.*?)</h[1-3]>', content, re.IGNORECASE)
+                    title = title_match.group(1) if title_match else f"Chapter {len(chapters) + 1}"
+                    title = re.sub(r'<[^>]+>', '', title).strip()
+                    
                     chapters.append(ParsedChapter(
-                        index=chapter_index,
-                        title=title,
+                        index=len(chapters),
+                        title=title or f"Chapter {len(chapters) + 1}",
                         content=text
                     ))
-                    chapter_index += 1
-        return chapters if chapters else [ParsedChapter(0, "Chapter 1", "No text content found in EPUB.")]
-    
+        
+        if not chapters:
+            all_text = []
+            for item in book.get_items():
+                if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                    content = item.get_content().decode('utf-8', errors='ignore')
+                    text = re.sub(r'<[^>]+>', ' ', content)
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    if text:
+                        all_text.append(text)
+            
+            full_text = " ".join(all_text)
+            chapters = [ParsedChapter(index=0, title="Full Book", content=full_text)]
+            
+        return chapters
+
     @staticmethod
     def _parse_txt(file_path: str) -> List[ParsedChapter]:
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-        
-        parts = re.split(r'\n\s*\n', content)
         chapters = []
-        for i, part in enumerate(parts):
-            if part.strip() and len(part.strip()) > 20:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                content = f.read()
+
+        content = re.sub(r'\r\n', '\n', content)
+        chapter_splits = re.split(r'\n(?=Chapter|\bCHAPTER\b|Bab|\bBAB\b)', content)
+        
+        if len(chapter_splits) > 1:
+            for idx, ch_text in enumerate(chapter_splits):
+                if not ch_text.strip():
+                    continue
+                lines = ch_text.strip().split('\n')
+                title = lines[0][:100].strip() if lines else f"Chapter {idx + 1}"
                 chapters.append(ParsedChapter(
                     index=len(chapters),
-                    title=f"Chapter {len(chapters) + 1}",
-                    content=part.strip()
+                    title=title,
+                    content=ch_text.strip()
                 ))
-        return chapters if chapters else [ParsedChapter(0, "Chapter 1", content)]
-    
+        else:
+            chunk_size = 15000
+            for i in range(0, len(content), chunk_size):
+                chunk = content[i:i + chunk_size]
+                chapters.append(ParsedChapter(
+                    index=len(chapters),
+                    title=f"Section {(i // chunk_size) + 1}",
+                    content=chunk.strip()
+                ))
+
+        return chapters
+
     @staticmethod
     def _parse_pdf(file_path: str) -> List[ParsedChapter]:
-        """Super fast PDF parsing with pdfplumber (0 OCR, sub-2s, 0 CPU lockup)"""
         chapters = []
         pages_text = []
         
@@ -90,7 +173,6 @@ class BookParser:
         if not pages_text:
             return [ParsedChapter(0, "Chapter 1", "No readable text content found in PDF.")]
 
-        # Group pages into chapters (every ~15 pages)
         chunk_size = 15
         for i in range(0, len(pages_text), chunk_size):
             chunk = pages_text[i:i + chunk_size]
@@ -107,55 +189,34 @@ class BookParser:
             ))
         
         return chapters
-    
-    @staticmethod
-    def _clean_html(html_content: str) -> str:
-        text = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL)
-        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL)
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
-        return text.strip()
-    
-    @staticmethod
-    def _extract_title(text: str) -> str:
-        first_line = text.split('\n')[0].strip()
-        if len(first_line) < 50:
-            return first_line
-        return text[:30] + "..."
 
 
 class SentenceSplitter:
-    """Split chapter text into sentences with position tracking"""
+    """Split chapter text into clean sentences with character offsets"""
     
     @staticmethod
     def split(text: str) -> List[ParsedSentence]:
-        # Clean text
-        text = re.sub(r'\s+', ' ', text)
-        
-        # Regex for sentence boundaries (. ! ?)
-        pattern = r'(?<=[.!?])\s+'
-        raw_sentences = re.split(pattern, text)
-        
         sentences = []
-        char_offset = 0
+        raw_sentences = re.split(r'(?<=[.!?])\s+', text)
         
-        for i, raw_sent in enumerate(raw_sentences):
-            sent_text = raw_sent.strip()
-            if not sent_text:
+        current_offset = 0
+        for idx, sent in enumerate(raw_sentences):
+            sent_clean = sent.strip()
+            if not sent_clean:
                 continue
-            
-            start_pos = text.find(sent_text, char_offset)
-            if start_pos == -1:
-                start_pos = char_offset
-            
-            end_pos = start_pos + len(sent_text)
-            char_offset = end_pos
+                
+            start_char = text.find(sent_clean, current_offset)
+            if start_char == -1:
+                start_char = current_offset
+                
+            end_char = start_char + len(sent_clean)
+            current_offset = end_char
             
             sentences.append(ParsedSentence(
                 index=len(sentences),
-                text=sent_text,
-                start_char=start_pos,
-                end_char=end_pos
+                text=sent_clean,
+                start_char=start_char,
+                end_char=end_char
             ))
-        
+            
         return sentences

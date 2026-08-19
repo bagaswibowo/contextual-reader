@@ -127,6 +127,59 @@ export function Reader() {
     }
   }
 
+  const getAlignedTokens = (text, transliteration) => {
+    if (!text || !transliteration) return []
+    
+    const textWords = text.trim().split(/\s+/).filter(Boolean)
+    const latinWords = transliteration.trim().split(/\s+/).filter(Boolean)
+
+    if (textWords.length === 0 || latinWords.length === 0) return []
+    
+    // If text is unspaced (e.g. Japanese or Chinese without spaces)
+    if (textWords.length === 1 && text.length >= 3 && latinWords.length > 1) {
+      const avgChars = Math.max(1, Math.round(text.length / latinWords.length))
+      const tokens = []
+      let curIdx = 0
+      for (let i = 0; i < latinWords.length; i++) {
+        const charChunk = text.slice(curIdx, curIdx + avgChars) || text[i] || ''
+        curIdx += avgChars
+        tokens.push({ char: charChunk, latin: latinWords[i] })
+      }
+      return tokens
+    }
+    
+    const maxLength = Math.max(textWords.length, latinWords.length)
+    const tokens = []
+    for (let i = 0; i < maxLength; i++) {
+      tokens.push({
+        char: textWords[i] || '',
+        latin: latinWords[i] || ''
+      })
+    }
+    return tokens
+  }
+
+  const getOriginalLanguageInfo = (langCode) => {
+    const code = (langCode || 'en').toLowerCase()
+    const langMap = {
+      en: { flag: '🇬🇧', name: 'Bahasa Inggris' },
+      id: { flag: '🇮🇩', name: 'Bahasa Indonesia' },
+      es: { flag: '🇪🇸', name: 'Bahasa Spanyol' },
+      fr: { flag: '🇫🇷', name: 'Bahasa Prancis' },
+      de: { flag: '🇩🇪', name: 'Bahasa Jerman' },
+      ja: { flag: '🇯🇵', name: 'Bahasa Jepang' },
+      'zh-cn': { flag: '🇨🇳', name: 'Bahasa Mandarin' },
+      zh: { flag: '🇨🇳', name: 'Bahasa Mandarin' },
+      ko: { flag: '🇰🇷', name: 'Bahasa Korea' },
+      ar: { flag: '🇸🇦', name: 'Bahasa Arab' },
+      ru: { flag: '🇷🇺', name: 'Bahasa Rusia' },
+      pt: { flag: '🇵🇹', name: 'Bahasa Portugis' },
+      it: { flag: '🇮🇹', name: 'Bahasa Italia' },
+      nl: { flag: '🇳🇱', name: 'Bahasa Belanda' },
+    }
+    return langMap[code] || { flag: '🌐', name: code.toUpperCase() }
+  }
+
   const AVAILABLE_LANGUAGES = [
     { code: 'id', name: 'Bahasa Indonesia', flag: '🇮🇩' },
     { code: 'es', name: 'Bahasa Spanyol', flag: '🇪🇸' },
@@ -180,6 +233,7 @@ export function Reader() {
         ...prev,
         loading: false,
         translation: text,
+        transliteration: res.data.transliteration,
         tense: res.data.tense,
         structure: res.data.structure,
         grammar_details: res.data.grammar_details,
@@ -210,12 +264,39 @@ export function Reader() {
     }
   }
 
-  // Text-To-Speech Pronunciation
-  const speakText = (text) => {
-    if (!synthRef.current) return
+  const getSpeechLangCode = (langCode) => {
+    const code = (langCode || 'en').toLowerCase()
+    const map = {
+      id: 'id-ID',
+      en: 'en-US',
+      es: 'es-ES',
+      fr: 'fr-FR',
+      de: 'de-DE',
+      ja: 'ja-JP',
+      'zh-cn': 'zh-CN',
+      zh: 'zh-CN',
+      ko: 'ko-KR',
+      ar: 'ar-SA',
+      ru: 'ru-RU',
+      pt: 'pt-BR',
+      it: 'it-IT',
+      nl: 'nl-NL',
+      tr: 'tr-TR',
+      vi: 'vi-VN',
+      th: 'th-TH',
+      su: 'id-ID',
+      jv: 'id-ID',
+    }
+    return map[code] || 'en-US'
+  }
+
+  // Text-To-Speech Pronunciation for any language
+  const speakText = (text, langCode = 'en') => {
+    if (!synthRef.current || !text) return
     synthRef.current.cancel()
+    const locale = getSpeechLangCode(langCode)
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'en-US'
+    utterance.lang = locale
     utterance.rate = 0.9
     synthRef.current.speak(utterance)
   }
@@ -461,9 +542,9 @@ export function Reader() {
                                     </span>
                                   )}
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.word); }}
+                                    onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.word, book?.language || 'en'); }}
                                     className="p-1 rounded-full text-duo-blue hover:bg-duo-blue/10"
-                                    title="Dengarkan pengucapan"
+                                    title="Dengarkan pengucapan kata asli"
                                   >
                                     <Volume2 className="w-4 h-4" />
                                   </button>
@@ -492,7 +573,7 @@ export function Reader() {
                             ) : (
                               <div className="space-y-3 text-sm">
                                 {/* Emerald Green Accent Box */}
-                                <div className="p-3.5 rounded-duo bg-duo-green/10 border-2 border-duo-green">
+                                <div className="p-3.5 rounded-duo bg-duo-green/10 border-2 border-duo-green space-y-1">
                                   <div className="flex items-center justify-between mb-1">
                                     <span className="text-[10px] font-extrabold tracking-wider text-duo-green uppercase flex items-center gap-1">
                                       <Sparkles className="w-3 h-3" /> Arti Kontekstual
@@ -501,9 +582,24 @@ export function Reader() {
                                       {Math.round((activeWordPopup.data?.confidence || 0.9) * 100)}% Cocok
                                     </span>
                                   </div>
-                                  <p className="font-heading font-extrabold text-lg text-eel dark:text-dark-text">
-                                    {activeWordPopup.data?.contextual_meaning}
-                                  </p>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="font-heading font-extrabold text-xl text-eel dark:text-dark-text">
+                                      {activeWordPopup.data?.contextual_meaning}
+                                    </p>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id'); }}
+                                      className="p-1 rounded-full text-duo-green hover:bg-duo-green/20 shrink-0"
+                                      title="Dengarkan pengucapan terjemahan"
+                                    >
+                                      <Volume2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                  {activeWordPopup.data?.transliteration && (
+                                    <div className="pt-1 flex items-center gap-1 text-duo-green font-mono font-bold text-xs">
+                                      <span className="text-[10px] uppercase opacity-75">🔤 Cara Baca:</span>
+                                      <span className="bg-duo-green/20 px-1.5 py-0.5 rounded">{activeWordPopup.data.transliteration}</span>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Structured Other Meanings / Parts of Speech */}
@@ -642,14 +738,19 @@ export function Reader() {
 
 
 
-      {/* Sentence Translation Modal / Bottom Sheet (3 Clear Sections - PRD §6.4) */}
+      {/* Sentence Translation Modal / Bottom Sheet (Mobile & Desktop Responsive) */}
       {activeSentencePopup && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in">
-          <div className="card-duo max-w-xl w-full p-6 bg-white dark:bg-dark-card border-2 border-duo-blue shadow-2xl space-y-4">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b-2 border-gray-100 dark:border-dark-border">
-              <div className="flex items-center gap-2 text-duo-blue font-heading font-extrabold text-xl">
-                <Globe className="w-6 h-6" />
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveSentencePopup(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in cursor-pointer"
+        >
+          <div className="card-duo max-w-2xl md:max-w-3xl w-full p-4 sm:p-6 bg-white dark:bg-dark-card border-2 border-duo-blue shadow-2xl space-y-4 max-h-[85vh] flex flex-col overflow-hidden cursor-default">
+            {/* Fixed Header */}
+            <div className="flex items-center justify-between pb-3 border-b-2 border-gray-100 dark:border-dark-border shrink-0">
+              <div className="flex items-center gap-2 text-duo-blue font-heading font-extrabold text-lg sm:text-xl">
+                <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
                 <span>Terjemahan Kalimat Utuh</span>
               </div>
               <button
@@ -666,54 +767,101 @@ export function Reader() {
                 <span className="text-sm font-bold text-duo-blue">Menerjemahkan kalimat & memproses konteks...</span>
               </div>
             ) : (
-              <div className="space-y-4">
-                {/* SECTION 1: 🇬🇧 Kalimat Asli (Bahasa Inggris) */}
-                <div className="p-4 rounded-duo bg-gray-100 dark:bg-dark-border/60 border border-gray-200 dark:border-dark-border">
-                  <span className="badge-duo bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 mb-2 inline-flex items-center gap-1 text-xs">
-                    🇬🇧 Kalimat Asli (Bahasa Inggris)
-                  </span>
-                  <p className="font-body text-base italic text-eel dark:text-dark-text leading-relaxed">
+              /* Scrollable Content Body */
+              <div className="overflow-y-auto space-y-4 pr-1 flex-1">
+                {/* SECTION 1: Kalimat Asli */}
+                <div className="p-3.5 sm:p-4 rounded-duo bg-gray-100 dark:bg-dark-border/60 border border-gray-200 dark:border-dark-border">
+                  <div className="flex items-center justify-between mb-2">
+                    {(() => {
+                      const origInfo = getOriginalLanguageInfo(book?.language)
+                      return (
+                        <span className="badge-duo bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 inline-flex items-center gap-1 text-xs font-bold">
+                          <span>{origInfo.flag}</span> Kalimat Asli ({origInfo.name})
+                        </span>
+                      )
+                    })()}
+                    <button
+                      onClick={() => speakText(activeSentencePopup.text, book?.language || 'en')}
+                      className="p-1 rounded-full text-gray-500 hover:text-eel dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-border"
+                      title="Dengarkan pengucapan kalimat asli"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="font-body text-sm sm:text-base italic text-eel dark:text-dark-text leading-relaxed break-words">
                     "{activeSentencePopup.text}"
                   </p>
                 </div>
 
                 {/* SECTION 2: Terjemahan dalam Bahasa Pilih */}
-                <div className="p-4 rounded-duo bg-duo-blue/10 border-2 border-duo-blue space-y-3">
+                <div className="p-3.5 sm:p-4 rounded-duo bg-duo-blue/10 border-2 border-duo-blue space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="badge-blue inline-flex items-center gap-1 text-xs">
+                    <span className="badge-blue inline-flex items-center gap-1 text-xs font-bold">
                       {AVAILABLE_LANGUAGES.find(l => l.code === (activeSentencePopup.lang || targetLanguage || 'id'))?.flag || '🌐'}{' '}
                       Terjemahan ({AVAILABLE_LANGUAGES.find(l => l.code === (activeSentencePopup.lang || targetLanguage || 'id'))?.name || 'Indonesia'})
                     </span>
 
-                    {/* Compact Language Selector Dropdown */}
-                    <div className="flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-duo-blue shrink-0" />
-                      <select
-                        value={activeSentencePopup.lang || targetLanguage || 'id'}
-                        onChange={(e) => {
-                          const newLang = e.target.value
-                          setTargetLanguage(newLang)
-                          handleSentenceTranslate(activeSentencePopup.sentenceId, activeSentencePopup.text, newLang)
-                        }}
-                        className="input-duo py-1 px-2.5 text-xs font-extrabold w-auto cursor-pointer bg-white dark:bg-dark-card text-eel dark:text-dark-text border border-duo-blue/40 rounded-duo"
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => speakText(activeSentencePopup.translation, activeSentencePopup.lang || targetLanguage || 'id')}
+                        className="p-1 rounded-full text-duo-blue hover:bg-duo-blue/20"
+                        title="Dengarkan suara terjemahan kalimat"
                       >
-                        {AVAILABLE_LANGUAGES.map(l => (
-                          <option key={l.code} value={l.code}>
-                            {l.flag} {l.name}
-                          </option>
-                        ))}
-                      </select>
+                        <Volume2 className="w-4 h-4" />
+                      </button>
+
+                      {/* Compact Language Selector Dropdown */}
+                      <div className="flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-duo-blue shrink-0" />
+                        <select
+                          value={activeSentencePopup.lang || targetLanguage || 'id'}
+                          onChange={(e) => {
+                            const newLang = e.target.value
+                            setTargetLanguage(newLang)
+                            handleSentenceTranslate(activeSentencePopup.sentenceId, activeSentencePopup.text, newLang)
+                          }}
+                          className="input-duo py-1 px-2.5 text-xs font-extrabold w-auto cursor-pointer bg-white dark:bg-dark-card text-eel dark:text-dark-text border border-duo-blue/40 rounded-duo"
+                        >
+                          {AVAILABLE_LANGUAGES.map(l => (
+                            <option key={l.code} value={l.code}>
+                              {l.flag} {l.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
 
-                  <p className="font-heading font-extrabold text-lg text-eel dark:text-dark-text leading-relaxed pt-1">
-                    {activeSentencePopup.translation}
-                  </p>
+                  {/* Character/Word-by-Word Interleaved Aligned Latin Cards */}
+                  {activeSentencePopup.transliteration ? (
+                    <div className="space-y-2 pt-1">
+                      <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
+                        🔤 Terjemahan & Cara Baca Latin Per-Huruf/Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
+                      </span>
+
+                      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
+                        {getAlignedTokens(activeSentencePopup.translation, activeSentencePopup.transliteration).map((item, idx) => (
+                          <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2 py-1 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
+                            <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
+                              {item.char}
+                            </span>
+                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
+                              {item.latin}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="font-heading font-extrabold text-base sm:text-lg text-eel dark:text-dark-text leading-relaxed pt-1 break-words">
+                      {activeSentencePopup.translation}
+                    </p>
+                  )}
                 </div>
 
                 {/* SECTION 3: 🎓 Analisis Tata Bahasa & 16 Tenses */}
                 {activeSentencePopup.tense && (
-                  <div className="p-4 rounded-duo bg-duo-purple/10 border-2 border-duo-purple space-y-2">
+                  <div className="p-3.5 sm:p-4 rounded-duo bg-duo-purple/10 border-2 border-duo-purple space-y-2">
                     <span className="badge-purple inline-flex items-center gap-1 text-xs font-extrabold">
                       🎓 Analisis Tata Bahasa & Tenses
                     </span>
@@ -760,11 +908,11 @@ export function Reader() {
 
                 {/* SECTION 4: 💡 Catatan Konteks & Istilah (Jika Ada) */}
                 {activeSentencePopup.notes && (
-                  <div className="p-4 rounded-duo bg-duo-yellow/10 border-2 border-duo-yellow">
+                  <div className="p-3.5 sm:p-4 rounded-duo bg-duo-yellow/10 border-2 border-duo-yellow">
                     <span className="badge-yellow mb-2 inline-flex items-center gap-1 text-xs">
                       💡 Catatan Konteks & Istilah
                     </span>
-                    <p className="font-ui font-semibold text-sm text-yellow-900 dark:text-duo-yellow leading-relaxed">
+                    <p className="font-ui font-semibold text-sm text-yellow-900 dark:text-duo-yellow leading-relaxed break-words">
                       {activeSentencePopup.notes}
                     </p>
                   </div>
@@ -772,9 +920,10 @@ export function Reader() {
               </div>
             )}
 
+            {/* Fixed Footer Close Button */}
             <button
               onClick={() => setActiveSentencePopup(null)}
-              className="btn-secondary w-full mt-4"
+              className="btn-secondary w-full mt-3 shrink-0"
             >
               Tutup
             </button>

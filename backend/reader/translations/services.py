@@ -87,7 +87,7 @@ class GrammarAnalyzer:
 
 
 class GoogleTranslateClient:
-    """Free Google Translate Client with Dictionary Multi-Meaning Support"""
+    """Free Google Translate Client with Dictionary Multi-Meaning Support & Latin Transliteration"""
     
     BASE_URL = "https://translate.googleapis.com/translate_a/single"
     
@@ -108,11 +108,16 @@ class GoogleTranslateClient:
             
             primary = ""
             ipa = ""
+            transliteration = ""
+            
             if res and len(res) > 0 and res[0] and len(res[0]) > 0 and res[0][0]:
                 primary = res[0][0][0]
             
-            if len(res[0]) > 1 and res[0][1] and len(res[0][1]) > 3:
-                ipa = res[0][1][3] or ""
+            if len(res[0]) > 1 and res[0][1]:
+                if len(res[0][1]) > 2 and res[0][1][2]:
+                    transliteration = res[0][1][2]
+                if len(res[0][1]) > 3 and res[0][1][3]:
+                    ipa = res[0][1][3] or ""
 
             other_meanings = []
             if len(res) > 1 and res[1]:
@@ -129,6 +134,7 @@ class GoogleTranslateClient:
 
             return {
                 "contextual_meaning": primary or word,
+                "transliteration": transliteration,
                 "other_meanings": other_meanings,
                 "insight": insight,
                 "ipa": ipa,
@@ -138,6 +144,7 @@ class GoogleTranslateClient:
         except Exception as e:
             return {
                 "contextual_meaning": word,
+                "transliteration": "",
                 "other_meanings": [str(e)],
                 "insight": "",
                 "ipa": "",
@@ -152,7 +159,7 @@ class GoogleTranslateClient:
             "client": "gtx",
             "sl": "auto",
             "tl": target_lang,
-            "dt": "t",
+            "dt": ["t", "rm"],
             "q": cleaned_text
         }
         headers = {
@@ -161,15 +168,23 @@ class GoogleTranslateClient:
         try:
             res = requests.get(GoogleTranslateClient.BASE_URL, params=params, headers=headers, timeout=10).json()
             translated_text = ""
+            transliteration = ""
+            
             if res and isinstance(res, list) and len(res) > 0 and isinstance(res[0], list):
                 for item in res[0]:
-                    if isinstance(item, list) and len(item) > 0 and item[0]:
-                        translated_text += item[0]
+                    if isinstance(item, list):
+                        if len(item) > 0 and item[0]:
+                            translated_text += item[0] + " "
+                        if len(item) > 2 and item[2]:
+                            transliteration += item[2] + " "
+                        elif len(item) > 3 and item[3]:
+                            transliteration += item[3] + " "
             
             grammar = GrammarAnalyzer.analyze(cleaned_text)
 
             return {
                 "indonesian_text": translated_text.strip() or cleaned_text,
+                "transliteration": transliteration.strip(),
                 "tense": grammar["tense"],
                 "structure": grammar["structure"],
                 "grammar_details": grammar["grammar_details"],
@@ -178,6 +193,7 @@ class GoogleTranslateClient:
         except Exception:
             return {
                 "indonesian_text": cleaned_text,
+                "transliteration": "",
                 "tense": "Simple Present Tense",
                 "structure": "Subjek + Predikat + Objek",
                 "grammar_details": {},
@@ -259,6 +275,7 @@ class TranslationService:
             except json.JSONDecodeError:
                 data = {
                     'contextual_meaning': word,
+                    'transliteration': '',
                     'other_meanings': [],
                     'insight': f"Tips Pemula: Kata '{word}' merupakan kosakata penting dalam teks ini.",
                     'ipa': '',
@@ -274,6 +291,7 @@ class TranslationService:
             defaults={
                 'word': word,
                 'contextual_meaning': data.get('contextual_meaning', ''),
+                'transliteration': data.get('transliteration', ''),
                 'other_meanings': data.get('other_meanings', []),
                 'insight': data.get('insight', f"Tips Pemula: Kata '{word}' sering digunakan dalam pola frasa umum."),
                 'ipa': data.get('ipa', ''),
@@ -294,6 +312,7 @@ class TranslationService:
                 'Berikan output HANYA dalam format JSON berikut:\n'
                 '{\n'
                 '  "contextual_meaning": "arti utama yang PALING SESUAI konteks kalimat",\n'
+                '  "transliteration": "panduan cara baca latin jika terjemahan menggunakan karakter non-latin",\n'
                 '  "other_meanings": ["⚡ Kata Kerja (Verb): arti 1, arti 2", "🏷️ Kata Benda (Noun): arti 3"],\n'
                 '  "insight": "Tips penggunaan kata untuk pemula",\n'
                 '  "ipa": "IPA pronunciation",\n'
@@ -325,6 +344,7 @@ class TranslationService:
         if engine == "google":
             data = GoogleTranslateClient.translate_sentence(sentence.text, target_lang=target_lang)
             indonesian_text = data['indonesian_text']
+            transliteration = data['transliteration']
             tense = data['tense']
             structure = data['structure']
             grammar_details = data['grammar_details']
@@ -338,6 +358,7 @@ class TranslationService:
                 'Output HANYA JSON:\n'
                 '{\n'
                 '  "indonesian_text": "terjemahan murni yang natural dan mengalir",\n'
+                '  "transliteration": "panduan cara baca latin jika bahasa target berbasis karakter bukan latin seperti pinyin romaji romaja",\n'
                 '  "tense": "jenis dari 16 tenses bahasa Inggris",\n'
                 '  "structure": "struktur S+V+O",\n'
                 '  "notes": "catatan konteks atau penjelasan istilah (kosongkan jika tidak ada)"\n'
@@ -350,12 +371,14 @@ class TranslationService:
             try:
                 parsed = json.loads(response)
                 indonesian_text = parsed.get('indonesian_text', '').strip()
+                transliteration = parsed.get('transliteration', '').strip()
                 tense = parsed.get('tense', grammar['tense'])
                 structure = parsed.get('structure', grammar['structure'])
                 grammar_details = grammar['grammar_details']
                 notes = parsed.get('notes', '').strip()
             except json.JSONDecodeError:
                 indonesian_text = response.strip()
+                transliteration = ""
                 tense = grammar['tense']
                 structure = grammar['structure']
                 grammar_details = grammar['grammar_details']
@@ -367,6 +390,7 @@ class TranslationService:
             engine=engine,
             defaults={
                 'indonesian_text': indonesian_text,
+                'transliteration': transliteration,
                 'tense': tense,
                 'structure': structure,
                 'grammar_details': grammar_details,

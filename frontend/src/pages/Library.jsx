@@ -98,6 +98,29 @@ export function Library() {
     navigate(`/read/${book.id}`)
   }
 
+  const getLanguageBadge = (lang) => {
+    const code = (lang || 'en').toLowerCase()
+    const flags = {
+      en: { flag: '🇬🇧', name: 'Inggris' },
+      id: { flag: '🇮🇩', name: 'Indonesia' },
+      es: { flag: '🇪🇸', name: 'Spanyol' },
+      fr: { flag: '🇫🇷', name: 'Prancis' },
+      de: { flag: '🇩🇪', name: 'Jerman' },
+      ja: { flag: '🇯🇵', name: 'Jepang' },
+      'zh-cn': { flag: '🇨🇳', name: 'Mandarin' },
+      zh: { flag: '🇨🇳', name: 'Mandarin' },
+      ko: { flag: '🇰🇷', name: 'Korea' },
+      ar: { flag: '🇸🇦', name: 'Arab' },
+    }
+    const info = flags[code] || { flag: '🌐', name: code.toUpperCase() }
+    return (
+      <span className="badge-duo bg-duo-blue/10 text-duo-blue text-xs font-extrabold flex items-center gap-1">
+        <span>{info.flag}</span>
+        <span>{info.name}</span>
+      </span>
+    )
+  }
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'ready':
@@ -219,11 +242,12 @@ export function Library() {
               <article key={book.id} className="card-duo overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col justify-between min-h-[220px]">
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {getFormatIcon(book.format)}
                       <span className="badge-duo bg-gray-100 dark:bg-dark-border text-gray-600 dark:text-dark-muted text-xs font-bold uppercase">
                         {(book.format || 'TXT').toUpperCase()}
                       </span>
+                      {getLanguageBadge(book.language)}
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(book.id); }}

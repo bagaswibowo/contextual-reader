@@ -1,4 +1,5 @@
 # Books app views
+import os
 import threading
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -8,7 +9,7 @@ from django.db import transaction, connection
 from django.utils import timezone
 from .models import Book, Chapter, Sentence
 from .serializers import BookSerializer, BookUploadSerializer, ChapterSerializer, ChapterListSerializer
-from .services import BookParser, SentenceSplitter
+from .services import BookParser, SentenceSplitter, LanguageDetector
 
 
 class BookViewSet(viewsets.ModelViewSet):
@@ -62,6 +63,11 @@ class BookViewSet(viewsets.ModelViewSet):
         file_path = book.file.path
         chapters_data = BookParser.parse(file_path, book.format)
         
+        # Auto-detect language (combining sample text across chapters, ignoring copyright boilerplate)
+        sample_text = " ".join([ch.content for ch in chapters_data[:3]])
+        detected_lang = LanguageDetector.detect(sample_text)
+        book.language = detected_lang
+        
         total_words = 0
         with transaction.atomic():
             # Clear old failed/partial chapters if re-processing
@@ -100,6 +106,32 @@ class BookViewSet(viewsets.ModelViewSet):
             book.status = 'completed'
             book.processed_at = timezone.now()
             book.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete book and all related child records cleanly using raw SQL"""
+        book = self.get_object()
+        book_id = book.id
+        
+        # Remove file from disk if exists
+        if book.file and os.path.exists(book.file.path):
+            try:
+                os.remove(book.file.path)
+            except Exception:
+                pass
+
+        # Raw SQL delete to bypass SQLite cyclic foreign key constraints
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA foreign_keys = OFF;")
+            cursor.execute("DELETE FROM vocabulary_reviewsession WHERE book_id = %s;", [book_id])
+            cursor.execute("DELETE FROM vocabulary_vocabularyentry WHERE book_id = %s;", [book_id])
+            cursor.execute("DELETE FROM translations_wordtranslation WHERE sentence_id IN (SELECT id FROM books_sentence WHERE chapter_id IN (SELECT id FROM books_chapter WHERE book_id = %s));", [book_id])
+            cursor.execute("DELETE FROM translations_sentencetranslation WHERE sentence_id IN (SELECT id FROM books_sentence WHERE chapter_id IN (SELECT id FROM books_chapter WHERE book_id = %s));", [book_id])
+            cursor.execute("DELETE FROM books_sentence WHERE chapter_id IN (SELECT id FROM books_chapter WHERE book_id = %s);", [book_id])
+            cursor.execute("DELETE FROM books_chapter WHERE book_id = %s;", [book_id])
+            cursor.execute("DELETE FROM books_book WHERE id = %s;", [book_id])
+            cursor.execute("PRAGMA foreign_keys = ON;")
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'])
     def chapter(self, request, pk=None):

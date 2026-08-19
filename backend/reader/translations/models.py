@@ -12,6 +12,7 @@ class WordTranslation(models.Model):
     target_lang = models.CharField(max_length=10, default='id')
     engine = models.CharField(max_length=20, default='google')
     contextual_meaning = models.TextField()  # Primary translation
+    transliteration = models.CharField(max_length=200, blank=True)  # Latin phonetic guide for target word
     other_meanings = models.JSONField(default=list)  # Parts of speech list / alternatives
     insight = models.TextField(blank=True)  # Usage hint for beginners
     ipa = models.CharField(max_length=100, blank=True)
@@ -36,6 +37,7 @@ class SentenceTranslation(models.Model):
     target_lang = models.CharField(max_length=10, default='id')
     engine = models.CharField(max_length=20, default='google')
     indonesian_text = models.TextField()
+    transliteration = models.TextField(blank=True)  # Latin phonetic guide (Pinyin, Romaji, etc.)
     tense = models.CharField(max_length=200, blank=True)  # 16 Tenses classification
     structure = models.TextField(blank=True)  # S+V+O pattern
     grammar_details = models.JSONField(default=dict)  # { verbs, nouns, adjectives }
