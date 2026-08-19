@@ -24,24 +24,20 @@ POS_MAP = {
 }
 
 
-class AsianTokenizer:
-    """Segment Non-Latin scripts (Japanese, Mandarin, Korean, Arabic, Russian, Thai) into 3-Layer Word Tokens: [Aksara -> Latin -> Meaning ID]"""
+class UniversalWordTokenizer:
+    """Segment sentences into 3-Layer Word Tokens for ALL LANGUAGES: [Target Word -> Latin Pronunciation -> Mother Tongue Meaning]"""
 
     @staticmethod
-    def get_token_pairs(text: str, target_lang: str) -> List[Dict]:
-        clean_lang = (target_lang or 'id').lower()
-        if not text or clean_lang not in ['ja', 'zh-cn', 'zh', 'ko', 'ar', 'ru', 'th', 'hi']:
+    def get_token_pairs(text: str, target_lang: str, mother_lang: str = "id") -> List[Dict]:
+        if not text:
             return []
         
-        # For Mandarin Chinese (zh-CN), extract individual Hanzi characters for 1-to-1 Pīnyīn & Meaning alignment
+        clean_lang = (target_lang or 'en').lower()
+        
         if clean_lang in ['zh-cn', 'zh']:
             raw_tokens = [c for c in text if re.match(r'[\u4e00-\u9faf]', c)]
             grouped = raw_tokens[:25]
-        elif clean_lang in ['ar', 'ru', 'ko', 'hi', 'th']:
-            pattern = r'[\u0600-\u06ff]+|[\u0400-\u04ff]+|[\u0e00-\u0e7f]+|[\uac00-\ud7af]+|[\u0900-\u097f]+|[a-zA-Z0-9]+'
-            grouped = [t.strip() for t in re.findall(pattern, text) if t and t.strip() and not re.match(r'^[,\.!\?、。;\s\-\u060c\u061b]+$', t)][:25]
-        else:
-            # Japanese: group Kana/Kanji tokens
+        elif clean_lang == 'ja':
             pattern = r'[\u4e00-\u9faf]+|[\u3040-\u309f]+|[\u30a0-\u30ff]+|[a-zA-Z0-9]+'
             raw_tokens = [t.strip() for t in re.findall(pattern, text) if t and t.strip() and not re.match(r'^[,\.!\?、。;\s\-]+$', t)]
             grouped = []
@@ -54,18 +50,21 @@ class AsianTokenizer:
             if cur:
                 grouped.append(cur)
             grouped = grouped[:25]
+        else:
+            # Space-separated Latin / Cyrillic / Arabic / Thai / Korean / German / French / Spanish / etc.
+            pattern = r'[^\s,\.!\?\(\)\[\]\{\}"\':;]+'
+            grouped = [t.strip() for t in re.findall(pattern, text) if t and len(t.strip()) >= 2][:25]
             
         pairs = []
         for token in grouped:
             clean_tok = re.sub(r'[\u060c\u061b,\.!\?]', '', token).strip()
-            if not clean_tok:
+            if not clean_tok or len(clean_tok) < 2:
                 continue
             
-            # Fetch 3 layers: [Original Script Token -> Latin Transliteration -> Indonesian Meaning]
             params = {
                 "client": "gtx",
                 "sl": clean_lang,
-                "tl": "id",  # Translate to Indonesian mother tongue
+                "tl": mother_lang,
                 "dt": ["t", "rm"],
                 "q": clean_tok
             }
@@ -84,9 +83,9 @@ class AsianTokenizer:
                             romaji = res[0][1][2]
                     elif len(res[0][0]) > 2 and res[0][0][2]:
                         romaji = res[0][0][2]
-                pairs.append({"word": clean_tok, "latin": romaji or clean_tok, "meaning": meaning or clean_tok})
+                pairs.append({"word": clean_tok, "latin": romaji or clean_tok.lower(), "meaning": meaning or clean_tok})
             except Exception:
-                pairs.append({"word": clean_tok, "latin": clean_tok, "meaning": clean_tok})
+                pairs.append({"word": clean_tok, "latin": clean_tok.lower(), "meaning": clean_tok})
                 
         return pairs
 
@@ -248,7 +247,7 @@ class GoogleTranslateClient:
                             transliteration += item[3] + " "
             
             grammar = GrammarAnalyzer.analyze(cleaned_text)
-            token_pairs = AsianTokenizer.get_token_pairs(translated_text.strip(), target_lang)
+            token_pairs = UniversalWordTokenizer.get_token_pairs(translated_text.strip(), target_lang, mother_lang="id")
             grammar_details = grammar["grammar_details"]
             grammar_details["token_pairs"] = token_pairs
 
@@ -415,7 +414,7 @@ class TranslationService:
                     {'role': 'user', 'content': sentence.text}
                 ])
                 parsed = json.loads(response)
-                token_pairs = AsianTokenizer.get_token_pairs(parsed.get('indonesian_text', sentence.text), target_lang)
+                token_pairs = UniversalWordTokenizer.get_token_pairs(parsed.get('indonesian_text', sentence.text), target_lang, mother_lang="id")
                 grammar_details = grammar['grammar_details']
                 grammar_details['token_pairs'] = token_pairs
                 data = {
