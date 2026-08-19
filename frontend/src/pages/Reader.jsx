@@ -869,8 +869,8 @@ export function Reader() {
                     {activeSentencePopup.translation}
                   </p>
 
-                  {/* 3-Layer Interleaved Aligned Cards: [Aksara -> Latin Transliteration -> Terjemahan Bahasa Induk] */}
-                  {activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
+                  {/* 3-Layer Interleaved Aligned Cards: Only for Non-Indonesian Target Languages */}
+                  {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
                       <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
                         🔤 Terjemahan 3 Layer Per-Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
@@ -879,7 +879,7 @@ export function Reader() {
                       <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
                         {activeSentencePopup.grammar_details.token_pairs.map((item, idx) => (
                           <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
-                            {/* Layer 1: Aksara Asli */}
+                            {/* Layer 1: Aksara/Kata Target */}
                             <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
                               {item.word}
                             </span>
@@ -895,7 +895,7 @@ export function Reader() {
                         ))}
                       </div>
                     </div>
-                  ) : activeSentencePopup.transliteration ? (
+                  ) : (activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== 'id' && activeSentencePopup.transliteration ? (
                     <div className="space-y-2 pt-2 border-t border-duo-blue/20">
                       <span className="text-[10px] font-extrabold text-duo-blue uppercase tracking-wider block">
                         🔤 Panduan Cara Baca Latin ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})
