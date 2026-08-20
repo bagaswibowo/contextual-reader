@@ -997,14 +997,14 @@ export function Reader() {
                     {activeSentencePopup.translation}
                   </p>
 
-                  {/* Mother Tongue Sentence Translation (If Target Language is different from Mother Language) */}
+                  {/* Mother Tongue Sentence Translation (Compact Badge) */}
                   {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.motherTranslation && (
-                    <div className="p-3 rounded-duo bg-duo-green/10 border border-duo-green/30 space-y-1">
-                      <span className="text-[11px] font-extrabold text-duo-green uppercase tracking-wider flex items-center gap-1">
+                    <div className="p-2.5 rounded-duo bg-duo-green/10 border border-duo-green/30 space-y-0.5">
+                      <span className="text-[10px] font-extrabold text-duo-green uppercase tracking-wider flex items-center gap-1">
                         <span>{AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.flag || '🌐'}</span>
                         <span>Terjemahan ({AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.name || 'Indonesia'}):</span>
                       </span>
-                      <p className="font-heading font-extrabold text-sm sm:text-base text-duo-green leading-relaxed break-words">
+                      <p className="font-heading font-extrabold text-xs sm:text-sm text-duo-green leading-snug break-words">
                         {activeSentencePopup.motherTranslation}
                       </p>
                     </div>
@@ -1020,17 +1020,17 @@ export function Reader() {
 
                       <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
                         {activeSentencePopup.grammar_details.token_pairs.map((item, idx) => (
-                          <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
+                          <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2 py-1 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
                             {/* Layer 1: Aksara/Kata Target */}
-                            <span className="font-heading font-extrabold text-base sm:text-lg text-eel dark:text-dark-text leading-tight">
+                            <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
                               {item.word}
                             </span>
                             {/* Layer 2: Cara Baca Latin */}
-                            <span className="font-mono text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
+                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
                               {item.latin}
                             </span>
-                            {/* Layer 3: Terjemahan Bahasa Induk Pengguna */}
-                            <span className="text-xs font-bold text-duo-green bg-duo-green/10 px-1.5 py-0.5 rounded mt-1 max-w-[130px] truncate">
+                            {/* Layer 3: Terjemahan Bahasa Induk Pengguna (Compact) */}
+                            <span className="text-[10px] font-bold text-duo-green bg-duo-green/10 px-1.5 py-0.5 rounded mt-0.5 max-w-[110px] truncate">
                               {item.meaning}
                             </span>
                           </div>

@@ -56,9 +56,10 @@ class UniversalWordTokenizer:
             grouped = [t.strip() for t in re.findall(pattern, text) if t and len(t.strip()) >= 2][:25]
             
         pairs = []
+        min_len = 1 if clean_lang in ['zh-cn', 'zh', 'ja'] else 2
         for token in grouped:
-            clean_tok = re.sub(r'[\u060c\u061b,\.!\?]', '', token).strip()
-            if not clean_tok or len(clean_tok) < 2:
+            clean_tok = re.sub(r'[\u060c\u061b,\.!\?\s"\'“”]', '', token).strip()
+            if not clean_tok or len(clean_tok) < min_len:
                 continue
             
             params = {
