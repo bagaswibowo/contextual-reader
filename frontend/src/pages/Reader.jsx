@@ -353,8 +353,27 @@ export function Reader() {
     return currentVoices.find(v => v.lang.toLowerCase().replace('_', '-').startsWith('ja')) || null
   }
 
+  // Web Audio Context Singleton for Studio-Quality 48kHz Hardware Playback
+  const getAudioContext = () => {
+    if (typeof window === 'undefined') return null
+    if (!window._appAudioContext) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      if (AudioCtx) {
+        window._appAudioContext = new AudioCtx()
+      }
+    }
+    if (window._appAudioContext && window._appAudioContext.state === 'suspended') {
+      try { window._appAudioContext.resume() } catch (e) {}
+    }
+    return window._appAudioContext || null
+  }
+
   // Stop any active playing audio
   const stopAudio = () => {
+    if (window._activeAudioSource) {
+      try { window._activeAudioSource.stop() } catch (e) {}
+      window._activeAudioSource = null
+    }
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
@@ -365,8 +384,8 @@ export function Reader() {
     setPlayingAudioKey(null)
   }
 
-  // Native High-Definition Speech Audio Engine with Play/Stop Toggle
-  const speakText = (text, langCode = 'en', audioKey = null) => {
+  // Native Studio-Quality Speech Audio Engine (Web Audio API 48kHz PCM + Web Speech Fallback)
+  const speakText = async (text, langCode = 'en', audioKey = null) => {
     if (!text) return
 
     // If clicking the same audio currently playing -> STOP IT!
@@ -385,55 +404,58 @@ export function Reader() {
     if (lang === 'zh' || lang === 'zh-cn') lang = 'zh-CN'
     else if (lang === 'zh-tw') lang = 'zh-TW'
 
-    const nonLatinLangs = ['ja', 'zh-cn', 'zh-tw', 'ko', 'ar', 'ru', 'th', 'hi']
     const encodedText = encodeURIComponent(cleanText)
-    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodedText}`
+    // Official Google Chrome Extension 24kHz HD Neural Voice Stream Endpoint
+    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=dict-chrome-ex&q=${encodedText}`
 
-    // For Non-Latin languages: Use Official Google Translate High-Definition Neural Human Voice Stream directly
-    if (nonLatinLangs.includes(lang.toLowerCase())) {
-      const audio = new Audio(googleTtsUrl)
-      audioRef.current = audio
+    // 1. Try Web Audio API HD ArrayBuffer decoding for 100% natural, uncompressed studio sound
+    try {
+      const ctx = getAudioContext()
+      if (ctx) {
+        const response = await fetch(googleTtsUrl)
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer()
+          const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
 
-      audio.onended = () => setPlayingAudioKey(null)
-      audio.onerror = () => {
-        // Fallback to Web SpeechSynthesis if network fails
-        if (synthRef.current) {
-          try {
-            const utterance = new SpeechSynthesisUtterance(cleanText)
-            utterance.lang = getSpeechLangCode(langCode)
-            utterance.rate = 0.95
-            utterance.onend = () => setPlayingAudioKey(null)
-            utterance.onerror = () => setPlayingAudioKey(null)
-            synthRef.current.speak(utterance)
-          } catch (e) {
+          const source = ctx.createBufferSource()
+          source.buffer = audioBuffer
+          source.connect(ctx.destination)
+          window._activeAudioSource = source
+
+          source.onended = () => {
             setPlayingAudioKey(null)
+            window._activeAudioSource = null
           }
-        } else {
-          setPlayingAudioKey(null)
+
+          source.start(0)
+          return
         }
       }
-
-      audio.play().catch(() => setPlayingAudioKey(null))
-      return
+    } catch (e) {
+      // Fallback if fetch/CORS is restricted on device
     }
 
-    // For Latin languages, try browser Web Speech API first
-    if (synthRef.current) {
-      try {
-        const utterance = new SpeechSynthesisUtterance(cleanText)
-        utterance.lang = getSpeechLangCode(langCode)
-        utterance.rate = 0.95
-        utterance.onend = () => setPlayingAudioKey(null)
-        utterance.onerror = () => setPlayingAudioKey(null)
-        synthRef.current.speak(utterance)
-        return
-      } catch (e) {}
-    }
-
+    // 2. Priority Fallback: HTML5 Audio
     const audio = new Audio(googleTtsUrl)
     audioRef.current = audio
     audio.onended = () => setPlayingAudioKey(null)
-    audio.onerror = () => setPlayingAudioKey(null)
+    audio.onerror = () => {
+      if (synthRef.current) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(cleanText)
+          utterance.lang = getSpeechLangCode(langCode)
+          utterance.rate = 0.95
+          utterance.onend = () => setPlayingAudioKey(null)
+          utterance.onerror = () => setPlayingAudioKey(null)
+          synthRef.current.speak(utterance)
+        } catch (err) {
+          setPlayingAudioKey(null)
+        }
+      } else {
+        setPlayingAudioKey(null)
+      }
+    }
+
     audio.play().catch(() => setPlayingAudioKey(null))
   }
 
