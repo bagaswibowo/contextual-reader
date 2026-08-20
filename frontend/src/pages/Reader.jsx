@@ -365,7 +365,7 @@ export function Reader() {
     setPlayingAudioKey(null)
   }
 
-  // Natural Text-To-Speech Audio Engine with Play/Stop Toggle & Female Voice Support
+  // Native High-Definition Speech Audio Engine with Play/Stop Toggle
   const speakText = (text, langCode = 'en', audioKey = null) => {
     if (!text) return
 
@@ -379,38 +379,57 @@ export function Reader() {
     if (audioKey) setPlayingAudioKey(audioKey)
 
     const cleanText = text.trim().slice(0, 300)
-    const lang = (langCode || 'en').toLowerCase()
+    let lang = (langCode || 'en').toLowerCase()
     
-    // Priority 1: Web SpeechSynthesis API with Native Female Voice Selection
+    // Normalize language codes for Google Translate Neural Audio Engine
+    if (lang === 'zh' || lang === 'zh-cn') lang = 'zh-CN'
+    else if (lang === 'zh-tw') lang = 'zh-TW'
+
+    const nonLatinLangs = ['ja', 'zh-cn', 'zh-tw', 'ko', 'ar', 'ru', 'th', 'hi']
+    const encodedText = encodeURIComponent(cleanText)
+    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodedText}`
+
+    // For Non-Latin languages: Use Official Google Translate High-Definition Neural Human Voice Stream directly
+    if (nonLatinLangs.includes(lang.toLowerCase())) {
+      const audio = new Audio(googleTtsUrl)
+      audioRef.current = audio
+
+      audio.onended = () => setPlayingAudioKey(null)
+      audio.onerror = () => {
+        // Fallback to Web SpeechSynthesis if network fails
+        if (synthRef.current) {
+          try {
+            const utterance = new SpeechSynthesisUtterance(cleanText)
+            utterance.lang = getSpeechLangCode(langCode)
+            utterance.rate = 0.95
+            utterance.onend = () => setPlayingAudioKey(null)
+            utterance.onerror = () => setPlayingAudioKey(null)
+            synthRef.current.speak(utterance)
+          } catch (e) {
+            setPlayingAudioKey(null)
+          }
+        } else {
+          setPlayingAudioKey(null)
+        }
+      }
+
+      audio.play().catch(() => setPlayingAudioKey(null))
+      return
+    }
+
+    // For Latin languages, try browser Web Speech API first
     if (synthRef.current) {
       try {
         const utterance = new SpeechSynthesisUtterance(cleanText)
         utterance.lang = getSpeechLangCode(langCode)
         utterance.rate = 0.95
-        
-        if (lang === 'ja') {
-          const femaleVoice = getFemaleJapaneseVoice()
-          if (femaleVoice) {
-            utterance.voice = femaleVoice
-          }
-          utterance.pitch = 1.25 // Higher feminine pitch contour for Japanese female voice
-        } else if (lang === 'zh-cn' || lang === 'zh') {
-          utterance.pitch = 1.15
-        }
-
         utterance.onend = () => setPlayingAudioKey(null)
         utterance.onerror = () => setPlayingAudioKey(null)
-        
         synthRef.current.speak(utterance)
         return
       } catch (e) {}
     }
 
-    // Fallback: Official Google Translate Neural Audio Stream
-    const encodedText = encodeURIComponent(cleanText)
-    const googleTtsLang = lang === 'zh-cn' || lang === 'zh' ? 'zh-CN' : lang === 'ja' ? 'ja' : lang
-    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleTtsLang}&client=tw-ob&q=${encodedText}`
-    
     const audio = new Audio(googleTtsUrl)
     audioRef.current = audio
     audio.onended = () => setPlayingAudioKey(null)
