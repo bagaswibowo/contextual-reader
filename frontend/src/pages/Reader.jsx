@@ -112,6 +112,33 @@ export function Reader() {
     }
   }
 
+  // Reading.help 3D Assistance Fetcher (Lexical + Grammar + Comprehension Gist)
+  const handleFetch3d = async (sentenceId, word, sentenceText) => {
+    setActiveWordPopup(prev => ({ ...prev, explain3dLoading: true, explain3dError: null }))
+    try {
+      const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
+      const res = await translationsApi.explain3d(
+        sentenceText || word,
+        word,
+        userCefrLevel || 'B2',
+        targetLanguage || 'id',
+        sentenceId,
+        customConfig
+      )
+      setActiveWordPopup(prev => ({
+        ...prev,
+        explain3dLoading: false,
+        explain3dData: res.data
+      }))
+    } catch (e) {
+      setActiveWordPopup(prev => ({
+        ...prev,
+        explain3dLoading: false,
+        explain3dError: e.message || 'Gagal memuat analisis 3D'
+      }))
+    }
+  }
+
   // Handle word or multi-word phrase click -> contextual translation
   const handleWordClick = async (event, sentenceId, rawWord, wIdx, overrideLang) => {
     // Clean punctuation from word or multi-word phrase while preserving spaces
@@ -141,6 +168,10 @@ export function Reader() {
         loading: false,
         data: res.data
       }))
+      
+      // Auto-prefetch 3D Assistance in background so tabs open instantly
+      const sentText = chapter?.sentences?.find(s => s.id === sentenceId)?.text || cleanedWord;
+      handleFetch3d(sentenceId, cleanedWord, sentText);
     } catch (err) {
       let errMsg = err.message || 'Gagal menerjemahkan kata/frasa'
       if (typeof errMsg === 'string' && errMsg.includes('<!doctype html>')) {
@@ -189,42 +220,42 @@ export function Reader() {
   const getOriginalLanguageInfo = (langCode) => {
     const code = (langCode || 'en').toLowerCase()
     const langMap = {
-      en: { flag: '🇬🇧', name: 'Bahasa Inggris' },
-      id: { flag: '🇮🇩', name: 'Bahasa Indonesia' },
-      es: { flag: '🇪🇸', name: 'Bahasa Spanyol' },
-      fr: { flag: '🇫🇷', name: 'Bahasa Prancis' },
-      de: { flag: '🇩🇪', name: 'Bahasa Jerman' },
-      ja: { flag: '🇯🇵', name: 'Bahasa Jepang' },
-      'zh-cn': { flag: '🇨🇳', name: 'Bahasa Mandarin' },
-      zh: { flag: '🇨🇳', name: 'Bahasa Mandarin' },
-      ko: { flag: '🇰🇷', name: 'Bahasa Korea' },
-      ar: { flag: '🇸🇦', name: 'Bahasa Arab' },
-      ru: { flag: '🇷🇺', name: 'Bahasa Rusia' },
-      pt: { flag: '🇵🇹', name: 'Bahasa Portugis' },
-      it: { flag: '🇮🇹', name: 'Bahasa Italia' },
-      nl: { flag: '🇳🇱', name: 'Bahasa Belanda' },
+      en: { badge: 'EN', name: 'Bahasa Inggris' },
+      id: { badge: 'ID', name: 'Bahasa Indonesia' },
+      es: { badge: 'ES', name: 'Bahasa Spanyol' },
+      fr: { badge: 'FR', name: 'Bahasa Prancis' },
+      de: { badge: 'DE', name: 'Bahasa Jerman' },
+      ja: { badge: 'JA', name: 'Bahasa Jepang' },
+      'zh-cn': { badge: 'ZH', name: 'Bahasa Mandarin' },
+      zh: { badge: 'ZH', name: 'Bahasa Mandarin' },
+      ko: { badge: 'KO', name: 'Bahasa Korea' },
+      ar: { badge: 'AR', name: 'Bahasa Arab' },
+      ru: { badge: 'RU', name: 'Bahasa Rusia' },
+      pt: { badge: 'PT', name: 'Bahasa Portugis' },
+      it: { badge: 'IT', name: 'Bahasa Italia' },
+      nl: { badge: 'NL', name: 'Bahasa Belanda' },
     }
-    return langMap[code] || { flag: '🌐', name: code.toUpperCase() }
+    return langMap[code] || { badge: code.toUpperCase(), name: code.toUpperCase() }
   }
 
   const AVAILABLE_LANGUAGES = [
-    { code: 'id', name: 'Bahasa Indonesia', flag: '🇮🇩' },
-    { code: 'es', name: 'Bahasa Spanyol', flag: '🇪🇸' },
-    { code: 'fr', name: 'Bahasa Prancis', flag: '🇫🇷' },
-    { code: 'de', name: 'Bahasa Jerman', flag: '🇩🇪' },
-    { code: 'ja', name: 'Bahasa Jepang', flag: '🇯🇵' },
-    { code: 'zh-CN', name: 'Bahasa Mandarin', flag: '🇨🇳' },
-    { code: 'ko', name: 'Bahasa Korea', flag: '🇰🇷' },
-    { code: 'ar', name: 'Bahasa Arab', flag: '🇸🇦' },
-    { code: 'ru', name: 'Bahasa Rusia', flag: '🇷🇺' },
-    { code: 'pt', name: 'Bahasa Portugis', flag: '🇵🇹' },
-    { code: 'it', name: 'Bahasa Italia', flag: '🇮🇹' },
-    { code: 'nl', name: 'Bahasa Belanda', flag: '🇳🇱' },
-    { code: 'tr', name: 'Bahasa Turki', flag: '🇹🇷' },
-    { code: 'vi', name: 'Bahasa Vietnam', flag: '🇻🇳' },
-    { code: 'th', name: 'Bahasa Thailand', flag: '🇹🇭' },
-    { code: 'su', name: 'Bahasa Sunda', flag: '🇮🇩' },
-    { code: 'jv', name: 'Bahasa Jawa', flag: '🇮🇩' },
+    { code: 'id', name: 'Bahasa Indonesia', badge: 'ID' },
+    { code: 'es', name: 'Bahasa Spanyol', badge: 'ES' },
+    { code: 'fr', name: 'Bahasa Prancis', badge: 'FR' },
+    { code: 'de', name: 'Bahasa Jerman', badge: 'DE' },
+    { code: 'ja', name: 'Bahasa Jepang', badge: 'JA' },
+    { code: 'zh-CN', name: 'Bahasa Mandarin', badge: 'ZH' },
+    { code: 'ko', name: 'Bahasa Korea', badge: 'KO' },
+    { code: 'ar', name: 'Bahasa Arab', badge: 'AR' },
+    { code: 'ru', name: 'Bahasa Rusia', badge: 'RU' },
+    { code: 'pt', name: 'Bahasa Portugis', badge: 'PT' },
+    { code: 'it', name: 'Bahasa Italia', badge: 'IT' },
+    { code: 'nl', name: 'Bahasa Belanda', badge: 'NL' },
+    { code: 'tr', name: 'Bahasa Turki', badge: 'TR' },
+    { code: 'vi', name: 'Bahasa Vietnam', badge: 'VI' },
+    { code: 'th', name: 'Bahasa Thailand', badge: 'TH' },
+    { code: 'su', name: 'Bahasa Sunda', badge: 'SU' },
+    { code: 'jv', name: 'Bahasa Jawa', badge: 'JV' },
   ]
 
   // Handle sentence margin icon click -> full paragraph/sentence translation
@@ -662,6 +693,82 @@ export function Reader() {
           style={{ fontSize: `${fontSize}px`, lineHeight: lineHeight }}
         >
           {chapter?.sentences?.map((sent, sIdx) => {
+            const rawText = sent.text?.trim() || '';
+
+            // 1. Markdown Image Renderer
+            if (rawText.startsWith('![') && rawText.includes('](')) {
+              const imgMatch = rawText.match(/!\[(.*?)\]\((.*?)\)/);
+              if (imgMatch) {
+                const alt = imgMatch[1];
+                const src = imgMatch[2];
+                return (
+                  <div key={sent.id || sIdx} className="my-8 text-center bg-gray-50/80 dark:bg-dark-card/60 p-4 rounded-2xl border-2 border-gray-200 dark:border-dark-border shadow-sm">
+                    <img 
+                      src={src.startsWith('http') ? src : `${window.location.origin}${src}`} 
+                      alt={alt} 
+                      className="max-h-[420px] max-w-full mx-auto rounded-xl shadow-md object-contain"
+                      loading="lazy" 
+                    />
+                    <p className="text-xs font-semibold text-gray-500 dark:text-dark-muted mt-3 font-mono">{alt}</p>
+                  </div>
+                );
+              }
+            }
+
+            // 2. Markdown Table Renderer
+            if (rawText.startsWith('|') && (rawText.includes('\n|') || rawText.includes(' | '))) {
+              const rows = rawText.split('\n').filter(r => r.includes('|') && !r.includes('---'));
+              if (rows.length >= 1) {
+                const headerRow = rows[0].split('|').map(c => c.trim()).filter(Boolean);
+                const bodyRows = rows.slice(1).map(r => r.split('|').map(c => c.trim()).filter(Boolean));
+                return (
+                  <div key={sent.id || sIdx} className="my-6 overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-dark-border shadow-sm">
+                    <table className="w-full text-left text-xs sm:text-sm font-sans border-collapse">
+                      <thead className="bg-gray-100 dark:bg-dark-card text-eel dark:text-dark-text font-bold">
+                        <tr>
+                          {headerRow.map((h, i) => (
+                            <th key={i} className="p-3 border-b-2 border-gray-200 dark:border-dark-border">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-dark-border bg-white dark:bg-dark-card">
+                        {bodyRows.map((row, rIdx) => (
+                          <tr key={rIdx} className="hover:bg-gray-50 dark:hover:bg-dark-border/40 transition-colors">
+                            {row.map((cell, cIdx) => (
+                              <td key={cIdx} className="p-3 text-gray-700 dark:text-gray-300">{cell}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              }
+            }
+
+            // 3. Markdown Heading Renderer
+            if (rawText.startsWith('#')) {
+              const cleanHeading = rawText.replace(/^#+\s*/, '');
+              const isH1 = rawText.startsWith('# ');
+              return (
+                <div key={sent.id || sIdx} className="mt-8 mb-4 border-b border-gray-200 dark:border-dark-border pb-2">
+                  <h2 className={`${isH1 ? 'text-2xl sm:text-3xl' : 'text-lg sm:text-xl'} font-bold font-heading text-eel dark:text-dark-text`}>
+                    {cleanHeading}
+                  </h2>
+                </div>
+              );
+            }
+
+            // 4. Formula / Math Block Renderer
+            if ((rawText.startsWith('72809') && rawText.endsWith('72809')) || (rawText.startsWith('$') && rawText.endsWith('$'))) {
+              const mathFormula = rawText.replace(/\$/g, '').trim();
+              return (
+                <div key={sent.id || sIdx} className="my-4 p-4 text-center bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-200 dark:border-indigo-900/60 font-mono text-sm sm:text-base text-indigo-900 dark:text-indigo-200 shadow-inner">
+                  {mathFormula}
+                </div>
+              );
+            }
+
             const words = sent.text.split(' ')
             return (
               <div 
@@ -684,7 +791,7 @@ export function Reader() {
                         </button>
                         {' '}
                         {isSelected && (
-                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 animate-bounce-in w-[300px] sm:w-[340px] p-4 card-duo shadow-2xl bg-white dark:bg-dark-card border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case">
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 animate-bounce-in w-[360px] sm:w-[460px] max-w-[94vw] p-4 sm:p-5 card-duo shadow-2xl bg-white dark:bg-dark-card border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case">
                             {/* Tooltip Pointer Arrow */}
                             <div className="absolute -top-[9px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[8px] border-x-transparent border-b-[9px] border-b-gray-300 dark:border-b-dark-border" />
                             <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[7px] border-x-transparent border-b-[7px] border-b-white dark:border-b-dark-card" />
@@ -729,6 +836,57 @@ export function Reader() {
                               </button>
                             </div>
 
+                            {/* 3D Tab Navigation Bar (Reading.help) */}
+                            <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-dark-border/80 rounded-xl mb-3 text-xs font-bold">
+                              <button
+                                onClick={() => setActiveWordPopup(prev => ({ ...prev, currentTab: 'lexical' }))}
+                                className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                  (activeWordPopup.currentTab || 'lexical') === 'lexical'
+                                    ? 'bg-white dark:bg-dark-card text-eel dark:text-white shadow-sm border border-gray-200/60 dark:border-dark-border'
+                                    : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                              >
+                                <BookOpen className="w-3.5 h-3.5" />
+                                <span>Kosakata</span>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveWordPopup(prev => ({ ...prev, currentTab: 'grammar' }));
+                                  if (!activeWordPopup.explain3dData && !activeWordPopup.explain3dLoading) {
+                                    const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word;
+                                    handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
+                                  }
+                                }}
+                                className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                  activeWordPopup.currentTab === 'grammar'
+                                    ? 'bg-white dark:bg-dark-card text-duo-blue dark:text-blue-400 shadow-sm border border-gray-200/60 dark:border-dark-border'
+                                    : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                              >
+                                <Layers className="w-3.5 h-3.5" />
+                                <span>Tata Bahasa</span>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveWordPopup(prev => ({ ...prev, currentTab: 'comprehension' }));
+                                  if (!activeWordPopup.explain3dData && !activeWordPopup.explain3dLoading) {
+                                    const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word;
+                                    handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
+                                  }
+                                }}
+                                className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                  activeWordPopup.currentTab === 'comprehension'
+                                    ? 'bg-white dark:bg-dark-card text-purple-600 dark:text-purple-400 shadow-sm border border-gray-200/60 dark:border-dark-border'
+                                    : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                              >
+                                <Lightbulb className="w-3.5 h-3.5" />
+                                <span>Intisari</span>
+                              </button>
+                            </div>
+
                             {activeWordPopup.loading ? (
                               <div className="flex flex-col items-center justify-center py-6 gap-2">
                                 <div className="w-8 h-8 border-3 border-duo-green border-t-transparent rounded-full animate-spin" />
@@ -737,99 +895,191 @@ export function Reader() {
                             ) : activeWordPopup.error ? (
                               <p className="text-xs text-duo-red py-2 font-bold">{activeWordPopup.error}</p>
                             ) : (
-                              <div className="space-y-3 text-sm">
-                                {/* Emerald Green Accent Box: 3-Layer Word Translation */}
-                                <div className="p-3.5 sm:p-4 rounded-duo bg-duo-green/10 border-2 border-duo-green space-y-2">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-[10px] font-extrabold tracking-wider text-duo-green uppercase flex items-center gap-1">
-                                      <Sparkles className="w-3.5 h-3.5" /> Arti Kontekstual ({activeWordPopup.lang === 'zh-CN' ? '🇨🇳 Mandarin' : activeWordPopup.lang === 'ja' ? '🇯🇵 Jepang' : activeWordPopup.lang === 'es' ? '🇪🇸 Spanyol' : activeWordPopup.lang === 'fr' ? '🇫🇷 Prancis' : '🌐 Target'})
-                                    </span>
-                                    <span className="text-[10px] font-bold text-duo-green bg-duo-green/20 px-1.5 py-0.5 rounded">
-                                      {Math.round((activeWordPopup.data?.confidence || 0.9) * 100)}% Cocok
-                                    </span>
-                                  </div>
+                              <div className="space-y-3">
+                                {/* TAB 1: KOSAKATA (LEXICAL) */}
+                                {(activeWordPopup.currentTab || 'lexical') === 'lexical' && (
+                                  <div className="space-y-2.5">
+                                    <div className="p-3.5 rounded-xl bg-duo-green/10 border-2 border-duo-green space-y-1.5">
+                                      <div className="flex items-center justify-between mb-0.5">
+                                        <span className="text-xs font-extrabold tracking-wider text-duo-green uppercase flex items-center gap-1">
+                                          <Sparkles className="w-3.5 h-3.5" /> Arti Kontekstual ({AVAILABLE_LANGUAGES.find(l => l.code === (activeWordPopup.lang || targetLanguage || 'id'))?.name || 'Indonesia'})
+                                        </span>
+                                        <span className="text-xs font-bold text-duo-green bg-duo-green/20 px-2 py-0.5 rounded-md">
+                                          {Math.round((activeWordPopup.data?.confidence || 0.9) * 100)}% Cocok
+                                        </span>
+                                      </div>
 
-                                  {/* Layer 1: Target Language Word */}
-                                  <div className="flex items-center justify-between gap-2">
-                                    <p className="font-heading font-extrabold text-2xl text-eel dark:text-dark-text">
-                                      {activeWordPopup.data?.contextual_meaning}
-                                    </p>
-                                    {(() => {
-                                      const audioKey = `word_trans_${activeWordPopup.data?.contextual_meaning}`
-                                      const isPlaying = playingAudioKey === audioKey
-                                      return (
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id', audioKey); }}
-                                          className={`p-1.5 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
-                                          title={isPlaying ? "Berhenti" : "Dengarkan pengucapan terjemahan"}
-                                        >
-                                          {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
-                                        </button>
-                                      )
-                                    })()}
-                                  </div>
+                                      {/* Layer 1: Target Language Word */}
+                                      <div className="flex items-center justify-between gap-2 pt-0.5">
+                                        <p className="font-heading font-extrabold text-2xl text-eel dark:text-dark-text">
+                                          {activeWordPopup.data?.contextual_meaning}
+                                        </p>
+                                        {(() => {
+                                          const audioKey = `word_trans_${activeWordPopup.data?.contextual_meaning}`
+                                          const isPlaying = playingAudioKey === audioKey
+                                          return (
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id', audioKey); }}
+                                              className={`p-1.5 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
+                                              title={isPlaying ? "Berhenti" : "Dengarkan pengucapan terjemahan"}
+                                            >
+                                              {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
+                                            </button>
+                                          )
+                                        })()}
+                                      </div>
 
-                                  {/* Layer 2: Latin Pronunciation Guide (Pīnyīn / Rōmaji / Latin) */}
-                                  {activeWordPopup.data?.transliteration && (
-                                    <div className="pt-1 flex items-center gap-1.5 text-duo-blue font-mono font-bold text-xs">
-                                      <Languages className="w-3.5 h-3.5 text-duo-blue shrink-0" />
-                                      <span className="text-[10px] uppercase opacity-80">Cara Baca:</span>
-                                      <span className="bg-duo-blue/20 text-duo-blue px-2 py-0.5 rounded font-extrabold">{activeWordPopup.data.transliteration}</span>
+                                      {/* Layer 2: Latin Pronunciation Guide */}
+                                      {activeWordPopup.data?.transliteration && (
+                                        <div className="pt-1 flex items-center gap-1.5 text-duo-blue font-mono font-bold text-xs">
+                                          <Languages className="w-3.5 h-3.5 text-duo-blue shrink-0" />
+                                          <span className="text-xs uppercase opacity-80">Cara Baca:</span>
+                                          <span className="bg-duo-blue/20 text-duo-blue px-2 py-0.5 rounded font-extrabold">{activeWordPopup.data.transliteration}</span>
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
 
-                                  {/* Layer 3: Mother-Tongue Meaning (If target language is different from user's mother language) */}
-                                  {(activeWordPopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && (
-                                    <div className="pt-1.5 flex items-center gap-1.5 text-duo-green font-bold text-xs border-t border-duo-green/20">
-                                      <span className="text-[10px] uppercase tracking-wider font-extrabold opacity-90 text-duo-green">
-                                        {AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.flag || '🌐'} Arti ({AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.name || 'Indonesia'}):
-                                      </span>
-                                      <span className="bg-duo-green/20 text-duo-green px-2 py-0.5 rounded font-extrabold text-sm sm:text-base">
-                                        {activeWordPopup.data?.indonesian_meaning || 'Memuat...'}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Structured Other Meanings / Parts of Speech */}
-                                {activeWordPopup.data?.other_meanings?.length > 0 && (
-                                  <div className="space-y-2 pt-1">
-                                    <span className="text-[10px] font-extrabold text-gray-400 dark:text-dark-muted uppercase tracking-wider block">
-                                      💡 Kelas Kata & Variasi Makna
-                                    </span>
-                                    <div className="space-y-2">
-                                      {activeWordPopup.data.other_meanings.map((line, idx) => {
-                                        let category = ''
-                                        let meanings = line
-                                        if (line.includes(':')) {
-                                          const parts = line.split(':')
-                                          category = parts[0].trim()
-                                          meanings = parts.slice(1).join(':').trim()
-                                        }
-                                        return (
-                                          <div key={idx} className="p-3 rounded-duo bg-gray-50 dark:bg-dark-border/50 border border-gray-200 dark:border-dark-border space-y-1">
-                                            {category && (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-duo-blue/10 text-duo-blue border border-duo-blue/20">
-                                                {category}
-                                              </span>
-                                            )}
-                                            <p className="text-xs font-bold text-eel dark:text-dark-text leading-relaxed pl-0.5">
-                                              {meanings}
-                                            </p>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
+                                    {/* Structured Other Meanings / Parts of Speech */}
+                                    {activeWordPopup.data?.other_meanings?.length > 0 && (
+                                      <div className="space-y-1.5 pt-1">
+                                        <span className="text-xs font-extrabold text-gray-500 dark:text-dark-muted uppercase tracking-wider flex items-center gap-1">
+                                          <Layers className="w-3.5 h-3.5 text-duo-blue" /> Kelas Kata & Variasi Makna
+                                        </span>
+                                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                          {activeWordPopup.data.other_meanings.map((line, idx) => {
+                                            let category = ''
+                                            let meanings = line
+                                            if (line.includes(':')) {
+                                              const parts = line.split(':')
+                                              category = parts[0].trim()
+                                              meanings = parts.slice(1).join(':').trim()
+                                            }
+                                            return (
+                                              <div key={idx} className="p-2.5 rounded-xl bg-gray-50 dark:bg-dark-border/50 border border-gray-200 dark:border-dark-border">
+                                                {category && (
+                                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-extrabold bg-duo-blue/10 text-duo-blue border border-duo-blue/20 mb-1">
+                                                    {category}
+                                                  </span>
+                                                )}
+                                                <p className="text-xs font-bold text-eel dark:text-dark-text leading-relaxed">
+                                                  {meanings}
+                                                </p>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
-                                {/* Beginner Usage Insight / Hint */}
-                                {activeWordPopup.data?.insight && (
-                                  <div className="p-3 rounded-duo bg-duo-yellow/10 border border-duo-yellow/40 text-xs text-yellow-900 dark:text-duo-yellow leading-relaxed">
-                                    <span className="font-bold flex items-center gap-1 mb-0.5 text-[11px] uppercase tracking-wider text-yellow-800 dark:text-duo-yellow">
-                                      💡 Insight Pemula
-                                    </span>
-                                    {activeWordPopup.data.insight}
+                                {/* TAB 2: TATA BAHASA (GRAMMAR) */}
+                                {activeWordPopup.currentTab === 'grammar' && (
+                                  <div className="space-y-2.5 p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-900/60">
+                                    {activeWordPopup.explain3dLoading ? (
+                                      <div className="py-6 text-center text-xs font-bold text-gray-500 flex items-center justify-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-duo-blue border-t-transparent rounded-full animate-spin" />
+                                        Menganalisis struktur kalimat...
+                                      </div>
+                                    ) : activeWordPopup.explain3dData?.grammar ? (
+                                      <div className="space-y-2 text-xs text-left">
+                                        <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/60 dark:border-blue-800/60">
+                                          <span className="font-bold text-blue-900 dark:text-blue-200 text-xs flex items-center gap-1">
+                                            <GraduationCap className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Tingkat Kesulitan:
+                                          </span>
+                                          <span className="px-2 py-0.5 text-xs font-mono font-bold bg-blue-600 text-white rounded-full">
+                                            CEFR {activeWordPopup.explain3dData.cefr_level || userCefrLevel || 'B2'}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs mb-1 flex items-center gap-1">
+                                            <Layers className="w-3.5 h-3.5 text-blue-600" /> Peran & Pola Kalimat:
+                                          </div>
+                                          <div className="text-gray-800 dark:text-gray-200 text-xs font-medium leading-relaxed bg-white dark:bg-dark-card p-2.5 rounded-lg border border-blue-100 dark:border-dark-border">
+                                            {activeWordPopup.explain3dData.grammar.role}
+                                          </div>
+                                        </div>
+                                        {activeWordPopup.explain3dData.grammar.tense && (
+                                          <div>
+                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs mb-1 flex items-center gap-1">
+                                              <Clock className="w-3.5 h-3.5 text-blue-600" /> Tenses:
+                                            </div>
+                                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-dark-card p-2.5 rounded-lg border border-blue-100 dark:border-dark-border">
+                                              {activeWordPopup.explain3dData.grammar.tense}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {activeWordPopup.explain3dData.grammar.clause_breakdown && (
+                                          <div>
+                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs mb-1 flex items-center gap-1">
+                                              <Search className="w-3.5 h-3.5 text-blue-600" /> Pembagian Klausa:
+                                            </div>
+                                            <div className="text-xs font-mono text-gray-700 dark:text-gray-300 bg-white dark:bg-dark-card p-2.5 rounded-lg border border-blue-100 dark:border-dark-border leading-relaxed">
+                                              {activeWordPopup.explain3dData.grammar.clause_breakdown}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="py-4 text-center">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word;
+                                            handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
+                                          }}
+                                          className="btn-primary py-2 px-4 text-xs font-bold shadow-md"
+                                        >
+                                          Muat Analisis Tata Bahasa
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* TAB 3: INTISARI (COMPREHENSION) */}
+                                {activeWordPopup.currentTab === 'comprehension' && (
+                                  <div className="space-y-2.5 p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border-2 border-purple-200 dark:border-purple-900/60">
+                                    {activeWordPopup.explain3dLoading ? (
+                                      <div className="py-6 text-center text-xs font-bold text-gray-500 flex items-center justify-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                                        Mengekstrak intisari kalimat...
+                                      </div>
+                                    ) : activeWordPopup.explain3dData?.comprehension ? (
+                                      <div className="space-y-2 text-xs text-left">
+                                        <div>
+                                          <div className="font-extrabold text-purple-900 dark:text-purple-200 text-xs mb-1 flex items-center gap-1">
+                                            <Lightbulb className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Intisari & Parafrase Sederhana:
+                                          </div>
+                                          <div className="text-gray-800 dark:text-gray-200 text-sm font-medium leading-relaxed bg-white dark:bg-dark-card p-3 rounded-lg border border-purple-100 dark:border-dark-border italic">
+                                            "{activeWordPopup.explain3dData.comprehension.gist}"
+                                          </div>
+                                        </div>
+                                        {activeWordPopup.explain3dData.comprehension.intention && (
+                                          <div>
+                                            <div className="font-extrabold text-purple-900 dark:text-purple-200 text-xs mb-1 flex items-center gap-1">
+                                              <Target className="w-3.5 h-3.5 text-purple-600" /> Maksud Penulis:
+                                            </div>
+                                            <div className="text-gray-700 dark:text-gray-300 text-xs bg-white dark:bg-dark-card p-2.5 rounded-lg border border-purple-100 dark:border-dark-border">
+                                              {activeWordPopup.explain3dData.comprehension.intention}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="py-4 text-center">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word;
+                                            handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
+                                          }}
+                                          className="btn-primary py-2 px-4 text-xs font-bold shadow-md"
+                                        >
+                                          Muat Intisari Kalimat
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
@@ -862,7 +1112,7 @@ export function Reader() {
 
                                 {/* In-Word Popup Language Switcher */}
                                 <div className="flex items-center justify-between gap-1 pt-2 border-t border-gray-100 dark:border-dark-border mt-2">
-                                  <span className="text-[10px] font-bold text-gray-500">Bahasa Target:</span>
+                                  <span className="text-xs font-bold text-gray-500">Bahasa Target:</span>
                                   <select
                                     value={activeWordPopup.lang || targetLanguage || 'id'}
                                     onChange={(e) => {
@@ -870,7 +1120,7 @@ export function Reader() {
                                       setTargetLanguage(newLang)
                                       handleWordClick(null, activeWordPopup.sentenceId, activeWordPopup.word, activeWordPopup.wIdx, newLang)
                                     }}
-                                    className="input-duo py-0.5 px-2 text-xs font-bold w-auto"
+                                    className="input-duo py-1 px-2.5 text-xs font-bold w-auto"
                                   >
                                     {AVAILABLE_LANGUAGES.map(l => (
                                       <option key={l.code} value={l.code}>
@@ -992,7 +1242,7 @@ export function Reader() {
                 <div className="p-3.5 sm:p-4 rounded-duo bg-duo-blue/10 border-2 border-duo-blue space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="badge-blue inline-flex items-center gap-1 text-xs font-bold">
-                      {AVAILABLE_LANGUAGES.find(l => l.code === (activeSentencePopup.lang || targetLanguage || 'id'))?.flag || '🌐'}{' '}
+                      <Languages className="w-3.5 h-3.5 text-duo-blue" />
                       Terjemahan ({AVAILABLE_LANGUAGES.find(l => l.code === (activeSentencePopup.lang || targetLanguage || 'id'))?.name || 'Indonesia'})
                     </span>
 
@@ -1025,7 +1275,7 @@ export function Reader() {
                         >
                           {AVAILABLE_LANGUAGES.map(l => (
                             <option key={l.code} value={l.code}>
-                              {l.flag} {l.name}
+                              [{l.badge}] {l.name}
                             </option>
                           ))}
                         </select>
@@ -1042,7 +1292,7 @@ export function Reader() {
                   {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.motherTranslation && (
                     <div className="p-2.5 rounded-duo bg-duo-green/10 border border-duo-green/30 space-y-0.5">
                       <span className="text-[10px] font-extrabold text-duo-green uppercase tracking-wider flex items-center gap-1">
-                        <span>{AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.flag || '🌐'}</span>
+                        <Languages className="w-3.5 h-3.5 text-duo-green" />
                         <span>Terjemahan ({AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.name || 'Indonesia'}):</span>
                       </span>
                       <p className="font-heading font-extrabold text-xs sm:text-sm text-duo-green leading-snug break-words">

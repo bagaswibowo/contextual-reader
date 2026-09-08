@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { 
   Brain, BookOpen, Volume2, RotateCcw, CheckCircle2, 
-  XCircle, HelpCircle, Sparkles, Flame, Search, Filter 
+  XCircle, HelpCircle, Sparkles, Flame, Search, Filter, Trash2 
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { vocabularyApi, booksApi } from '../utils/api'
 
 export function Vocabulary() {
@@ -38,6 +39,19 @@ export function Vocabulary() {
       console.error(err)
       setVocabulary([])
       setLoading(false)
+    }
+  }
+
+  const handleDeleteVocabulary = async (e, id) => {
+    if (e && e.stopPropagation) e.stopPropagation()
+    if (!window.confirm('Hapus kata ini dari daftar kosakata?')) return
+
+    try {
+      await vocabularyApi.delete(id)
+      setVocabulary(prev => prev.filter(item => item.id !== id))
+      toast.success('Kosakata berhasil dihapus')
+    } catch (err) {
+      toast.error(err.message || 'Gagal menghapus kosakata')
     }
   }
 
@@ -98,12 +112,26 @@ export function Vocabulary() {
     }
   }
 
-  const speakText = (text) => {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'en-US'
-    window.speechSynthesis.speak(utterance)
+  const speakText = (text, lang = 'en') => {
+    if (!text) return
+    try {
+      const audio = new Audio(`/api/translations/tts/?text=${encodeURIComponent(text)}&lang=${lang}`)
+      audio.play().catch(() => {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel()
+          const utterance = new SpeechSynthesisUtterance(text)
+          utterance.lang = 'en-US'
+          window.speechSynthesis.speak(utterance)
+        }
+      })
+    } catch (e) {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+        const utterance = new SpeechSynthesisUtterance(text)
+        utterance.lang = 'en-US'
+        window.speechSynthesis.speak(utterance)
+      }
+    }
   }
 
   const vocabList = Array.isArray(vocabulary) ? vocabulary : []
@@ -269,8 +297,14 @@ export function Vocabulary() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-gray-100 dark:border-dark-border flex items-center justify-between text-xs text-gray-400">
-                      <span>Buku: {item.book?.title || 'Umum'}</span>
-                      <span>Review: {item.review_count}x</span>
+                      <span>Buku: {item.book?.title || 'Umum'} (Review: {item.review_count}x)</span>
+                      <button
+                        onClick={(e) => handleDeleteVocabulary(e, item.id)}
+                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
+                        title="Hapus kata"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 )
@@ -287,9 +321,9 @@ export function Vocabulary() {
             /* Session Completed Screen */
             <div className="card-duo p-8 text-center bg-white dark:bg-dark-card animate-bounce-in">
               <div className="w-20 h-20 bg-duo-green/20 text-duo-green rounded-full flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-10 h-10 animate-spin" />
+                <Sparkles className="w-10 h-10" />
               </div>
-              <h2 className="heading-1 text-3xl mb-2">Sesi Review Selesai! 🎉</h2>
+              <h2 className="heading-1 text-3xl mb-2">Sesi Review Selesai</h2>
               <p className="text-gray-600 dark:text-dark-muted mb-6">
                 Hebat! Kamu telah mereview {sessionStats.reviewed} kata pada sesi ini.
               </p>

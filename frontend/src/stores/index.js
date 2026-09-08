@@ -50,6 +50,9 @@ export const useReaderStore = create(
       customBaseUrl: '',
       customApiKey: '',
       customModel: '',
+      userCefrLevel: 'B2', // 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+      summaryDetailLevel: 'concise', // 'concise' | 'detailed'
+      showMarginSummary: true,
       
       setFontSize: (size) => set({ fontSize: Math.max(12, Math.min(32, size)) }),
       setFontFamily: (family) => set({ fontFamily: family }),
@@ -63,6 +66,9 @@ export const useReaderStore = create(
       setCustomBaseUrl: (customBaseUrl) => set({ customBaseUrl }),
       setCustomApiKey: (customApiKey) => set({ customApiKey }),
       setCustomModel: (customModel) => set({ customModel }),
+      setUserCefrLevel: (userCefrLevel) => set({ userCefrLevel }),
+      setSummaryDetailLevel: (summaryDetailLevel) => set({ summaryDetailLevel }),
+      setShowMarginSummary: (showMarginSummary) => set({ showMarginSummary }),
     }),
     {
       name: 'reader-settings',

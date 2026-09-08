@@ -81,15 +81,17 @@ export function Library() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Hapus buku ini? Semua kosakata terkait akan terhapus.')) return
+  const handleDelete = async (e, id) => {
+    if (e && e.stopPropagation) e.stopPropagation()
+    if (!window.confirm('Hapus buku ini? Semua bab dan kosakata terkait akan dihapus secara permanen.')) return
     
     try {
       await booksApi.delete(id)
       removeBook(id)
-      toast.success('Buku dihapus')
+      toast.success('Buku berhasil dihapus')
+      await loadBooks(true)
     } catch (err) {
-      toast.error('Gagal menghapus buku')
+      toast.error(err.message || 'Gagal menghapus buku')
     }
   }
 
@@ -99,24 +101,10 @@ export function Library() {
   }
 
   const getLanguageBadge = (lang) => {
-    const code = (lang || 'en').toLowerCase()
-    const flags = {
-      en: { flag: '🇬🇧', name: 'Inggris' },
-      id: { flag: '🇮🇩', name: 'Indonesia' },
-      es: { flag: '🇪🇸', name: 'Spanyol' },
-      fr: { flag: '🇫🇷', name: 'Prancis' },
-      de: { flag: '🇩🇪', name: 'Jerman' },
-      ja: { flag: '🇯🇵', name: 'Jepang' },
-      'zh-cn': { flag: '🇨🇳', name: 'Mandarin' },
-      zh: { flag: '🇨🇳', name: 'Mandarin' },
-      ko: { flag: '🇰🇷', name: 'Korea' },
-      ar: { flag: '🇸🇦', name: 'Arab' },
-    }
-    const info = flags[code] || { flag: '🌐', name: code.toUpperCase() }
+    const code = (lang || 'en').toUpperCase()
     return (
-      <span className="badge-duo bg-duo-blue/10 text-duo-blue text-xs font-extrabold flex items-center gap-1">
-        <span>{info.flag}</span>
-        <span>{info.name}</span>
+      <span className="badge-duo bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-mono font-bold px-2 py-0.5 rounded">
+        {code}
       </span>
     )
   }
@@ -250,7 +238,7 @@ export function Library() {
                       {getLanguageBadge(book.language)}
                     </div>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(book.id); }}
+                      onClick={(e) => handleDelete(e, book.id)}
                       className="p-1.5 text-gray-400 hover:text-duo-red hover:bg-duo-red/10 rounded-lg transition-colors"
                       aria-label="Hapus buku"
                     >

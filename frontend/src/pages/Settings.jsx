@@ -61,7 +61,7 @@ export function Settings() {
                 >
                   {AVAILABLE_LANGUAGES.map(l => (
                     <option key={l.code} value={l.code}>
-                      {l.flag} {l.name} ({l.code})
+                      [{l.badge}] {l.name} ({l.code})
                     </option>
                   ))}
                 </select>
@@ -76,7 +76,7 @@ export function Settings() {
                 >
                   {AVAILABLE_LANGUAGES.map(l => (
                     <option key={l.code} value={l.code}>
-                      {l.flag} {l.name} ({l.code})
+                      [{l.badge}] {l.name} ({l.code})
                     </option>
                   ))}
                 </select>
@@ -102,7 +102,7 @@ export function Settings() {
                   </div>
                   <span className="font-heading font-extrabold text-sm block">Google Translate</span>
                   <span className="text-[11px] text-gray-500 block mt-1 leading-tight">
-                    ⚡ Gratis, Respon Instan, Kamus Kelas Kata & Transliterasi Latin.
+                    Gratis, respon instan, kamus kelas kata & transliterasi latin.
                   </span>
                 </button>
 
@@ -121,7 +121,7 @@ export function Settings() {
                   </div>
                   <span className="font-heading font-extrabold text-sm block">OmniRoute Proxy</span>
                   <span className="text-[11px] text-gray-500 block mt-1 leading-tight">
-                    🤖 Model auto/best-free via local OmniRoute Proxy server.
+                    Model auto/best-free via local OmniRoute Proxy server.
                   </span>
                 </button>
 
@@ -140,7 +140,7 @@ export function Settings() {
                   </div>
                   <span className="font-heading font-extrabold text-sm block">Custom AI Provider</span>
                   <span className="text-[11px] text-gray-500 block mt-1 leading-tight">
-                    🔑 Gunakan API Key OpenAI, OpenRouter, Groq, atau LLM kustom Anda.
+                    Gunakan API Key OpenAI, OpenRouter, Groq, atau LLM kustom Anda.
                   </span>
                 </button>
               </div>

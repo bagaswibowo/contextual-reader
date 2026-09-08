@@ -85,11 +85,32 @@ export const translationsApi = {
       custom_api_key: customConfig.customApiKey,
       custom_model: customConfig.customModel
     }),
+  explain3d: (sentenceText, selectedText, userLevel = 'B2', targetLang = 'id', sentenceId = null, customConfig = {}) =>
+    api.post('/translations/explain-3d/', {
+      sentence_text: sentenceText,
+      selected_text: selectedText,
+      user_level: userLevel,
+      target_lang: targetLang,
+      sentence_id: sentenceId,
+      custom_base_url: customConfig.customBaseUrl,
+      custom_api_key: customConfig.customApiKey,
+      custom_model: customConfig.customModel
+    }),
+  paragraphSummary: (paragraphText, detailLevel = 'concise', targetLang = 'id', customConfig = {}) =>
+    api.post('/translations/paragraph-summary/', {
+      paragraph_text: paragraphText,
+      detail_level: detailLevel,
+      target_lang: targetLang,
+      custom_base_url: customConfig.customBaseUrl,
+      custom_api_key: customConfig.customApiKey,
+      custom_model: customConfig.customModel
+    }),
 }
 
 export const vocabularyApi = {
   list: (params) => api.get('/vocabulary/', { params }),
   add: (wordTranslationId, userId = 'default') => api.post('/vocabulary/', { word_translation: wordTranslationId, user_id: userId }),
+  delete: (id) => api.delete(`/vocabulary/${id}/`),
   byBook: (userId = 'default', bookId) => api.get('/vocabulary/by_book/', { params: { user_id: userId, book_id: bookId } }),
   due: (userId = 'default') => api.get('/vocabulary/due_for_review/', { params: { user_id: userId } }),
   review: (id, quality) => api.post(`/vocabulary/${id}/review/`, { quality }),

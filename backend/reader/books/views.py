@@ -108,28 +108,25 @@ class BookViewSet(viewsets.ModelViewSet):
             book.save()
 
     def destroy(self, request, *args, **kwargs):
-        """Delete book and all related child records cleanly using raw SQL"""
+        """Delete book and all related records cleanly"""
         book = self.get_object()
-        book_id = book.id
         
-        # Remove file from disk if exists
-        if book.file and os.path.exists(book.file.path):
-            try:
+        # Safely remove file from disk if exists
+        try:
+            if bool(book.file) and hasattr(book.file, 'path') and os.path.exists(book.file.path):
                 os.remove(book.file.path)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
-        # Raw SQL delete to bypass SQLite cyclic foreign key constraints
-        with connection.cursor() as cursor:
-            cursor.execute("PRAGMA foreign_keys = OFF;")
-            cursor.execute("DELETE FROM vocabulary_reviewsession WHERE book_id = %s;", [book_id])
-            cursor.execute("DELETE FROM vocabulary_vocabularyentry WHERE book_id = %s;", [book_id])
-            cursor.execute("DELETE FROM translations_wordtranslation WHERE sentence_id IN (SELECT id FROM books_sentence WHERE chapter_id IN (SELECT id FROM books_chapter WHERE book_id = %s));", [book_id])
-            cursor.execute("DELETE FROM translations_sentencetranslation WHERE sentence_id IN (SELECT id FROM books_sentence WHERE chapter_id IN (SELECT id FROM books_chapter WHERE book_id = %s));", [book_id])
-            cursor.execute("DELETE FROM books_sentence WHERE chapter_id IN (SELECT id FROM books_chapter WHERE book_id = %s);", [book_id])
-            cursor.execute("DELETE FROM books_chapter WHERE book_id = %s;", [book_id])
-            cursor.execute("DELETE FROM books_book WHERE id = %s;", [book_id])
-            cursor.execute("PRAGMA foreign_keys = ON;")
+        # Explicitly delete related records to prevent SQLite constraint / lock errors
+        try:
+            with transaction.atomic():
+                book.review_sessions.all().delete()
+                book.vocabulary_entries.all().delete()
+                book.chapters.all().delete()
+                book.delete()
+        except Exception:
+            book.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
