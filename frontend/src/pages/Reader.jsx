@@ -10,6 +10,7 @@ import {
 import { booksApi, translationsApi, vocabularyApi } from '../utils/api'
 import { useReaderStore, useVocabularyStore } from '../stores'
 import { useTheme } from '../hooks/useTheme'
+import { MouthArticulationVisualizer } from '../components/MouthArticulationVisualizer'
 
 export function Reader() {
   const { bookId } = useParams()
@@ -884,11 +885,11 @@ export function Reader() {
                               </button>
                             </div>
 
-                            {/* 3D Tab Navigation Bar (Reading.help) */}
+                            {/* 3D Tab Navigation Bar (Reading.help + Google Pronunciation) */}
                             <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-dark-border/80 rounded-xl mb-3 text-xs font-bold">
                               <button
                                 onClick={() => setActiveWordPopup(prev => ({ ...prev, currentTab: 'lexical' }))}
-                                className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                className={`flex-1 py-1.5 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
                                   (activeWordPopup.currentTab || 'lexical') === 'lexical'
                                     ? 'bg-white dark:bg-dark-card text-eel dark:text-white shadow-sm border border-gray-200/60 dark:border-dark-border'
                                     : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
@@ -900,13 +901,27 @@ export function Reader() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setActiveWordPopup(prev => ({ ...prev, currentTab: 'pronunciation' }));
+                                }}
+                                className={`flex-1 py-1.5 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                                  activeWordPopup.currentTab === 'pronunciation'
+                                    ? 'bg-white dark:bg-dark-card text-sky-600 dark:text-sky-400 shadow-sm border border-gray-200/60 dark:border-dark-border'
+                                    : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                              >
+                                <Volume2 className="w-3.5 h-3.5" />
+                                <span>Bibir & Suara</span>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setActiveWordPopup(prev => ({ ...prev, currentTab: 'grammar' }));
                                   if (!activeWordPopup.explain3dData && !activeWordPopup.explain3dLoading) {
                                     const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word;
                                     handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
                                   }
                                 }}
-                                className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                className={`flex-1 py-1.5 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
                                   activeWordPopup.currentTab === 'grammar'
                                     ? 'bg-white dark:bg-dark-card text-duo-blue dark:text-blue-400 shadow-sm border border-gray-200/60 dark:border-dark-border'
                                     : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
@@ -924,7 +939,7 @@ export function Reader() {
                                     handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
                                   }
                                 }}
-                                className={`flex-1 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                className={`flex-1 py-1.5 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
                                   activeWordPopup.currentTab === 'comprehension'
                                     ? 'bg-white dark:bg-dark-card text-purple-600 dark:text-purple-400 shadow-sm border border-gray-200/60 dark:border-dark-border'
                                     : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
@@ -1019,6 +1034,14 @@ export function Reader() {
                                       </div>
                                     )}
                                   </div>
+                                )}
+
+                                {/* TAB PRONUNCIATION: GERAKAN BIBIR & SUARA (Google Pronunciation Articulation) */}
+                                {activeWordPopup.currentTab === 'pronunciation' && (
+                                  <MouthArticulationVisualizer 
+                                    word={activeWordPopup.word} 
+                                    ipa={activeWordPopup.data?.ipa || ''} 
+                                  />
                                 )}
 
                                 {/* TAB 2: TATA BAHASA (GRAMMAR) */}
