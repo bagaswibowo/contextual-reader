@@ -4,7 +4,8 @@ import {
   ArrowLeft, ChevronDown, Volume2, Globe, Bookmark, 
   Check, Plus, Sparkles, BookOpen, Sun, Moon, Type, 
   SlidersHorizontal, AlertTriangle, X, Play, Square,
-  GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText
+  GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText,
+  Layers, Target, Search
 } from 'lucide-react'
 import { booksApi, translationsApi, vocabularyApi } from '../utils/api'
 import { useReaderStore, useVocabularyStore } from '../stores'
