@@ -780,12 +780,11 @@ export function Reader() {
                   <p className="flex-1 leading-relaxed break-words min-w-0">
                   {words.map((word, wIdx) => {
                     const isSelected = activeWordPopup && activeWordPopup.sentenceId === sent.id && activeWordPopup.wIdx === wIdx
-                    const isComplex = isComplexAcademicWord(word)
                     return (
                       <span key={wIdx} className="relative inline-block">
                         <button
                           onClick={(e) => handleWordClick(e, sent.id, word, wIdx)}
-                          className={`word-clickable rounded hover:bg-duo-green/10 px-0.5 ${isSelected ? 'bg-duo-green/20 font-bold decoration-duo-green decoration-2' : isComplex ? 'border-b border-dotted border-gray-400 dark:border-gray-500' : ''}`}
+                          className={`word-clickable rounded hover:bg-duo-green/10 px-0.5 ${isSelected ? 'bg-duo-green/20 font-bold decoration-duo-green decoration-2' : ''}`}
                         >
                           {word}
                         </button>
