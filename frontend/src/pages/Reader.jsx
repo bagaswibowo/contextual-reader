@@ -5,7 +5,7 @@ import {
   Check, Plus, Sparkles, BookOpen, Sun, Moon, Type, 
   SlidersHorizontal, AlertTriangle, X, Play, Square,
   GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText,
-  Layers, Target, Search
+  Layers, Target, Search, AlignLeft
 } from 'lucide-react'
 import { booksApi, translationsApi, vocabularyApi } from '../utils/api'
 import { useReaderStore, useVocabularyStore } from '../stores'
@@ -40,6 +40,8 @@ export function Reader() {
   const [showMobileSettingsModal, setShowMobileSettingsModal] = useState(false)
   const [activeWordPopup, setActiveWordPopup] = useState(null) // { word, sentenceId, data, loading }
   const [activeSentencePopup, setActiveSentencePopup] = useState(null) // { sentenceId, text, translation, loading }
+  const [activeParagraphSummary, setActiveParagraphSummary] = useState(null) // { sentenceId, text, summary, keyTakeaway, challengingWords, detailLevel, loading }
+  const [selectionChip, setSelectionChip] = useState(null) // { text, sentenceId, x, y }
   const [showTocModal, setShowTocModal] = useState(false)
   const [savedWords, setSavedWords] = useState(new Set())
   const [savingVocab, setSavingVocab] = useState(false)
@@ -187,7 +189,15 @@ export function Reader() {
     }
   }
 
-  // Handle multi-word text selection (e.g. "VIP membership" or "human computer interaction")
+  // Check if a word has high academic complexity (Reading.help Lexical feature)
+  const isComplexAcademicWord = (word) => {
+    if (!word) return false
+    const clean = word.replace(/^[^\w]+|[^\w]+$/g, '').toLowerCase()
+    if (clean.length >= 8) return true
+    return /(tion|ment|ence|ance|ical|tive|ized|ated|ology|cular|ness)$/.test(clean)
+  }
+
+  // Handle multi-word text selection (e.g. "interaction design" or "fringe to mainstream")
   const handleTextSelection = (event, sentenceId) => {
     const selection = window.getSelection()
     if (!selection) return
@@ -195,9 +205,47 @@ export function Reader() {
     if (selectedText.length >= 2 && selectedText.includes(' ')) {
       const cleanedPhrase = selectedText.replace(/^[^\w]+|[^\w]+$/g, '').replace(/\s+/g, ' ')
       if (cleanedPhrase.length >= 2) {
-        if (event && event.stopPropagation) event.stopPropagation()
-        handleWordClick(event, sentenceId, cleanedPhrase)
+        setSelectionChip({
+          text: cleanedPhrase,
+          sentenceId,
+          x: event.clientX || window.innerWidth / 2,
+          y: event.clientY || window.innerHeight / 2
+        })
       }
+    } else {
+      setSelectionChip(null)
+    }
+  }
+
+  // Handle Reading.help Proactive Paragraph Margin Summary
+  const handleParagraphSummary = async (sentenceId, paragraphText, detailLevel = 'concise') => {
+    if (activeParagraphSummary && activeParagraphSummary.sentenceId === sentenceId && activeParagraphSummary.detailLevel === detailLevel) {
+      setActiveParagraphSummary(null)
+      return
+    }
+
+    setActiveParagraphSummary({
+      sentenceId,
+      text: paragraphText,
+      detailLevel,
+      loading: true,
+      data: null
+    })
+
+    try {
+      const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
+      const res = await translationsApi.paragraphSummary(paragraphText, detailLevel, targetLanguage || 'id', customConfig)
+      setActiveParagraphSummary(prev => ({
+        ...prev,
+        loading: false,
+        data: res.data
+      }))
+    } catch (err) {
+      setActiveParagraphSummary(prev => ({
+        ...prev,
+        loading: false,
+        error: err.message || 'Gagal memuat intisari paragraf'
+      }))
     }
   }
 
@@ -773,21 +821,22 @@ export function Reader() {
 
             const words = sent.text.split(' ')
             return (
-              <div 
-                key={sent.id || sIdx}
-                onMouseUp={(e) => handleTextSelection(e, sent.id)}
-                onTouchEnd={(e) => handleTextSelection(e, sent.id)}
-                className="group relative flex items-start justify-between gap-2 p-1 sm:p-1.5 rounded-duo hover:bg-gray-50 dark:hover:bg-dark-border/40 transition-colors"
-              >
-                {/* Sentence text with clickable words */}
-                <p className="flex-1 leading-relaxed break-words min-w-0">
+              <div key={sent.id || sIdx} className="space-y-2">
+                <div 
+                  onMouseUp={(e) => handleTextSelection(e, sent.id)}
+                  onTouchEnd={(e) => handleTextSelection(e, sent.id)}
+                  className="group relative flex items-start justify-between gap-2 p-1 sm:p-1.5 rounded-duo hover:bg-gray-50 dark:hover:bg-dark-border/40 transition-colors"
+                >
+                  {/* Sentence text with clickable words */}
+                  <p className="flex-1 leading-relaxed break-words min-w-0">
                   {words.map((word, wIdx) => {
                     const isSelected = activeWordPopup && activeWordPopup.sentenceId === sent.id && activeWordPopup.wIdx === wIdx
+                    const isComplex = isComplexAcademicWord(word)
                     return (
                       <span key={wIdx} className="relative inline-block">
                         <button
                           onClick={(e) => handleWordClick(e, sent.id, word, wIdx)}
-                          className={`word-clickable rounded hover:bg-duo-green/10 px-0.5 ${isSelected ? 'bg-duo-green/20 font-bold decoration-duo-green decoration-2' : ''}`}
+                          className={`word-clickable rounded hover:bg-duo-green/10 px-0.5 ${isSelected ? 'bg-duo-green/20 font-bold decoration-duo-green decoration-2' : isComplex ? 'border-b border-dotted border-gray-400 dark:border-gray-500' : ''}`}
                         >
                           {word}
                         </button>
@@ -1132,17 +1181,88 @@ export function Reader() {
                   })}
                 </p>
 
-                {/* Paragraph/Sentence Translate Margin Icon (PRD §6.4) */}
-                <button
-                  onClick={() => handleSentenceTranslate(sent.id, sent.text)}
-                  className="translate-icon p-1 rounded-full hover:bg-duo-blue/10 flex-shrink-0 mt-1"
-                  title="Terjemahkan kalimat utuh (Bahasa Indonesia)"
-                >
-                  <Globe className="w-5 h-5 text-duo-blue" />
-                </button>
+                {/* Reading.help Paragraph Margin Controls */}
+                <div className="flex items-center gap-1 flex-shrink-0 mt-1">
+                  <button
+                    onClick={() => handleParagraphSummary(sent.id, sent.text, activeParagraphSummary?.detailLevel || 'concise')}
+                    className={`p-1 rounded-full transition-colors ${activeParagraphSummary?.sentenceId === sent.id ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600' : 'hover:bg-purple-50 dark:hover:bg-dark-border text-gray-400 hover:text-purple-600'}`}
+                    title="Intisari Paragraf (Reading.help)"
+                  >
+                    <AlignLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleSentenceTranslate(sent.id, sent.text)}
+                    className="translate-icon p-1 rounded-full hover:bg-duo-blue/10 text-duo-blue"
+                    title="Terjemahkan kalimat utuh"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            )
-          })}
+
+              {/* Anchored Paragraph Margin Summary Card (Reading.help) */}
+              {activeParagraphSummary && activeParagraphSummary.sentenceId === sent.id && (
+                <div className="my-3 p-4 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border-2 border-purple-200 dark:border-purple-900/60 text-xs animate-bounce-in space-y-2">
+                  <div className="flex items-center justify-between border-b border-purple-200/60 dark:border-purple-800/60 pb-1.5">
+                    <span className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                      <Lightbulb className="w-3.5 h-3.5 text-purple-600" />
+                      Intisari Paragraf (Reading.help)
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleParagraphSummary(sent.id, sent.text, 'concise')}
+                        className={`px-2 py-0.5 rounded font-bold transition-all ${activeParagraphSummary.detailLevel === 'concise' ? 'bg-purple-600 text-white shadow-xs' : 'text-purple-700 dark:text-purple-300 hover:bg-purple-200/50'}`}
+                      >
+                        Ringkas
+                      </button>
+                      <button
+                        onClick={() => handleParagraphSummary(sent.id, sent.text, 'detailed')}
+                        className={`px-2 py-0.5 rounded font-bold transition-all ${activeParagraphSummary.detailLevel === 'detailed' ? 'bg-purple-600 text-white shadow-xs' : 'text-purple-700 dark:text-purple-300 hover:bg-purple-200/50'}`}
+                      >
+                        Rinci
+                      </button>
+                      <button
+                        onClick={() => setActiveParagraphSummary(null)}
+                        className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 ml-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {activeParagraphSummary.loading ? (
+                    <div className="py-4 text-center text-gray-500 flex items-center justify-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                      Mengekstrak intisari paragraf...
+                    </div>
+                  ) : activeParagraphSummary.error ? (
+                    <p className="text-red-500 font-medium py-1">{activeParagraphSummary.error}</p>
+                  ) : (
+                    <div className="space-y-1.5 text-gray-800 dark:text-gray-200">
+                      <p className="leading-relaxed font-medium bg-white dark:bg-dark-card p-2.5 rounded-lg border border-purple-100 dark:border-dark-border italic">
+                        "{activeParagraphSummary.data?.summary || activeParagraphSummary.data?.key_takeaway}"
+                      </p>
+                      {activeParagraphSummary.data?.challenging_words?.length > 0 && (
+                        <div className="pt-1 flex items-center gap-1.5 flex-wrap text-[11px]">
+                          <span className="font-bold text-purple-900 dark:text-purple-300">Kata Kunci:</span>
+                          {activeParagraphSummary.data.challenging_words.map((item, i) => (
+                            <span
+                              key={i}
+                              onClick={(e) => handleWordClick(e, sent.id, item.word, 0)}
+                              className="bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded font-mono font-bold cursor-pointer hover:bg-purple-200"
+                            >
+                              {item.word}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
         </div>
 
         {/* Chapter Navigation Footer */}
@@ -1562,6 +1682,34 @@ export function Reader() {
               Selesai
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Floating Selection Tooltip (Reading.help Multi-word Idiom & Phrase Explainer) */}
+      {selectionChip && (
+        <div 
+          style={{ top: `${Math.max(20, selectionChip.y - 60)}px`, left: `${Math.min(window.innerWidth - 220, Math.max(20, selectionChip.x - 100))}px` }}
+          className="fixed z-50 animate-bounce-in bg-eel text-white dark:bg-dark-card dark:text-dark-text border border-gray-700 shadow-2xl rounded-xl p-2 flex items-center gap-2 text-xs font-bold font-ui"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-duo-yellow shrink-0" />
+          <span className="truncate max-w-[140px]">"{selectionChip.text}"</span>
+          <button
+            onClick={(e) => {
+              const phrase = selectionChip.text
+              const sid = selectionChip.sentenceId
+              setSelectionChip(null)
+              handleWordClick(e, sid, phrase, 0)
+            }}
+            className="bg-duo-green hover:bg-duo-green-dark text-white px-2 py-1 rounded text-[11px] font-bold"
+          >
+            Jelaskan
+          </button>
+          <button
+            onClick={() => setSelectionChip(null)}
+            className="p-1 text-gray-400 hover:text-white"
+          >
+            <X className="w-3 h-3" />
+          </button>
         </div>
       )}
     </div>
