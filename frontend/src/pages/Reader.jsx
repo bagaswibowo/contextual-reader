@@ -985,14 +985,6 @@ export function Reader() {
                                       </div>
                                     ) : activeWordPopup.explain3dData?.grammar ? (
                                       <div className="space-y-2 text-xs text-left">
-                                        <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/60 dark:border-blue-800/60">
-                                          <span className="font-bold text-blue-900 dark:text-blue-200 text-xs flex items-center gap-1">
-                                            <GraduationCap className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Tingkat Kesulitan:
-                                          </span>
-                                          <span className="px-2 py-0.5 text-xs font-mono font-bold bg-blue-600 text-white rounded-full">
-                                            CEFR {activeWordPopup.explain3dData.cefr_level || userCefrLevel || 'B2'}
-                                          </span>
-                                        </div>
                                         <div>
                                           <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs mb-1 flex items-center gap-1">
                                             <Layers className="w-3.5 h-3.5 text-blue-600" /> Peran & Pola Kalimat:
