@@ -465,7 +465,7 @@ export function Reader() {
     setPlayingAudioKey(null)
   }
 
-  // Native Studio-Quality Speech Audio Engine (Web Audio API 48kHz PCM + Web Speech Fallback)
+  // Native Studio-Quality Speech Audio Engine (Backend Neural Audio Proxy + Native Voice Fallback)
   const speakText = async (text, langCode = 'en', audioKey = null) => {
     if (!text) return
 
@@ -486,58 +486,55 @@ export function Reader() {
     else if (lang === 'zh-tw') lang = 'zh-TW'
 
     const encodedText = encodeURIComponent(cleanText)
-    // Official Google Chrome Extension 24kHz HD Neural Voice Stream Endpoint
-    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=dict-chrome-ex&q=${encodedText}`
+    // Use backend proxy endpoint to avoid CORS and ensure 100% authentic native accent
+    const proxyTtsUrl = `/api/translations/tts/?text=${encodedText}&lang=${lang}`
 
-    // 1. Try Web Audio API HD ArrayBuffer decoding for 100% natural, uncompressed studio sound
     try {
-      const ctx = getAudioContext()
-      if (ctx) {
-        const response = await fetch(googleTtsUrl)
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer()
-          const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+      const audio = new Audio(proxyTtsUrl)
+      audioRef.current = audio
+      audio.onended = () => setPlayingAudioKey(null)
+      audio.onerror = () => {
+        fallbackWebSpeech(cleanText, lang)
+      }
 
-          const source = ctx.createBufferSource()
-          source.buffer = audioBuffer
-          source.connect(ctx.destination)
-          window._activeAudioSource = source
-
-          source.onended = () => {
-            setPlayingAudioKey(null)
-            window._activeAudioSource = null
-          }
-
-          source.start(0)
-          return
-        }
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          fallbackWebSpeech(cleanText, lang)
+        })
       }
     } catch (e) {
-      // Fallback if fetch/CORS is restricted on device
+      fallbackWebSpeech(cleanText, lang)
     }
+  }
 
-    // 2. Priority Fallback: HTML5 Audio
-    const audio = new Audio(googleTtsUrl)
-    audioRef.current = audio
-    audio.onended = () => setPlayingAudioKey(null)
-    audio.onerror = () => {
-      if (synthRef.current) {
-        try {
-          const utterance = new SpeechSynthesisUtterance(cleanText)
-          utterance.lang = getSpeechLangCode(langCode)
-          utterance.rate = 0.95
-          utterance.onend = () => setPlayingAudioKey(null)
-          utterance.onerror = () => setPlayingAudioKey(null)
-          synthRef.current.speak(utterance)
-        } catch (err) {
-          setPlayingAudioKey(null)
-        }
-      } else {
-        setPlayingAudioKey(null)
+  const fallbackWebSpeech = (text, lang) => {
+    if (!synthRef.current) {
+      setPlayingAudioKey(null)
+      return
+    }
+    try {
+      synthRef.current.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      const speechCode = getSpeechLangCode(lang)
+      utterance.lang = speechCode
+      utterance.rate = 0.9
+
+      // Find native voice for target language
+      const allVoices = synthRef.current.getVoices() || voices
+      const langPrefix = speechCode.split('-')[0].toLowerCase()
+      const nativeVoice = allVoices.find(v => v.lang.toLowerCase().replace('_', '-').startsWith(speechCode.toLowerCase())) ||
+                          allVoices.find(v => v.lang.toLowerCase().startsWith(langPrefix))
+      if (nativeVoice) {
+        utterance.voice = nativeVoice
       }
-    }
 
-    audio.play().catch(() => setPlayingAudioKey(null))
+      utterance.onend = () => setPlayingAudioKey(null)
+      utterance.onerror = () => setPlayingAudioKey(null)
+      synthRef.current.speak(utterance)
+    } catch (err) {
+      setPlayingAudioKey(null)
+    }
   }
 
   // Read entire chapter via TTS
@@ -1026,38 +1023,38 @@ export function Reader() {
 
                                 {/* TAB 2: TATA BAHASA (GRAMMAR) */}
                                 {activeWordPopup.currentTab === 'grammar' && (
-                                  <div className="space-y-2.5 p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-900/60">
+                                  <div className="space-y-3 p-4 sm:p-5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border-2 border-blue-200 dark:border-blue-900/60">
                                     {activeWordPopup.explain3dLoading ? (
-                                      <div className="py-6 text-center text-xs font-bold text-gray-500 flex items-center justify-center gap-2">
+                                      <div className="py-6 text-center text-sm font-bold text-gray-500 flex items-center justify-center gap-2">
                                         <div className="w-4 h-4 border-2 border-duo-blue border-t-transparent rounded-full animate-spin" />
                                         Menganalisis struktur kalimat...
                                       </div>
                                     ) : activeWordPopup.explain3dData?.grammar ? (
-                                      <div className="space-y-2 text-xs text-left">
+                                      <div className="space-y-3 text-left">
                                         <div>
-                                          <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs mb-1 flex items-center gap-1">
-                                            <Layers className="w-3.5 h-3.5 text-blue-600" /> Peran & Pola Kalimat:
+                                          <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                            <Layers className="w-4 h-4 text-blue-600" /> Peran & Pola Kalimat:
                                           </div>
-                                          <div className="text-gray-800 dark:text-gray-200 text-xs font-medium leading-relaxed bg-white dark:bg-dark-card p-2.5 rounded-lg border border-blue-100 dark:border-dark-border">
+                                          <div className="text-gray-900 dark:text-gray-100 text-sm sm:text-base font-semibold leading-relaxed bg-white dark:bg-dark-card p-3 rounded-xl border border-blue-100 dark:border-dark-border">
                                             {activeWordPopup.explain3dData.grammar.role}
                                           </div>
                                         </div>
                                         {activeWordPopup.explain3dData.grammar.tense && (
                                           <div>
-                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs mb-1 flex items-center gap-1">
-                                              <Clock className="w-3.5 h-3.5 text-blue-600" /> Tenses:
+                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                              <Clock className="w-4 h-4 text-blue-600" /> Tenses:
                                             </div>
-                                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-dark-card p-2.5 rounded-lg border border-blue-100 dark:border-dark-border">
+                                            <div className="text-sm sm:text-base font-bold text-blue-950 dark:text-blue-100 bg-white dark:bg-dark-card p-3 rounded-xl border border-blue-100 dark:border-dark-border leading-relaxed">
                                               {activeWordPopup.explain3dData.grammar.tense}
                                             </div>
                                           </div>
                                         )}
                                         {activeWordPopup.explain3dData.grammar.clause_breakdown && (
                                           <div>
-                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs mb-1 flex items-center gap-1">
-                                              <Search className="w-3.5 h-3.5 text-blue-600" /> Pembagian Klausa:
+                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                              <Search className="w-4 h-4 text-blue-600" /> Pembagian Klausa:
                                             </div>
-                                            <div className="text-xs font-mono text-gray-700 dark:text-gray-300 bg-white dark:bg-dark-card p-2.5 rounded-lg border border-blue-100 dark:border-dark-border leading-relaxed">
+                                            <div className="text-xs sm:text-sm font-mono font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-dark-card p-3 rounded-xl border border-blue-100 dark:border-dark-border leading-relaxed">
                                               {activeWordPopup.explain3dData.grammar.clause_breakdown}
                                             </div>
                                           </div>
@@ -1071,7 +1068,7 @@ export function Reader() {
                                             const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word;
                                             handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
                                           }}
-                                          className="btn-primary py-2 px-4 text-xs font-bold shadow-md"
+                                          className="btn-primary py-2.5 px-5 text-sm font-bold shadow-md"
                                         >
                                           Muat Analisis Tata Bahasa
                                         </button>
@@ -1082,28 +1079,28 @@ export function Reader() {
 
                                 {/* TAB 3: INTISARI (COMPREHENSION) */}
                                 {activeWordPopup.currentTab === 'comprehension' && (
-                                  <div className="space-y-2.5 p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border-2 border-purple-200 dark:border-purple-900/60">
+                                  <div className="space-y-3 p-4 sm:p-5 rounded-2xl bg-purple-50/70 dark:bg-purple-950/40 border-2 border-purple-200 dark:border-purple-900/60">
                                     {activeWordPopup.explain3dLoading ? (
-                                      <div className="py-6 text-center text-xs font-bold text-gray-500 flex items-center justify-center gap-2">
+                                      <div className="py-6 text-center text-sm font-bold text-gray-500 flex items-center justify-center gap-2">
                                         <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
                                         Mengekstrak intisari kalimat...
                                       </div>
                                     ) : activeWordPopup.explain3dData?.comprehension ? (
-                                      <div className="space-y-2 text-xs text-left">
+                                      <div className="space-y-3 text-left">
                                         <div>
-                                          <div className="font-extrabold text-purple-900 dark:text-purple-200 text-xs mb-1 flex items-center gap-1">
-                                            <Lightbulb className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Intisari & Parafrase Sederhana:
+                                          <div className="font-extrabold text-purple-900 dark:text-purple-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                            <Lightbulb className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Intisari & Parafrase Sederhana:
                                           </div>
-                                          <div className="text-gray-800 dark:text-gray-200 text-sm font-medium leading-relaxed bg-white dark:bg-dark-card p-3 rounded-lg border border-purple-100 dark:border-dark-border italic">
+                                          <div className="text-gray-900 dark:text-gray-100 text-sm sm:text-base font-semibold leading-relaxed bg-white dark:bg-dark-card p-3.5 rounded-xl border border-purple-100 dark:border-dark-border italic">
                                             "{activeWordPopup.explain3dData.comprehension.gist}"
                                           </div>
                                         </div>
                                         {activeWordPopup.explain3dData.comprehension.intention && (
                                           <div>
-                                            <div className="font-extrabold text-purple-900 dark:text-purple-200 text-xs mb-1 flex items-center gap-1">
-                                              <Target className="w-3.5 h-3.5 text-purple-600" /> Maksud Penulis:
+                                            <div className="font-extrabold text-purple-900 dark:text-purple-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                              <Target className="w-4 h-4 text-purple-600" /> Maksud Penulis:
                                             </div>
-                                            <div className="text-gray-700 dark:text-gray-300 text-xs bg-white dark:bg-dark-card p-2.5 rounded-lg border border-purple-100 dark:border-dark-border">
+                                            <div className="text-gray-800 dark:text-gray-200 text-xs sm:text-sm font-medium bg-white dark:bg-dark-card p-3 rounded-xl border border-purple-100 dark:border-dark-border leading-relaxed">
                                               {activeWordPopup.explain3dData.comprehension.intention}
                                             </div>
                                           </div>
@@ -1117,7 +1114,7 @@ export function Reader() {
                                             const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word;
                                             handleFetch3d(activeWordPopup.sentenceId, activeWordPopup.word, sentText);
                                           }}
-                                          className="btn-primary py-2 px-4 text-xs font-bold shadow-md"
+                                          className="btn-primary py-2.5 px-5 text-sm font-bold shadow-md"
                                         >
                                           Muat Intisari Kalimat
                                         </button>
