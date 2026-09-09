@@ -24,7 +24,8 @@ export function Reader() {
     targetLanguage, setTargetLanguage,
     motherLanguage, setMotherLanguage,
     translationEngine,
-    customBaseUrl, customApiKey, customModel
+    customBaseUrl, customApiKey, customModel,
+    userCefrLevel
   } = useReaderStore()
 
   // Book & Chapter state
