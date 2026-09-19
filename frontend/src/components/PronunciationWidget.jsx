@@ -463,10 +463,10 @@ export function PronunciationWidget({
           </div>
         </div>
 
-        {/* Central Visualizer: High-Contrast Lip Frame Canvas + Articulation Tip */}
-        <div className="mt-3 flex flex-col sm:flex-row items-center gap-3 bg-white dark:bg-dark-card p-3 rounded-xl border border-duo-blue/20 shadow-sm">
+        {/* Central Visualizer: High-Contrast Lip Frame Canvas + Articulation Tip (Mobile Balanced) */}
+        <div className="mt-3 flex flex-row items-center gap-3 bg-white dark:bg-dark-card p-3 rounded-xl border border-duo-blue/20 shadow-sm">
           {/* Mouth Frame Canvas */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 bg-slate-900 rounded-xl p-1.5 border-2 border-duo-blue/30 flex items-center justify-center relative overflow-hidden shadow-inner">
+          <div className="w-20 h-20 sm:w-28 sm:h-28 shrink-0 bg-slate-900 rounded-xl p-1.5 border-2 border-duo-blue/30 flex items-center justify-center relative overflow-hidden shadow-inner">
             <img
               src={`/assets/visemes/${currentFrame}`}
               alt={`Bentuk mulut ${guide.title}`}
@@ -532,10 +532,10 @@ export function PronunciationWidget({
                   type="button"
                   onClick={() => stepPhoneme(-1)}
                   disabled={activePhonemeIndex === 0}
-                  className="p-1 rounded bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border text-gray-700 dark:text-dark-text disabled:opacity-30 hover:border-duo-blue"
+                  className="p-1.5 sm:p-1 rounded bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border text-gray-700 dark:text-dark-text disabled:opacity-30 hover:border-duo-blue touch-manipulation min-w-[32px] min-h-[32px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                   title="Fonem Sebelumnya"
                 >
-                  <ChevronLeft className="w-3 h-3" />
+                  <ChevronLeft className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
                 <span className="text-[10px] font-mono text-duo-blue font-bold px-1">
                   {activePhonemeIndex + 1} / {phonemes.length}
@@ -544,7 +544,7 @@ export function PronunciationWidget({
                   type="button"
                   onClick={() => stepPhoneme(1)}
                   disabled={activePhonemeIndex === phonemes.length - 1}
-                  className="p-1 rounded bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border text-gray-700 dark:text-dark-text disabled:opacity-30 hover:border-duo-blue"
+                  className="p-1.5 sm:p-1 rounded bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border text-gray-700 dark:text-dark-text disabled:opacity-30 hover:border-duo-blue touch-manipulation min-w-[32px] min-h-[32px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                   title="Fonem Selanjutnya"
                 >
                   <ChevronRight className="w-3 h-3" />
@@ -575,7 +575,7 @@ export function PronunciationWidget({
                       stopPlayback();
                       changeActiveIndex(idx);
                     }}
-                    className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold border transition-all ${
+                    className={`px-2.5 py-1 sm:px-2 sm:py-0.5 rounded-lg text-xs font-mono font-bold border transition-all touch-manipulation min-h-[34px] sm:min-h-0 flex items-center justify-center ${
                       isActive
                         ? 'bg-duo-blue text-white border-duo-blue shadow-sm ring-2 ring-duo-blue/40 scale-105'
                         : `${colorClass} hover:border-duo-blue`

@@ -137,28 +137,30 @@ export function Layout() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6">
+      <main className={`flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 ${location.pathname.startsWith('/read') ? 'pb-6' : 'pb-24 lg:pb-6'}`}>
         <Outlet />
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-dark-card/95 backdrop-blur-md border-t-2 border-gray-200 dark:border-dark-border py-2 px-4 flex items-center justify-around">
-        {navItems.map(({ path, label, icon: Icon }) => {
-          const active = location.pathname.startsWith(path)
-          return (
-            <NavLink
-              key={path}
-              to={path}
-              className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-all ${
-                active ? 'text-duo-green scale-110' : 'text-gray-400 hover:text-eel dark:hover:text-white'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{label}</span>
-            </NavLink>
-          )
-        })}
-      </div>
+      {/* Mobile Bottom Navigation Bar (Hidden in Reader mode for immersive reading) */}
+      {!location.pathname.startsWith('/read') && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-dark-card/95 backdrop-blur-md border-t-2 border-gray-200 dark:border-dark-border py-2 px-4 flex items-center justify-around">
+          {navItems.map(({ path, label, icon: Icon }) => {
+            const active = location.pathname.startsWith(path)
+            return (
+              <NavLink
+                key={path}
+                to={path}
+                className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-all ${
+                  active ? 'text-duo-green scale-110' : 'text-gray-400 hover:text-eel dark:hover:text-white'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{label}</span>
+              </NavLink>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
