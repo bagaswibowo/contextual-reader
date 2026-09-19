@@ -94,12 +94,26 @@ export function PronunciationWidget({
   transliteration,
   showVisemeGuide = true,
   compact = false,
-  lang = 'en'
+  lang = 'en',
+  translatedWord = '',
+  translatedLang = 'id'
 }) {
   if (!word) return null;
 
-  const phonemes = parsePhonemes(ipa, word, lang);
-  const dhhInfo = getDhhSupport(lang);
+  const [selectedTarget, setSelectedTarget] = useState('orig'); // 'orig' | 'trans'
+
+  // Reset to original whenever the target word changes
+  useEffect(() => {
+    setSelectedTarget('orig');
+  }, [word]);
+
+  const isTrans = selectedTarget === 'trans' && Boolean(translatedWord);
+  const currentWord = isTrans ? translatedWord : word;
+  const currentLang = isTrans ? (translatedLang || 'id') : (lang || 'en');
+  const currentIpa = isTrans ? '' : ipa;
+
+  const phonemes = parsePhonemes(currentIpa, currentWord, currentLang);
+  const dhhInfo = getDhhSupport(currentLang);
   const [isPlaying, setIsPlaying] = useState(false);
   // Default tempo: 0.70x as specified for DHH OpenPronounce standard
   const [playbackSpeed, setPlaybackSpeed] = useState(0.70);
@@ -130,14 +144,14 @@ export function PronunciationWidget({
     setCurrentFrame(phonemes[0]?.frame || 'rest.png');
     stopPlayback();
 
-    const cleanWord = (word || '').trim().toLowerCase();
+    const cleanWord = (currentWord || '').trim().toLowerCase();
     if (!cleanWord) return;
 
     const controller = new AbortController();
-    const cacheKey = `${lang || 'en'}_${cleanWord}`;
+    const cacheKey = `${currentLang || 'en'}_${cleanWord}`;
 
     if (!pronunciationCache.has(cacheKey)) {
-      const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(lang || 'en')}`;
+      const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(currentLang || 'en')}`;
       fetch(proxyUrl, { signal: controller.signal })
         .then((res) => {
           if (!res.ok) throw new Error('TTS fetch failed');
@@ -173,7 +187,7 @@ export function PronunciationWidget({
     return () => {
       controller.abort();
     };
-  }, [word, ipa, lang]);
+  }, [currentWord, currentIpa, currentLang]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -213,13 +227,13 @@ export function PronunciationWidget({
     stopPlayback();
     setIsLoadingAudio(true);
 
-    const cleanWord = (word || '').trim().toLowerCase();
-    const cacheKey = `${lang || 'en'}_${cleanWord}`;
+    const cleanWord = (currentWord || '').trim().toLowerCase();
+    const cacheKey = `${currentLang || 'en'}_${cleanWord}`;
     let cached = pronunciationCache.get(cacheKey);
 
     if (!cached) {
       try {
-        const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(lang || 'en')}`;
+        const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(currentLang || 'en')}`;
         const res = await fetch(proxyUrl);
         if (res.ok) {
           const blob = await res.blob();
@@ -320,13 +334,13 @@ export function PronunciationWidget({
       return;
     }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(word);
+    const utterance = new SpeechSynthesisUtterance(currentWord);
     const speechLangs = {
       en: 'en-US', id: 'id-ID', fr: 'fr-FR', es: 'es-ES', de: 'de-DE',
       it: 'it-IT', pt: 'pt-BR', nl: 'nl-NL', ja: 'ja-JP', zh: 'zh-CN'
     };
-    const langCode = (lang || 'en').toLowerCase().slice(0, 2);
-    utterance.lang = speechLangs[langCode] || speechLangs[lang] || 'en-US';
+    const langCode = (currentLang || 'en').toLowerCase().slice(0, 2);
+    utterance.lang = speechLangs[langCode] || speechLangs[currentLang] || 'en-US';
     utterance.rate = rate;
 
     const totalEstimate = Math.max(500, phonemes.length * (rate < 0.8 ? 260 : 180));
@@ -397,13 +411,51 @@ export function PronunciationWidget({
                 {dhhInfo.label}
               </span>
             </div>
-            <div className="flex items-baseline gap-2 mt-0.5">
+            {/* Bilingual Articulation Mode Toggle (Original vs Translated Target) */}
+            {translatedWord && (
+              <div className="flex items-center rounded-full bg-gray-200/80 dark:bg-dark-border p-0.5 text-[9px] font-extrabold mt-1 w-fit">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    stopPlayback();
+                    setSelectedTarget('orig');
+                  }}
+                  className={`px-2 py-0.5 rounded-full transition-all ${
+                    !isTrans
+                      ? 'bg-duo-blue text-white shadow-xs'
+                      : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
+                  }`}
+                  title="Tampilkan artikulasi kata bahasa asli"
+                >
+                  Asli ({lang.toUpperCase()})
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    stopPlayback();
+                    setSelectedTarget('trans');
+                  }}
+                  className={`px-2 py-0.5 rounded-full transition-all ${
+                    isTrans
+                      ? 'bg-duo-blue text-white shadow-xs'
+                      : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
+                  }`}
+                  title="Tampilkan artikulasi kata hasil terjemahan"
+                >
+                  Terjemahan ({(translatedLang || 'id').toUpperCase()})
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-baseline gap-2 mt-1">
               <h3 className="font-heading font-extrabold text-lg sm:text-xl text-eel dark:text-dark-text tracking-tight">
-                {word}
+                {currentWord}
               </h3>
-              {ipa && (
+              {currentIpa && (
                 <span className="text-xs font-mono font-bold text-duo-blue bg-duo-blue/10 px-1.5 py-0.5 rounded">
-                  /{ipa}/
+                  /{currentIpa}/
                 </span>
               )}
             </div>

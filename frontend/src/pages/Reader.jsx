@@ -1014,7 +1014,9 @@ export function Reader() {
                                           ipa={activeWordPopup.data?.ipa}
                                           transliteration={activeWordPopup.data?.transliteration || ''}
                                           showVisemeGuide={true}
-                                          lang={activeWordPopup.lang || targetLanguage || "en"}
+                                          lang={book?.language || "en"}
+                                          translatedWord={activeWordPopup.data?.contextual_meaning || ''}
+                                          translatedLang={activeWordPopup.lang || targetLanguage || "id"}
                                         />
                                       </ErrorBoundary>
                                     </div>

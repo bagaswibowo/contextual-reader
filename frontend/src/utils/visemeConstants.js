@@ -165,7 +165,9 @@ export function parsePhonemes(rawIpa, word, lang = 'en') {
 
   // Fallback to letters if IPA was empty
   if (result.length === 0 && word) {
-    const cleanWord = word.replace(/[^\p{L}]/gu, '').toLowerCase();
+    // Extract primary lemma if translation contains comma/semicolon/parentheses
+    const primary = word.split(/[,;(]/)[0].trim() || word;
+    const cleanWord = primary.replace(/[^\p{L}]/gu, '').toLowerCase();
     let i = 0;
     while (i < cleanWord.length) {
       const three = cleanWord.slice(i, i + 3);
