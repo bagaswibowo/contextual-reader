@@ -41,7 +41,7 @@ export function Library() {
   const handleUpload = async (file) => {
     if (!file) return
     
-    const validExts = ['.epub', '.txt', '.pdf']
+    const validExts = ['.epub', '.txt', '.pdf', '.md', '.zip']
     const ext = '.' + file.name.split('.').pop().toLowerCase()
     
     if (!validExts.includes(ext)) {

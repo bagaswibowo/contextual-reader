@@ -243,7 +243,7 @@ class BookParser:
         header_matches = []
         for line_match in re.finditer(r'^(\s*```[a-zA-Z0-9_\-\s]*|#{1,2}[ \t]+(.+)$)', content, flags=re.MULTILINE):
             token = line_match.group(1)
-            if token.startswith('```'):
+            if token.strip().startswith('```'):
                 in_code_block = not in_code_block
             elif not in_code_block and line_match.group(2):
                 header_matches.append((line_match.start(), line_match.group(2).strip()))
