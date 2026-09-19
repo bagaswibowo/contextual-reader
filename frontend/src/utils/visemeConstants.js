@@ -15,7 +15,9 @@ export const PHONEME_TO_VISEME = {
   s: 'S.png', z: 'Z.png',
   'ʃ': 'SH.png', sh: 'SH.png', sy: 'SH.png', 'ʒ': 'ZH.png', zh: 'ZH.png',
   w: 'W.png',
-  kh: 'K.png', x: 'K.png', 'ç': 'SH.png', 'ɣ': 'G.png',
+  kh: 'K.png', x: 'SH.png', 'ç': 'SH.png', 'ɣ': 'G.png',
+  // Mandarin Pinyin & Japanese Romaji consonants
+  zh: 'JH.png', q: 'CH.png', c: 'S.png',
   // Accented Latin letters for European language fallbacks (FR, ES, DE, IT, PT)
   'ñ': 'N.png', 'ç': 'S.png',
   'é': 'EH.png', 'è': 'EH.png', 'ê': 'EH.png', 'ë': 'EH.png',
@@ -40,7 +42,14 @@ export const PHONEME_TO_VISEME = {
   'eɪ': 'EY.png', ey: 'EY.png', ay: 'AY.png', 'aɪ': 'AY.png', ai: 'AY.png',
   'ɔɪ': 'OY.png', oy: 'OY.png', 'oɪ': 'OY.png', oi: 'OY.png',
   'oʊ': 'OW.png', 'əʊ': 'OW.png', ow: 'OW.png',
-  'aʊ': 'AW.png', aw: 'AW.png', au: 'AW.png'
+  'aʊ': 'AW.png', aw: 'AW.png', au: 'AW.png',
+  // Japanese Romaji & Mandarin Pinyin accented vowels
+  'ā': 'AE.png', 'á': 'AE.png', 'ǎ': 'AE.png', 'à': 'AE.png',
+  'ē': 'EH.png', 'é': 'EH.png', 'ě': 'EH.png', 'è': 'EH.png',
+  'ī': 'IY.png', 'í': 'IY.png', 'ǐ': 'IY.png', 'ì': 'IY.png',
+  'ō': 'AO.png', 'ó': 'AO.png', 'ǒ': 'AO.png', 'ò': 'AO.png',
+  'ū': 'UW.png', 'ú': 'UW.png', 'ǔ': 'UW.png', 'ù': 'UW.png',
+  'ǖ': 'IY.png', 'ǘ': 'IY.png', 'ǚ': 'IY.png', 'ǜ': 'IY.png'
 };
 
 // DHH Specific Classification (Color coding and guidance priority)
@@ -64,12 +73,18 @@ export function getPhonemeType(frame) {
 export const DHH_LANGUAGE_SUPPORT = {
   en: { code: 'en', name: 'English', label: 'dhh: full', badge: 'Full', desc: 'CMU-39 Native + Durasi Fonem Terkalibrasi' },
   id: { code: 'id', name: 'Indonesian', label: 'dhh: full', badge: 'Full', desc: '100% CMU-39 (termasuk ny, ng, sy, kh, diftong ai/au/oi)' },
-  fr: { code: 'fr', name: 'French', label: 'dhh: full', badge: 'Full', desc: 'Artikulasi bibir lengkap (ʁ, ɲ, ø, œ, y)' },
+  ja: { code: 'ja', name: 'Japanese', label: 'dhh: full', badge: 'Full', desc: 'Sistem 5 vokal murni (a-i-u-e-o) & konsonan Romaji Hepburn terpetakan 100% ke CMU-39' },
+  zh: { code: 'zh', name: 'Mandarin', label: 'dhh: moderate', badge: 'Moderate', desc: 'Pīnyīn initials & finals terpetakan ke CMU-39 (nada vokal disederhanakan ke bentuk bibir)' },
   es: { code: 'es', name: 'Spanish', label: 'dhh: full', badge: 'Full', desc: 'Transparan fonetik tinggi (ɾ, ɲ)' },
+  fr: { code: 'fr', name: 'French', label: 'dhh: full', badge: 'Full', desc: 'Artikulasi bibir lengkap (ʁ, ɲ, ø, œ, y)' },
   de: { code: 'de', name: 'German', label: 'dhh: full', badge: 'Full', desc: 'Vokal bulat dan konsonan frikatif (ø, œ, y, ɐ)' },
   it: { code: 'it', name: 'Italian', label: 'dhh: full', badge: 'Full', desc: 'Artikulasi bibir anterior terbuka (ɲ, ɾ)' },
   pt: { code: 'pt', name: 'Portuguese', label: 'dhh: moderate', badge: 'Moderate', desc: 'Artikulasi bibir (vokal nasal disederhanakan)' },
-  nl: { code: 'nl', name: 'Dutch', label: 'dhh: moderate', badge: 'Moderate', desc: 'Artikulasi bibir (y, ɦ terpetakan)' }
+  nl: { code: 'nl', name: 'Dutch', label: 'dhh: moderate', badge: 'Moderate', desc: 'Artikulasi bibir (y, ɦ terpetakan)' },
+  ko: { code: 'ko', name: 'Korean', label: 'dhh: moderate', badge: 'Moderate', desc: 'Transliterasi Romaja fonetik Hangeul terpetakan ke CMU-39' },
+  ar: { code: 'ar', name: 'Arabic', label: 'dhh: moderate', badge: 'Moderate', desc: 'Transliterasi konsonan & vokal Arab terpetakan ke CMU-39' },
+  ru: { code: 'ru', name: 'Russian', label: 'dhh: moderate', badge: 'Moderate', desc: 'Transliterasi Latin fonetik Cyrillic terpetakan ke CMU-39' },
+  tr: { code: 'tr', name: 'Turkish', label: 'dhh: full', badge: 'Full', desc: 'Alfabet Latin fonetik transparan terpetakan 100% ke CMU-39' }
 };
 
 export function getDhhSupport(lang = 'en') {
@@ -132,7 +147,7 @@ export function getPhonemeWeight(frame) {
   return 0.6; // Plosives K, P, T, D, B, G, CH, JH
 }
 
-export function parsePhonemes(rawIpa, word, lang = 'en') {
+export function parsePhonemes(rawIpa, word, lang = 'en', transliteration = '') {
   const result = [];
   const cleanIpa = (rawIpa || '').replace(/[\/\[\]ˈˌː.0-9]/g, '').trim();
 
@@ -163,10 +178,14 @@ export function parsePhonemes(rawIpa, word, lang = 'en') {
     }
   }
 
-  // Fallback to letters if IPA was empty
-  if (result.length === 0 && word) {
+  // Fallback to letters or Latin transliteration (for Japanese/Mandarin/Korean/Arabic/Russian)
+  if (result.length === 0 && (word || transliteration)) {
+    // Check if word contains non-Latin scripts (CJK, Arabic, Cyrillic, Hangul)
+    const hasNonLatin = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af\u0600-\u06ff\u0400-\u04ff]/.test(word || '');
+    const sourceText = (hasNonLatin && transliteration) ? transliteration : (word || transliteration || '');
+
     // Extract primary lemma if translation contains comma/semicolon/parentheses
-    const primary = word.split(/[,;(]/)[0].trim() || word;
+    const primary = sourceText.split(/[,;(]/)[0].trim() || sourceText;
     const cleanWord = primary.replace(/[^\p{L}]/gu, '').toLowerCase();
     let i = 0;
     while (i < cleanWord.length) {

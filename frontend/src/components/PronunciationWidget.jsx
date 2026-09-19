@@ -96,7 +96,8 @@ export function PronunciationWidget({
   compact = false,
   lang = 'en',
   translatedWord = '',
-  translatedLang = 'id'
+  translatedLang = 'id',
+  translatedTransliteration = ''
 }) {
   if (!word) return null;
 
@@ -111,8 +112,9 @@ export function PronunciationWidget({
   const currentWord = isTrans ? translatedWord : word;
   const currentLang = isTrans ? (translatedLang || 'id') : (lang || 'en');
   const currentIpa = isTrans ? '' : ipa;
+  const currentTranslit = isTrans ? translatedTransliteration : transliteration;
 
-  const phonemes = parsePhonemes(currentIpa, currentWord, currentLang);
+  const phonemes = parsePhonemes(currentIpa, currentWord, currentLang, currentTranslit);
   const dhhInfo = getDhhSupport(currentLang);
   const [isPlaying, setIsPlaying] = useState(false);
   // Default tempo: 0.70x as specified for DHH OpenPronounce standard
@@ -189,7 +191,7 @@ export function PronunciationWidget({
     return () => {
       controller.abort();
     };
-  }, [currentWord, currentIpa, currentLang]);
+  }, [currentWord, currentIpa, currentLang, currentTranslit]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -357,13 +359,18 @@ export function PronunciationWidget({
               </div>
             )}
 
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-1 flex-wrap">
               <h3 className="font-heading font-extrabold text-lg sm:text-xl text-eel dark:text-dark-text tracking-tight">
                 {currentWord}
               </h3>
               {currentIpa && (
                 <span className="text-xs font-mono font-bold text-duo-blue bg-duo-blue/10 px-1.5 py-0.5 rounded">
                   /{currentIpa}/
+                </span>
+              )}
+              {currentTranslit && (
+                <span className="text-xs font-mono font-bold text-gray-500 dark:text-dark-muted bg-gray-100 dark:bg-dark-border px-1.5 py-0.5 rounded">
+                  [{currentTranslit}]
                 </span>
               )}
             </div>

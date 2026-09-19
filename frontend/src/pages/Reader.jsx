@@ -1017,6 +1017,7 @@ export function Reader() {
                                           lang={book?.language || "en"}
                                           translatedWord={activeWordPopup.data?.contextual_meaning || ''}
                                           translatedLang={activeWordPopup.lang || targetLanguage || "id"}
+                                          translatedTransliteration={activeWordPopup.data?.transliteration || ''}
                                         />
                                       </ErrorBoundary>
                                     </div>
