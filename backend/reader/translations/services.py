@@ -574,9 +574,12 @@ Output strictly JSON:
                     {'role': 'system', 'content': prompt},
                     {'role': 'user', 'content': f'Explain "{clean_selected}" in sentence: "{clean_sentence}"'}
                 ])
-                if res and '{' in res:
+                if res and isinstance(res, str) and '{' in res:
                     json_str = res[res.find('{'):res.rfind('}')+1]
-                    data = json.loads(json_str)
+                    try:
+                        data = json.loads(json_str)
+                    except json.JSONDecodeError:
+                        data = None
             except Exception:
                 data = None
 

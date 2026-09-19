@@ -1,15 +1,24 @@
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
-  ArrowLeft, ChevronDown, Volume2, Globe, Bookmark, 
+  Globe, ArrowLeft, ChevronDown, Volume2, Bookmark, 
   Check, Plus, Sparkles, BookOpen, Sun, Moon, Type, 
   SlidersHorizontal, AlertTriangle, X, Play, Square,
   GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText,
-  Layers, Target, Search, ExternalLink
+  Layers, Target, Search
 } from 'lucide-react'
 import { booksApi, translationsApi, vocabularyApi } from '../utils/api'
 import { useReaderStore, useVocabularyStore } from '../stores'
 import { useTheme } from '../hooks/useTheme'
+import { ErrorBoundary } from '../components/ErrorBoundary'
+import { PronunciationWidget } from '../components/PronunciationWidget'
+
+// OCR/MinerU formula delimiter token and precompiled regexes
+const MINERU_MATH_DELIMITER = '72809'
+const FORMULA_START_REGEX = new RegExp(`^(\\$\$|\\$|\\\\[|${MINERU_MATH_DELIMITER})`)
+const FORMULA_END_REGEX = new RegExp(`(\\$\$|\\$|\\\\]|${MINERU_MATH_DELIMITER})$`)
 
 export function Reader() {
   const { bookId } = useParams()
@@ -418,8 +427,10 @@ export function Reader() {
   }
 
   // Native Studio-Quality Speech Audio Engine (Backend Neural Audio Proxy + Native Voice Fallback)
-  const speakText = async (text, langCode = 'en', audioKey = null) => {
+  const speakText = async (text, langCode = 'en', audioKey = null, options = {}) => {
     if (!text) return
+
+    const { isSlow = false } = options
 
     // If clicking the same audio currently playing -> STOP IT!
     if (audioKey && playingAudioKey === audioKey) {
@@ -444,23 +455,29 @@ export function Reader() {
     try {
       const audio = new Audio(proxyTtsUrl)
       audioRef.current = audio
+      
+      // Apply slow playback rate if requested
+      if (isSlow) {
+        audio.playbackRate = 0.5
+      }
+      
       audio.onended = () => setPlayingAudioKey(null)
       audio.onerror = () => {
-        fallbackWebSpeech(cleanText, lang)
+        fallbackWebSpeech(cleanText, lang, isSlow)
       }
 
       const playPromise = audio.play()
       if (playPromise !== undefined) {
         playPromise.catch(() => {
-          fallbackWebSpeech(cleanText, lang)
+          fallbackWebSpeech(cleanText, lang, isSlow)
         })
       }
     } catch (e) {
-      fallbackWebSpeech(cleanText, lang)
+      fallbackWebSpeech(cleanText, lang, isSlow)
     }
   }
 
-  const fallbackWebSpeech = (text, lang) => {
+  const fallbackWebSpeech = (text, lang, isSlow = false) => {
     if (!synthRef.current) {
       setPlayingAudioKey(null)
       return
@@ -470,7 +487,7 @@ export function Reader() {
       const utterance = new SpeechSynthesisUtterance(text)
       const speechCode = getSpeechLangCode(lang)
       utterance.lang = speechCode
-      utterance.rate = 0.9
+      utterance.rate = isSlow ? 0.5 : 0.9
 
       // Find native voice for target language
       const allVoices = synthRef.current.getVoices() || voices
@@ -575,7 +592,7 @@ export function Reader() {
             >
               {AVAILABLE_LANGUAGES.map(l => (
                 <option key={l.code} value={l.code}>
-                  {l.flag} {l.name}
+                  [{l.badge}] {l.name}
                 </option>
               ))}
             </select>
@@ -706,7 +723,8 @@ export function Reader() {
                       src={src.startsWith('http') ? src : `${window.location.origin}${src}`} 
                       alt={alt} 
                       className="max-h-[420px] max-w-full mx-auto rounded-xl shadow-md object-contain"
-                      loading="lazy" 
+                      loading="lazy"
+                      onError={(e) => { e.currentTarget.classList.add("hidden"); }} 
                     />
                     <p className="text-xs font-semibold text-gray-500 dark:text-dark-muted mt-3 font-mono">{alt}</p>
                   </div>
@@ -758,12 +776,34 @@ export function Reader() {
               );
             }
 
-            // 4. Formula / Math Block Renderer
-            if ((rawText.startsWith('72809') && rawText.endsWith('72809')) || (rawText.startsWith('$') && rawText.endsWith('$'))) {
-              const mathFormula = rawText.replace(/\$/g, '').trim();
+            // 4. Formula / Math Block Renderer (KaTeX Enhanced)
+            const isFormulaBlock =
+              (rawText.startsWith('$$') && rawText.endsWith('$$')) ||
+              (rawText.startsWith('$') && rawText.endsWith('$') && rawText.length > 2) ||
+              (rawText.startsWith('\\[') && rawText.endsWith('\\]')) ||
+              rawText.startsWith('\\begin{') ||
+              (rawText.startsWith(MINERU_MATH_DELIMITER) && rawText.endsWith(MINERU_MATH_DELIMITER));
+
+            if (isFormulaBlock) {
+              const mathFormula = rawText.replace(FORMULA_START_REGEX, "").replace(FORMULA_END_REGEX, "").trim();
+
+              let renderedHtml = null;
+              try {
+                renderedHtml = katex.renderToString(mathFormula, { displayMode: true, throwOnError: false });
+              } catch (e) {
+                renderedHtml = null;
+              }
+
               return (
-                <div key={sent.id || sIdx} className="my-4 p-4 text-center bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-200 dark:border-indigo-900/60 font-mono text-sm sm:text-base text-indigo-900 dark:text-indigo-200 shadow-inner">
-                  {mathFormula}
+                <div key={sent.id || sIdx} className="my-5 p-4 sm:p-6 text-center bg-indigo-50/70 dark:bg-indigo-950/30 rounded-2xl border-2 border-indigo-200/80 dark:border-indigo-900/60 shadow-sm overflow-x-auto">
+                  {renderedHtml ? (
+                    <div
+                      dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                      className="inline-block text-base sm:text-xl text-indigo-950 dark:text-indigo-100"
+                    />
+                  ) : (
+                    <code className="font-mono text-sm sm:text-base text-indigo-900 dark:text-indigo-200">{mathFormula}</code>
+                  )}
                 </div>
               );
             }
@@ -790,7 +830,7 @@ export function Reader() {
                         </button>
                         {' '}
                         {isSelected && (
-                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 animate-bounce-in w-[360px] sm:w-[460px] max-w-[94vw] p-4 sm:p-5 card-duo shadow-2xl bg-white dark:bg-dark-card border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case">
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 animate-bounce-in w-[390px] sm:w-[600px] md:w-[720px] lg:w-[780px] max-w-[96vw] max-h-[85vh] overflow-y-auto p-4 sm:p-6 card-duo shadow-2xl bg-white dark:bg-dark-card border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case">
                             {/* Tooltip Pointer Arrow */}
                             <div className="absolute -top-[9px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[8px] border-x-transparent border-b-[9px] border-b-gray-300 dark:border-b-dark-border" />
                             <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[7px] border-x-transparent border-b-[7px] border-b-white dark:border-b-dark-card" />
@@ -879,92 +919,94 @@ export function Reader() {
                               <div className="space-y-3">
                                 {/* TAB 1: KOSAKATA (LEXICAL) */}
                                 {(activeWordPopup.currentTab || 'lexical') === 'lexical' && (
-                                  <div className="space-y-2.5">
-                                    <div className="p-3.5 rounded-xl bg-duo-green/10 border-2 border-duo-green space-y-2">
-                                      <div className="flex items-center justify-between mb-0.5">
-                                        <span className="text-xs font-extrabold tracking-wider text-duo-green uppercase flex items-center gap-1">
-                                          <Sparkles className="w-3.5 h-3.5" /> Arti Kontekstual ({AVAILABLE_LANGUAGES.find(l => l.code === (activeWordPopup.lang || targetLanguage || 'id'))?.name || 'Indonesia'})
-                                        </span>
-                                        <span className="text-xs font-bold text-duo-green bg-duo-green/20 px-2 py-0.5 rounded-md">
-                                          {Math.round((activeWordPopup.data?.confidence || 0.9) * 100)}% Cocok
-                                        </span>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-start">
+                                    {/* Left Column: Arti & Variasi Makna */}
+                                    <div className="space-y-2.5">
+                                      <div className="p-3.5 rounded-xl bg-duo-green/10 border-2 border-duo-green space-y-2">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                          <span className="text-xs font-extrabold tracking-wider text-duo-green uppercase flex items-center gap-1">
+                                            <Sparkles className="w-3.5 h-3.5" /> Arti Kontekstual ({AVAILABLE_LANGUAGES.find(l => l.code === (activeWordPopup.lang || targetLanguage || 'id'))?.name || 'Indonesia'})
+                                          </span>
+                                          <span className="text-xs font-bold text-duo-green bg-duo-green/20 px-2 py-0.5 rounded-md">
+                                            {Math.round((activeWordPopup.data?.confidence || 0.9) * 100)}% Cocok
+                                          </span>
+                                        </div>
+
+                                        {/* Layer 1: Target Language Word */}
+                                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                                          <p className="font-heading font-extrabold text-2xl text-eel dark:text-dark-text">
+                                            {activeWordPopup.data?.contextual_meaning}
+                                          </p>
+                                          {(() => {
+                                            const audioKey = `word_trans_${activeWordPopup.data?.contextual_meaning}`
+                                            const isPlaying = playingAudioKey === audioKey
+                                            return (
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id', audioKey); }}
+                                                className={`p-1.5 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
+                                                title={isPlaying ? "Berhenti" : "Dengarkan pengucapan terjemahan"}
+                                              >
+                                                {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
+                                              </button>
+                                            )
+                                          })()}
+                                        </div>
+
+                                        {/* Layer 2: Latin Pronunciation Guide */}
+                                        {activeWordPopup.data?.transliteration && (
+                                          <div className="pt-1 flex items-center gap-1.5 text-duo-blue font-mono font-bold text-xs">
+                                            <Languages className="w-3.5 h-3.5 text-duo-blue shrink-0" />
+                                            <span className="text-xs uppercase opacity-80">Cara Baca:</span>
+                                            <span className="bg-duo-blue/20 text-duo-blue px-2 py-0.5 rounded font-extrabold">{activeWordPopup.data.transliteration}</span>
+                                          </div>
+                                        )}
                                       </div>
 
-                                      {/* Layer 1: Target Language Word */}
-                                      <div className="flex items-center justify-between gap-2 pt-0.5">
-                                        <p className="font-heading font-extrabold text-2xl text-eel dark:text-dark-text">
-                                          {activeWordPopup.data?.contextual_meaning}
-                                        </p>
-                                        {(() => {
-                                          const audioKey = `word_trans_${activeWordPopup.data?.contextual_meaning}`
-                                          const isPlaying = playingAudioKey === audioKey
-                                          return (
-                                            <button
-                                              onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id', audioKey); }}
-                                              className={`p-1.5 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
-                                              title={isPlaying ? "Berhenti" : "Dengarkan pengucapan terjemahan"}
-                                            >
-                                              {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
-                                            </button>
-                                          )
-                                        })()}
-                                      </div>
-
-                                      {/* Layer 2: Latin Pronunciation Guide */}
-                                      {activeWordPopup.data?.transliteration && (
-                                        <div className="pt-1 flex items-center gap-1.5 text-duo-blue font-mono font-bold text-xs">
-                                          <Languages className="w-3.5 h-3.5 text-duo-blue shrink-0" />
-                                          <span className="text-xs uppercase opacity-80">Cara Baca:</span>
-                                          <span className="bg-duo-blue/20 text-duo-blue px-2 py-0.5 rounded font-extrabold">{activeWordPopup.data.transliteration}</span>
+                                      {/* Structured Other Meanings / Parts of Speech */}
+                                      {activeWordPopup.data?.other_meanings?.length > 0 && (
+                                        <div className="space-y-1.5 pt-1">
+                                          <span className="text-xs font-extrabold text-gray-500 dark:text-dark-muted uppercase tracking-wider flex items-center gap-1">
+                                            <Layers className="w-3.5 h-3.5 text-duo-blue" /> Kelas Kata & Variasi Makna
+                                          </span>
+                                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                            {activeWordPopup.data.other_meanings.map((line, idx) => {
+                                              let category = ''
+                                              let meanings = line
+                                              if (line.includes(':')) {
+                                                const parts = line.split(':')
+                                                category = parts[0].trim()
+                                                meanings = parts.slice(1).join(':').trim()
+                                              }
+                                              return (
+                                                <div key={idx} className="flex items-start gap-2 p-2 rounded-xl bg-gray-50/80 dark:bg-dark-border/40 border border-gray-200/70 dark:border-dark-border">
+                                                  {category && (
+                                                    <span className="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-duo-blue/10 text-duo-blue border border-duo-blue/20">
+                                                      {category}
+                                                    </span>
+                                                  )}
+                                                  <span className="text-xs font-bold text-eel dark:text-dark-text leading-snug pt-0.5">
+                                                    {meanings}
+                                                  </span>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
                                         </div>
                                       )}
-
-                                      {/* Google Pronunciation Action Link */}
-                                      <div className="pt-2 flex items-center justify-between gap-2 border-t border-duo-green/20">
-                                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Pengucapan & Bibir:</span>
-                                        <a
-                                          href={`https://www.google.com/search?q=${encodeURIComponent(activeWordPopup.word)}+pronunciation`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 dark:text-sky-400 bg-white/80 dark:bg-dark-card hover:bg-sky-50 dark:hover:bg-sky-950/60 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800 transition-colors"
-                                        >
-                                          <span>Buka di Google</span>
-                                          <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                      </div>
                                     </div>
 
-                                    {/* Structured Other Meanings / Parts of Speech */}
-                                    {activeWordPopup.data?.other_meanings?.length > 0 && (
-                                      <div className="space-y-1.5 pt-1">
-                                        <span className="text-xs font-extrabold text-gray-500 dark:text-dark-muted uppercase tracking-wider flex items-center gap-1">
-                                          <Layers className="w-3.5 h-3.5 text-duo-blue" /> Kelas Kata & Variasi Makna
-                                        </span>
-                                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                                          {activeWordPopup.data.other_meanings.map((line, idx) => {
-                                            let category = ''
-                                            let meanings = line
-                                            if (line.includes(':')) {
-                                              const parts = line.split(':')
-                                              category = parts[0].trim()
-                                              meanings = parts.slice(1).join(':').trim()
-                                            }
-                                            return (
-                                              <div key={idx} className="p-2.5 rounded-xl bg-gray-50 dark:bg-dark-border/50 border border-gray-200 dark:border-dark-border">
-                                                {category && (
-                                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-extrabold bg-duo-blue/10 text-duo-blue border border-duo-blue/20 mb-1">
-                                                    {category}
-                                                  </span>
-                                                )}
-                                                <p className="text-xs font-bold text-eel dark:text-dark-text leading-relaxed">
-                                                  {meanings}
-                                                </p>
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      </div>
-                                    )}
+                                    {/* Right Column: Pronunciation & DHH Viseme Articulator */}
+                                    <div className="w-full">
+                                      <ErrorBoundary>
+                                        <PronunciationWidget
+                                          word={activeWordPopup.word}
+                                          ipa={activeWordPopup.data?.ipa}
+                                          transliteration={activeWordPopup.data?.transliteration || ''}
+                                          showVisemeGuide={true}
+                                          lang={activeWordPopup.lang || targetLanguage || "en"}
+                                        />
+                                      </ErrorBoundary>
+                                    </div>
                                   </div>
                                 )}
 
@@ -978,32 +1020,100 @@ export function Reader() {
                                       </div>
                                     ) : activeWordPopup.explain3dData?.grammar ? (
                                       <div className="space-y-3 text-left">
-                                        <div>
-                                          <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                            <Layers className="w-4 h-4 text-blue-600" /> Peran & Pola Kalimat:
-                                          </div>
-                                          <div className="text-gray-900 dark:text-gray-100 text-sm sm:text-base font-semibold leading-relaxed bg-white dark:bg-dark-card p-3 rounded-xl border border-blue-100 dark:border-dark-border">
-                                            {activeWordPopup.explain3dData.grammar.role}
-                                          </div>
-                                        </div>
+                                        {/* Tenses — Hero emphasis */}
                                         {activeWordPopup.explain3dData.grammar.tense && (
-                                          <div>
-                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                              <Clock className="w-4 h-4 text-blue-600" /> Tenses:
+                                          <div className="rounded-xl bg-white dark:bg-dark-card border border-blue-100 dark:border-blue-900/50 p-3.5">
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                              <span className="w-6 h-6 rounded-lg bg-duo-blue/15 flex items-center justify-center shrink-0">
+                                                <Clock className="w-3.5 h-3.5 text-duo-blue" />
+                                              </span>
+                                              <span className="font-heading font-bold text-xs uppercase tracking-wider text-blue-600 dark:text-blue-300">
+                                                Tenses
+                                              </span>
                                             </div>
-                                            <div className="text-sm sm:text-base font-bold text-blue-950 dark:text-blue-100 bg-white dark:bg-dark-card p-3 rounded-xl border border-blue-100 dark:border-dark-border leading-relaxed">
+                                            <p className="font-heading font-extrabold text-base sm:text-lg text-blue-950 dark:text-blue-100 leading-snug">
                                               {activeWordPopup.explain3dData.grammar.tense}
-                                            </div>
+                                            </p>
                                           </div>
                                         )}
+
+                                        {/* Structure / Pola Kalimat */}
+                                        {activeWordPopup.explain3dData.grammar.structure && (
+                                          <div className="rounded-xl bg-white dark:bg-dark-card border border-blue-100 dark:border-blue-900/50 p-3.5">
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                              <span className="w-6 h-6 rounded-lg bg-duo-green/15 flex items-center justify-center shrink-0">
+                                                <GitBranch className="w-3.5 h-3.5 text-duo-green" />
+                                              </span>
+                                              <span className="font-heading font-bold text-xs uppercase tracking-wider text-green-600 dark:text-green-300">
+                                                Pola Kalimat
+                                              </span>
+                                            </div>
+                                            <p className="font-mono font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-relaxed">
+                                              {activeWordPopup.explain3dData.grammar.structure}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {/* Peran & Fungsi */}
+                                        {activeWordPopup.explain3dData.grammar.role && (
+                                          <div className="rounded-xl bg-white dark:bg-dark-card border border-blue-100 dark:border-blue-900/50 p-3.5">
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                              <span className="w-6 h-6 rounded-lg bg-duo-purple/15 flex items-center justify-center shrink-0">
+                                                <Layers className="w-3.5 h-3.5 text-duo-purple" />
+                                              </span>
+                                              <span className="font-heading font-bold text-xs uppercase tracking-wider text-purple-600 dark:text-purple-300">
+                                                Peran & Pola
+                                              </span>
+                                            </div>
+                                            <p className="text-sm sm:text-base font-semibold text-eel dark:text-dark-text leading-relaxed">
+                                              {activeWordPopup.explain3dData.grammar.role}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {/* Clause Breakdown — Mono detail */}
                                         {activeWordPopup.explain3dData.grammar.clause_breakdown && (
-                                          <div>
-                                            <div className="font-extrabold text-blue-900 dark:text-blue-200 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                              <Search className="w-4 h-4 text-blue-600" /> Pembagian Klausa:
+                                          <div className="rounded-xl bg-gray-50 dark:bg-dark-border/40 border border-gray-200 dark:border-dark-border p-3.5">
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                              <span className="w-6 h-6 rounded-lg bg-duo-yellow/20 flex items-center justify-center shrink-0">
+                                                <Search className="w-3.5 h-3.5 text-yellow-600" />
+                                              </span>
+                                              <span className="font-heading font-bold text-xs uppercase tracking-wider text-yellow-700 dark:text-duo-yellow">
+                                                Pembagian Klausa
+                                              </span>
                                             </div>
-                                            <div className="text-xs sm:text-sm font-mono font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-dark-card p-3 rounded-xl border border-blue-100 dark:border-dark-border leading-relaxed">
+                                            <p className="font-mono text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-dark-card p-2.5 rounded-lg border border-gray-200 dark:border-dark-border leading-relaxed">
                                               {activeWordPopup.explain3dData.grammar.clause_breakdown}
-                                            </div>
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {/* Word classes chips */}
+                                        {(activeWordPopup.explain3dData.grammar.verbs?.length > 0 ||
+                                          activeWordPopup.explain3dData.grammar.nouns?.length > 0 ||
+                                          activeWordPopup.explain3dData.grammar.adjectives?.length > 0) && (
+                                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                                            {activeWordPopup.explain3dData.grammar.verbs?.length > 0 && (
+                                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-duo-green/10 border border-duo-green/30 text-xs sm:text-sm font-bold">
+                                                <Zap className="w-3.5 h-3.5 text-duo-green shrink-0" />
+                                                <span className="text-duo-green">Verb:</span>
+                                                <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeWordPopup.explain3dData.grammar.verbs.join(', ')}</span>
+                                              </span>
+                                            )}
+                                            {activeWordPopup.explain3dData.grammar.nouns?.length > 0 && (
+                                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-duo-blue/10 border border-duo-blue/30 text-xs sm:text-sm font-bold">
+                                                <Tag className="w-3.5 h-3.5 text-duo-blue shrink-0" />
+                                                <span className="text-duo-blue">Noun:</span>
+                                                <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeWordPopup.explain3dData.grammar.nouns.join(', ')}</span>
+                                              </span>
+                                            )}
+                                            {activeWordPopup.explain3dData.grammar.adjectives?.length > 0 && (
+                                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-duo-yellow/10 border border-duo-yellow/30 text-xs sm:text-sm font-bold">
+                                                <Palette className="w-3.5 h-3.5 text-yellow-600 dark:text-duo-yellow shrink-0" />
+                                                <span className="text-yellow-700 dark:text-duo-yellow">Adjective:</span>
+                                                <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeWordPopup.explain3dData.grammar.adjectives.join(', ')}</span>
+                                              </span>
+                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -1065,7 +1175,7 @@ export function Reader() {
                                   >
                                     {AVAILABLE_LANGUAGES.map(l => (
                                       <option key={l.code} value={l.code}>
-                                        {l.flag} {l.name}
+                                        [{l.badge}] {l.name}
                                       </option>
                                     ))}
                                   </select>
@@ -1157,7 +1267,7 @@ export function Reader() {
                       const origInfo = getOriginalLanguageInfo(book?.language)
                       return (
                         <span className="badge-duo bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 inline-flex items-center gap-1 text-xs font-bold">
-                          <span>{origInfo.flag}</span> Kalimat Asli ({origInfo.name})
+                          <Globe className="w-3 h-3 text-duo-blue inline" /> Kalimat Asli ({origInfo.name})
                         </span>
                       )
                     })()}

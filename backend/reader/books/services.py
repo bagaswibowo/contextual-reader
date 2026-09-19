@@ -1,3 +1,6 @@
+import logging
+import zipfile
+logger = logging.getLogger(__name__)
 # Book processing services
 import io
 import os
@@ -11,6 +14,8 @@ from django.conf import settings
 import ebooklib
 from ebooklib import epub
 import pdfplumber
+from collections import OrderedDict
+import pypdfium2 as pdfium
 from typing import List, Tuple
 from dataclasses import dataclass
 
@@ -133,6 +138,10 @@ class BookParser:
             return BookParser._parse_txt(file_path)
         elif format == 'pdf':
             return BookParser._parse_pdf(file_path)
+        elif format == 'md':
+            return BookParser._parse_md(file_path)
+        elif format == 'zip':
+            return BookParser._parse_zip(file_path)
         else:
             raise ValueError(f"Unsupported format: {format}")
     
@@ -208,6 +217,69 @@ class BookParser:
                 ))
 
         return chapters
+
+    @staticmethod
+    def _build_chapters_from_boundaries(boundaries: List[Tuple[int, str]], pages_text: List[str], total_pages: int) -> List[ParsedChapter]:
+        chapters = []
+        for i, (start_p, title) in enumerate(boundaries):
+            end_p = boundaries[i + 1][0] if i + 1 < len(boundaries) else total_pages
+            joined_text = "\n\n".join([pages_text[p] for p in range(start_p, end_p) if pages_text[p].strip()])
+            if not joined_text.strip():
+                joined_text = f"# {title}\n\n"
+            chapters.append(ParsedChapter(
+                index=len(chapters),
+                title=title,
+                content=joined_text
+            ))
+        return chapters
+
+    @staticmethod
+    def _split_markdown_chapters(content: str) -> List[ParsedChapter]:
+        if not content.strip():
+            return [ParsedChapter(0, "Document", "Empty Markdown content.")]
+
+        # Find top-level headers outside fenced code blocks
+        in_code_block = False
+        header_matches = []
+        for line_match in re.finditer(r'^(```[a-zA-Z0-9_\-\s]*|#{1,2}[ \t]+(.+)$)', content, flags=re.MULTILINE):
+            token = line_match.group(1)
+            if token.startswith('```'):
+                in_code_block = not in_code_block
+            elif not in_code_block and line_match.group(2):
+                header_matches.append((line_match.start(), line_match.group(2).strip()))
+
+        if len(header_matches) >= 2:
+            chapters = []
+            if header_matches[0][0] > 0:
+                preamble = content[:header_matches[0][0]].strip()
+                if preamble:
+                    chapters.append(ParsedChapter(index=0, title="Front Matter", content=preamble))
+            for i, (start, title) in enumerate(header_matches):
+                end = header_matches[i + 1][0] if i + 1 < len(header_matches) else len(content)
+                chap_content = content[start:end].strip()
+                chapters.append(ParsedChapter(index=len(chapters), title=title[:150], content=chap_content))
+            return chapters
+
+        return [ParsedChapter(0, "Full Book", content.strip())]
+
+    @staticmethod
+    def _parse_md(file_path: str) -> List[ParsedChapter]:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            full_text = f.read(25 * 1024 * 1024)
+        return BookParser._split_markdown_chapters(full_text)
+
+    @staticmethod
+    def _parse_zip(file_path: str) -> List[ParsedChapter]:
+        with zipfile.ZipFile(file_path, 'r') as zf:
+            md_files = [m for m in zf.namelist() if m.lower().endswith('.md') and not m.startswith('__MACOSX') and not os.path.basename(m).startswith('.')]
+            if not md_files:
+                raise ValueError("No valid Markdown (.md) file found inside ZIP archive.")
+
+            md_files.sort(key=lambda x: (0 if 'output' in x.lower() or 'main' in x.lower() else 1, len(x)))
+            primary_md = md_files[0]
+            with zf.open(primary_md) as f_in:
+                content = f_in.read(25 * 1024 * 1024).decode('utf-8', errors='ignore')
+            return BookParser._split_markdown_chapters(content)
 
     @staticmethod
     def _parse_pdf(file_path: str) -> List[ParsedChapter]:
@@ -317,42 +389,109 @@ class BookParser:
                             img_url = f"/media/book_images/{img_filename}"
                             page_content.append(f"\n\n![Gambar Halaman {page_num+1}]({img_url})\n\n")
                 except Exception as e:
-                    print(f"Figure extraction skipped on page {page_num}: {e}")
+                    logger.debug(f"Figure extraction skipped on page {page_num}: {e}")
                 
-                if page_content:
-                    pages_text.append("\n\n".join(page_content))
+                pages_text.append("\n\n".join(page_content) if page_content else "")
             
             # Scanned book fallback: AI Vision OCR via VLM
-            if not pages_text or len(pages_text) < len(pdf.pages) * 0.3:
-                for page_num, page in enumerate(pdf.pages[:30]):
-                    try:
-                        pil_img = page.to_image(resolution=150).original
-                        buf = io.BytesIO()
-                        pil_img.save(buf, format="JPEG", quality=85)
-                        ocr_text = _ocr_page_via_vlm(buf.getvalue())
-                        if ocr_text:
-                            pages_text.append(ocr_text)
-                    except Exception as e:
-                        print(f"AI Vision OCR failed on page {page_num}: {e}")
+            valid_pages = sum(1 for p in pages_text if p.strip())
+            if valid_pages < len(pdf.pages) * 0.3:
+                # Enrich blank pages with AI Vision OCR without discarding non-blank text
+                for page_num in range(min(50, len(pdf.pages))):
+                    if not pages_text[page_num].strip():
+                        try:
+                            pil_img = pdf.pages[page_num].to_image(resolution=150).original
+                            buf = io.BytesIO()
+                            pil_img.save(buf, format="JPEG", quality=85)
+                            ocr_text = _ocr_page_via_vlm(buf.getvalue())
+                            if ocr_text:
+                                pages_text[page_num] = ocr_text
+                        except Exception as e:
+                            logger.warning(f"AI Vision OCR failed on page {page_num}: {e}")
         
-        if not pages_text:
+        if not any(p.strip() for p in pages_text):
             return [ParsedChapter(0, "Chapter 1", "No readable text content found in PDF.")]
 
+        total_pages = len(pages_text)
+
+        # Tier 1: Native PDF Bookmarks / Table of Contents via pypdfium2
+        raw_toc = []
+        try:
+            doc = pdfium.PdfDocument(file_path)
+            try:
+                for b in doc.get_toc():
+                    # Support both pypdfium2 v4+ dataclass and legacy API
+                    p = getattr(b, 'page_index', None)
+                    if p is None and hasattr(b, 'get_dest'):
+                        dest = b.get_dest()
+                        p = dest.get_index() if dest else None
+                    raw_title = getattr(b, 'title', None) or (b.get_title() if hasattr(b, 'get_title') else "") or ""
+                    t = re.sub(r"\s+", " ", str(raw_title)).strip()
+                    lvl = getattr(b, 'level', 0)
+                    if p is not None and t and 0 <= p < total_pages:
+                        raw_toc.append((p, lvl, t))
+            finally:
+                doc.close()
+        except Exception as e:
+            logger.warning(f"Native PDF TOC extraction failed: {e}")
+
+        if len(raw_toc) >= 2:
+            grouped = OrderedDict()
+            for p, lvl, t in raw_toc:
+                if p not in grouped:
+                    grouped[p] = []
+                grouped[p].append(t)
+
+            sorted_pages = sorted(grouped.keys())
+            boundaries = []
+            if sorted_pages[0] > 0:
+                boundaries.append((0, "Front Matter"))
+            for p in sorted_pages:
+                title = " / ".join(grouped[p])[:150]
+                boundaries.append((p, title))
+
+            return BookParser._build_chapters_from_boundaries(boundaries, pages_text, total_pages)
+
+        # Tier 2: Scan for Chapter headings across pages
+        heading_pattern = re.compile(
+            r"^(?:chapter|bab|part|bagian)\s+([0-9ivxlcdm]+|[a-z]+)\b(?::|\.|\s|-)*(.*)",
+            re.IGNORECASE
+        )
+        detected_headings = []
+        for p_idx, p_text in enumerate(pages_text):
+            lines_p = [l.strip() for l in p_text.splitlines() if l.strip()][:5]
+            for l in lines_p:
+                m = heading_pattern.match(l)
+                if m:
+                    clean_title = re.sub(r"^#+\s*", "", l)[:100].strip()
+                    detected_headings.append((p_idx, clean_title))
+                    break
+
+        if len(detected_headings) >= 2:
+            boundaries = []
+            if detected_headings[0][0] > 0:
+                boundaries.append((0, "Front Matter"))
+            for p_idx, title in detected_headings:
+                boundaries.append((p_idx, title))
+
+            return BookParser._build_chapters_from_boundaries(boundaries, pages_text, total_pages)
+
+        # Tier 3: Fallback chunking by 15 pages
         chunk_size = 15
-        for i in range(0, len(pages_text), chunk_size):
-            chunk = pages_text[i:i + chunk_size]
+        for i in range(0, total_pages, chunk_size):
+            chunk = [p for p in pages_text[i:i + chunk_size] if p.strip()]
             chapter_num = (i // chunk_size) + 1
             start_page = i + 1
-            end_page = min(i + chunk_size, len(pages_text))
-            
+            end_page = min(i + chunk_size, total_pages)
+
             title = f"Chapter {chapter_num} (Pages {start_page}-{end_page})"
-            content = "\n\n".join(chunk)
+            joined_text = "\n\n".join(chunk) if chunk else f"# Chapter {chapter_num}\n\n"
             chapters.append(ParsedChapter(
                 index=len(chapters),
                 title=title,
-                content=content
+                content=joined_text
             ))
-        
+
         return chapters
 
 
