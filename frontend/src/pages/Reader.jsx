@@ -17,8 +17,8 @@ import { PronunciationWidget } from '../components/PronunciationWidget'
 
 // OCR/MinerU formula delimiter token and precompiled regexes
 const MINERU_MATH_DELIMITER = '72809'
-const FORMULA_START_REGEX = new RegExp(`^(\\$\$|\\$|\\\\[|${MINERU_MATH_DELIMITER})`)
-const FORMULA_END_REGEX = new RegExp(`(\\$\$|\\$|\\\\]|${MINERU_MATH_DELIMITER})$`)
+const FORMULA_START_REGEX = /^(\$\$|\$|\\\[|72809)/
+const FORMULA_END_REGEX = /(\$\$|\$|\\\]|72809)$/
 
 export function Reader() {
   const { bookId } = useParams()
