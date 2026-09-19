@@ -1,3 +1,4 @@
+import { PronunciationWidget } from '../components/PronunciationWidget'
 import { useState, useEffect } from 'react'
 import { 
   Brain, BookOpen, Volume2, RotateCcw, CheckCircle2, 
@@ -434,6 +435,16 @@ export function Vocabulary() {
                             <p>{trans.other_meanings.join(', ')}</p>
                           </div>
                         )}
+
+                        {/* PANDUAN VISUAL ARTIKULASI BIBIR (TUNA RUNGU / DHH) */}
+                        <div className="pt-2 text-left w-full" onClick={(e) => e.stopPropagation()}>
+                          <PronunciationWidget
+                            word={trans.word}
+                            ipa={trans.ipa}
+                            showVisemeGuide={true}
+                            compact={true}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

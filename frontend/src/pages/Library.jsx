@@ -45,7 +45,7 @@ export function Library() {
     const ext = '.' + file.name.split('.').pop().toLowerCase()
     
     if (!validExts.includes(ext)) {
-      toast.error('Format tidak didukung. Gunakan EPUB, TXT, atau PDF.')
+      toast.error('Format tidak didukung. Gunakan EPUB, PDF, TXT, MD, atau ZIP (MinerU).')
       return
     }
 
@@ -153,7 +153,7 @@ export function Library() {
           `}>
             <input
               type="file"
-              accept=".epub,.txt,.pdf"
+              accept=".epub,.txt,.pdf,.md,.zip"
               onChange={(e) => handleUpload(e.target.files[0])}
               onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
               onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}

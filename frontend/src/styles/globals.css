@@ -166,6 +166,105 @@
            px-4 py-3 flex items-center justify-between gap-4;
   }
 
+  /* Pronunciation Widget Styles */
+  .pronunciation-widget {
+    @apply overflow-hidden relative;
+  }
+
+  .pronunciation-label {
+    @apply block text-[10px] font-extrabold uppercase tracking-wider text-duo-blue mb-1;
+  }
+
+  .pronunciation-word {
+    @apply font-heading font-extrabold text-lg sm:text-xl text-eel dark:text-dark-text leading-none;
+  }
+
+  .pronunciation-ipa {
+    @apply block text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5;
+  }
+
+  .pronunciation-guide {
+    @apply mt-1.5 text-[10px] sm:text-xs text-duo-blue font-bold leading-tight;
+  }
+
+  .pronunciation-guide span {
+    @apply block text-gray-500 dark:text-gray-400 mb-0.5;
+  }
+
+  .pronunciation-action {
+    @apply flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] sm:text-xs font-bold rounded-full border border-gray-200 dark:border-dark-border
+           bg-white dark:bg-dark-card shadow-sm transition-all duration-150;
+  }
+
+  .pronunciation-action.is-active {
+    @apply bg-duo-blue text-white border-duo-blue shadow-[0_2px_0_0_#1598D9];
+  }
+
+  .pronunciation-play {
+    @apply w-9 h-9 rounded-full bg-duo-blue text-white flex items-center justify-center
+           shadow-[0_4px_0_0_#1598D9] active:translate-y-[4px] active:shadow-none transition-all duration-150;
+  }
+
+  .pronunciation-stage {
+    @apply mt-3 w-full aspect-video sm:aspect-[2/1] rounded-xl border border-duo-blue/20 bg-gradient-to-br from-blue-50 to-white
+           dark:from-blue-900/20 dark:to-dark-card flex flex-col items-center justify-center gap-2 relative overflow-hidden
+           transition-all duration-300;
+  }
+
+  .pronunciation-stage.is-playing {
+    @apply border-duo-blue/40 ring-2 ring-duo-blue/20;
+  }
+
+  .mouth-scene {
+    @apply w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800
+           flex items-center justify-center relative;
+  }
+
+  .mouth {
+    @apply absolute bottom-4 sm:bottom-5 w-8 h-4 sm:w-10 sm:h-5 rounded-b-full bg-white dark:bg-gray-200 border-2 border-gray-800
+           overflow-hidden transition-all duration-100;
+  }
+
+  .pronunciation-stage.is-playing .mouth {
+    @apply h-8 sm:h-10 rounded-full;
+  }
+
+  .mouth-inner {
+    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-red-400 border border-red-500
+           scale-0 transition-transform duration-100;
+  }
+
+  .pronunciation-stage.is-playing .mouth-inner {
+    @apply scale-100;
+  }
+
+  .voice-wave {
+    @apply flex items-end gap-1 h-4 opacity-0 transition-opacity duration-200;
+  }
+
+  .voice-wave.is-active {
+    @apply opacity-100;
+  }
+
+  .voice-wave span {
+    @apply w-1 bg-duo-blue rounded-full;
+    animation: voiceWave 1.2s ease-in-out infinite;
+  }
+
+  .voice-wave span:nth-child(1) { animation-delay: 0s; height: 4px; }
+  .voice-wave span:nth-child(2) { animation-delay: 0.2s; height: 8px; }
+  .voice-wave span:nth-child(3) { animation-delay: 0.4s; height: 6px; }
+  .voice-wave span:nth-child(4) { animation-delay: 0.6s; height: 10px; }
+
+  @keyframes voiceWave {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.8); }
+  }
+
+  .stage-state {
+    @apply text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider;
+  }
+
   /* Heading styles */
   .heading-1 {
     @apply font-heading font-extrabold text-3xl md:text-4xl text-eel dark:text-dark-text;

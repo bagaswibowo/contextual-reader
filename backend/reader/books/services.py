@@ -241,7 +241,7 @@ class BookParser:
         # Find top-level headers outside fenced code blocks
         in_code_block = False
         header_matches = []
-        for line_match in re.finditer(r'^(```[a-zA-Z0-9_\-\s]*|#{1,2}[ \t]+(.+)$)', content, flags=re.MULTILINE):
+        for line_match in re.finditer(r'^(\s*```[a-zA-Z0-9_\-\s]*|#{1,2}[ \t]+(.+)$)', content, flags=re.MULTILINE):
             token = line_match.group(1)
             if token.startswith('```'):
                 in_code_block = not in_code_block
