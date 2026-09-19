@@ -443,6 +443,7 @@ export function Vocabulary() {
                             ipa={trans.ipa}
                             showVisemeGuide={true}
                             compact={true}
+                            lang={trans.target_lang || trans.source_lang || trans.lang || "en"}
                           />
                         </div>
                       </div>

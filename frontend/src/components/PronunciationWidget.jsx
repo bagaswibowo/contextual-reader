@@ -8,7 +8,8 @@ import {
   getPhonemeType,
   VISEME_GUIDANCE,
   getPhonemeWeight,
-  parsePhonemes
+  parsePhonemes,
+  getDhhSupport
 } from '../utils/visemeConstants';
 
 // Module-level cache for decoded audio & keyframe maps
@@ -97,7 +98,8 @@ export function PronunciationWidget({
 }) {
   if (!word) return null;
 
-  const phonemes = parsePhonemes(ipa, word);
+  const phonemes = parsePhonemes(ipa, word, lang);
+  const dhhInfo = getDhhSupport(lang);
   const [isPlaying, setIsPlaying] = useState(false);
   // Default tempo: 0.70x as specified for DHH OpenPronounce standard
   const [playbackSpeed, setPlaybackSpeed] = useState(0.70);
@@ -319,7 +321,12 @@ export function PronunciationWidget({
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(word);
-    utterance.lang = lang === 'id' ? 'id-ID' : (lang === 'ja' ? 'ja-JP' : (lang === 'zh' ? 'zh-CN' : (lang === 'es' ? 'es-ES' : 'en-US')));
+    const speechLangs = {
+      en: 'en-US', id: 'id-ID', fr: 'fr-FR', es: 'es-ES', de: 'de-DE',
+      it: 'it-IT', pt: 'pt-BR', nl: 'nl-NL', ja: 'ja-JP', zh: 'zh-CN'
+    };
+    const langCode = (lang || 'en').toLowerCase().slice(0, 2);
+    utterance.lang = speechLangs[langCode] || speechLangs[lang] || 'en-US';
     utterance.rate = rate;
 
     const totalEstimate = Math.max(500, phonemes.length * (rate < 0.8 ? 260 : 180));
@@ -374,10 +381,22 @@ export function PronunciationWidget({
         {/* Header: Title, Word, Speed Selector, and Play Button */}
         <div className="flex items-start justify-between gap-2 pb-2 border-b border-duo-blue/15">
           <div className="min-w-0">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-duo-blue flex items-center gap-1">
-              <Eye className="w-3.5 h-3.5 text-duo-blue" />
-              Panduan Artikulasi Bibir (DHH)
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-duo-blue flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5 text-duo-blue" />
+                Panduan Artikulasi Bibir (DHH)
+              </span>
+              <span
+                className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                  dhhInfo.badge === 'Full'
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                }`}
+                title={dhhInfo.desc}
+              >
+                {dhhInfo.label}
+              </span>
+            </div>
             <div className="flex items-baseline gap-2 mt-0.5">
               <h3 className="font-heading font-extrabold text-lg sm:text-xl text-eel dark:text-dark-text tracking-tight">
                 {word}

@@ -1,4 +1,5 @@
-// CMU-39 OpenPronounce Mapping (IPA & letters -> Viseme Frame PNG)
+// CMU-39 OpenPronounce Mapping (IPA and letters -> Viseme Frame PNG)
+// Expanded with multi-language phonemes (FR, ES, DE, IT, PT, NL, ID) and DHH articulation guides
 export const PHONEME_TO_VISEME = {
   // Consonants
   b: 'B.png', p: 'P.png', m: 'M.png',
@@ -10,28 +11,39 @@ export const PHONEME_TO_VISEME = {
   h: 'H.png', 'ɦ': 'HH.png',
   j: 'Y.png', y: 'Y.png',
   l: 'L.png', 'ɹ': 'R.png', r: 'R.png', 'ʁ': 'R.png',
-  n: 'N.png', 'ŋ': 'NG.png', ng: 'NG.png',
+  n: 'N.png', 'ŋ': 'NG.png', ng: 'NG.png', 'ɲ': 'N.png', ny: 'N.png',
   s: 'S.png', z: 'Z.png',
-  'ʃ': 'SH.png', sh: 'SH.png', 'ʒ': 'ZH.png', zh: 'ZH.png',
+  'ʃ': 'SH.png', sh: 'SH.png', sy: 'SH.png', 'ʒ': 'ZH.png', zh: 'ZH.png',
   w: 'W.png',
+  kh: 'K.png', x: 'K.png', 'ç': 'SH.png', 'ɣ': 'G.png',
+  // Accented Latin letters for European language fallbacks (FR, ES, DE, IT, PT)
+  'ñ': 'N.png', 'ç': 'S.png',
+  'é': 'EH.png', 'è': 'EH.png', 'ê': 'EH.png', 'ë': 'EH.png',
+  'à': 'AE.png', 'á': 'AE.png', 'â': 'AE.png', 'ä': 'AE.png',
+  'ü': 'IY.png', 'ö': 'EH.png',
+  'ó': 'AO.png', 'ò': 'AO.png', 'ô': 'AO.png', 'õ': 'AO.png',
+  'í': 'IY.png', 'ì': 'IY.png', 'î': 'IY.png', 'ï': 'IY.png',
+  'ú': 'UW.png', 'ù': 'UW.png', 'û': 'UW.png',
+  ts: 'S.png', 't͡s': 'S.png', pf: 'P.png', 'p͡f': 'P.png',
+  c: 'K.png', q: 'K.png',
+
   // Vowels
   'ə': 'AH.png', 'ʌ': 'AH.png', 'ɐ': 'AH.png',
   a: 'AE.png', 'æ': 'AE.png',
   'ɑ': 'AA.png', 'ɒ': 'AA.png', aa: 'AA.png',
   o: 'AO.png', 'ɔ': 'AO.png',
   i: 'IY.png', 'ɪ': 'IH.png', ee: 'IY.png',
-  e: 'EH.png', 'ɛ': 'EH.png',
+  e: 'EH.png', 'ɛ': 'EH.png', 'ø': 'EH.png', 'œ': 'EH.png',
   u: 'UW.png', 'ʊ': 'UH.png', oo: 'UW.png',
   'o͞o': 'UW.png', 'o͝o': 'UH.png',
   'ɜ': 'ER.png', 'ɝ': 'ER.png', 'ɚ': 'ER.png', er: 'ER.png',
-  'eɪ': 'EY.png', ey: 'EY.png', ay: 'AY.png', 'aɪ': 'AY.png',
-  'ɔɪ': 'OY.png', oy: 'OY.png',
+  'eɪ': 'EY.png', ey: 'EY.png', ay: 'AY.png', 'aɪ': 'AY.png', ai: 'AY.png',
+  'ɔɪ': 'OY.png', oy: 'OY.png', 'oɪ': 'OY.png', oi: 'OY.png',
   'oʊ': 'OW.png', 'əʊ': 'OW.png', ow: 'OW.png',
-  'aʊ': 'AW.png', aw: 'AW.png',
-  c: 'K.png', x: 'S.png', q: 'K.png'
+  'aʊ': 'AW.png', aw: 'AW.png', au: 'AW.png'
 };
 
-// DHH Specific Classification (Color coding & guidance priority)
+// DHH Specific Classification (Color coding and guidance priority)
 export const DIFFICULT_VISEMES = new Set([
   'TH.png', 'DH.png', 'R.png', 'L.png', 'V.png', 'W.png', 'CH.png', 'JH.png', 'SH.png', 'ZH.png'
 ]);
@@ -48,7 +60,30 @@ export function getPhonemeType(frame) {
   return 'consonant';
 }
 
-// Indonesian articulation instructions specifically tailored for Deaf/Hard-of-Hearing (DHH)
+// Multi-Language DHH Articulation Guidance Registry
+export const DHH_LANGUAGE_SUPPORT = {
+  en: { code: 'en', name: 'English', label: 'dhh: full', badge: 'Full', desc: 'CMU-39 Native + Durasi Fonem Terkalibrasi' },
+  id: { code: 'id', name: 'Indonesian', label: 'dhh: full', badge: 'Full', desc: '100% CMU-39 (termasuk ny, ng, sy, kh, diftong ai/au/oi)' },
+  fr: { code: 'fr', name: 'French', label: 'dhh: full', badge: 'Full', desc: 'Artikulasi bibir lengkap (ʁ, ɲ, ø, œ, y)' },
+  es: { code: 'es', name: 'Spanish', label: 'dhh: full', badge: 'Full', desc: 'Transparan fonetik tinggi (ɾ, ɲ)' },
+  de: { code: 'de', name: 'German', label: 'dhh: full', badge: 'Full', desc: 'Vokal bulat dan konsonan frikatif (ø, œ, y, ɐ)' },
+  it: { code: 'it', name: 'Italian', label: 'dhh: full', badge: 'Full', desc: 'Artikulasi bibir anterior terbuka (ɲ, ɾ)' },
+  pt: { code: 'pt', name: 'Portuguese', label: 'dhh: moderate', badge: 'Moderate', desc: 'Artikulasi bibir (vokal nasal disederhanakan)' },
+  nl: { code: 'nl', name: 'Dutch', label: 'dhh: moderate', badge: 'Moderate', desc: 'Artikulasi bibir (y, ɦ terpetakan)' }
+};
+
+export function getDhhSupport(lang = 'en') {
+  const code = (lang || 'en').toLowerCase().slice(0, 2);
+  return DHH_LANGUAGE_SUPPORT[code] || {
+    code,
+    name: code.toUpperCase(),
+    label: 'dhh: experimental',
+    badge: 'Experimental',
+    desc: 'Artikulasi bibir berbasis heuristik fonetik'
+  };
+}
+
+// Articulation instructions specifically tailored for Deaf/Hard-of-Hearing (DHH)
 export const VISEME_GUIDANCE = {
   'B.png': { title: 'Bibir Rapat', tip: 'Katupkan kedua bibir atas dan bawah rapat sebelum melepas hembusan.' },
   'P.png': { title: 'Bibir Rapat (Letupan)', tip: 'Tutup rapat kedua bibir, lepaskan udara dengan letupan tanpa getaran leher.' },
@@ -97,9 +132,9 @@ export function getPhonemeWeight(frame) {
   return 0.6; // Plosives K, P, T, D, B, G, CH, JH
 }
 
-export function parsePhonemes(rawIpa, word) {
+export function parsePhonemes(rawIpa, word, lang = 'en') {
   const result = [];
-  const cleanIpa = (rawIpa || '').replace(/[\/\[\]ˈˌː.]/g, '').trim();
+  const cleanIpa = (rawIpa || '').replace(/[\/\[\]ˈˌː.0-9]/g, '').trim();
 
   if (cleanIpa) {
     let i = 0;
@@ -108,7 +143,11 @@ export function parsePhonemes(rawIpa, word) {
       const two = cleanIpa.slice(i, i + 2).toLowerCase();
       const one = cleanIpa[i].toLowerCase();
 
-      if (PHONEME_TO_VISEME[three]) {
+      // OpenPronounce special: Close front rounded vowel /y/ in IPA maps to IY.png
+      if (one === 'y') {
+        result.push({ symbol: cleanIpa[i], frame: 'IY.png' });
+        i += 1;
+      } else if (PHONEME_TO_VISEME[three]) {
         result.push({ symbol: cleanIpa.slice(i, i + 3), frame: PHONEME_TO_VISEME[three] });
         i += 3;
       } else if (PHONEME_TO_VISEME[two]) {
@@ -126,12 +165,16 @@ export function parsePhonemes(rawIpa, word) {
 
   // Fallback to letters if IPA was empty
   if (result.length === 0 && word) {
-    const cleanWord = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
+    const cleanWord = word.replace(/[^\p{L}]/gu, '').toLowerCase();
     let i = 0;
     while (i < cleanWord.length) {
+      const three = cleanWord.slice(i, i + 3);
       const two = cleanWord.slice(i, i + 2);
       const one = cleanWord[i];
-      if (PHONEME_TO_VISEME[two]) {
+      if (PHONEME_TO_VISEME[three]) {
+        result.push({ symbol: three.toUpperCase(), frame: PHONEME_TO_VISEME[three] });
+        i += 3;
+      } else if (PHONEME_TO_VISEME[two]) {
         result.push({ symbol: two.toUpperCase(), frame: PHONEME_TO_VISEME[two] });
         i += 2;
       } else if (PHONEME_TO_VISEME[one]) {
