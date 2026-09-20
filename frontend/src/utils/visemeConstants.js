@@ -149,7 +149,11 @@ export function getPhonemeWeight(frame) {
 
 export function parsePhonemes(rawIpa, word, lang = 'en', transliteration = '') {
   const result = [];
-  const cleanIpa = (rawIpa || '').replace(/[\/\[\]ˈˌː.0-9]/g, '').trim();
+  // Strict sanitization: strip all punctuation, stress marks, tones, numbers, brackets, hyphens
+  const cleanIpa = (rawIpa || '')
+    .replace(/[\/\[\]ˈˌː.0-9\-_'"`,;:?!()«»“”‘’~]/g, '')
+    .replace(/[^\p{L}\p{M}ʃʒθðŋɲɹʁɾçɣɦ]/gu, '')
+    .trim();
 
   if (cleanIpa) {
     let i = 0;
@@ -172,7 +176,10 @@ export function parsePhonemes(rawIpa, word, lang = 'en', transliteration = '') {
         result.push({ symbol: cleanIpa[i], frame: PHONEME_TO_VISEME[one] });
         i += 1;
       } else {
-        result.push({ symbol: cleanIpa[i], frame: 'rest.png' });
+        // Abaikan tanda baca/simbol non-fonetik! Hanya huruf valid yang dipetakan
+        if (/\p{L}/u.test(cleanIpa[i])) {
+          result.push({ symbol: cleanIpa[i], frame: 'AH.png' });
+        }
         i += 1;
       }
     }
@@ -202,13 +209,23 @@ export function parsePhonemes(rawIpa, word, lang = 'en', transliteration = '') {
         result.push({ symbol: one.toUpperCase(), frame: PHONEME_TO_VISEME[one] });
         i += 1;
       } else {
-        result.push({ symbol: one.toUpperCase(), frame: 'rest.png' });
+        if (/\p{L}/u.test(one)) {
+          result.push({ symbol: one.toUpperCase(), frame: 'AH.png' });
+        }
         i += 1;
       }
     }
   }
 
-  const list = result.length > 0 ? result : [{ symbol: word || '·', frame: 'rest.png' }];
+  let list = result;
+  if (list.length === 0) {
+    const firstLetter = (word || '').replace(/[^\p{L}]/gu, '')[0];
+    if (firstLetter) {
+      list = [{ symbol: firstLetter.toUpperCase(), frame: PHONEME_TO_VISEME[firstLetter.toLowerCase()] || 'AH.png' }];
+    } else {
+      return [];
+    }
+  }
 
   // Calculate cumulative acoustic intervals
   const weights = list.map(p => getPhonemeWeight(p.frame));
