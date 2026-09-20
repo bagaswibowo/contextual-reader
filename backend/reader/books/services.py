@@ -175,6 +175,7 @@ class LanguageDetector:
             return "en"
 
 
+
 class BookParser:
     """Parse EPUB, PDF, TXT files into chapters and sentences"""
     
@@ -629,46 +630,88 @@ class SentenceSplitter:
         raw_blocks = []
         current_table = []
         current_text = []
-        
+        current_math = []
+        in_math_block = False
+
+        def _flush_table():
+            nonlocal current_table
+            if current_table:
+                raw_blocks.append('\n'.join(current_table))
+                current_table = []
+
+        def _flush_text():
+            nonlocal current_text
+            if current_text:
+                raw_blocks.append('\n'.join(current_text))
+                current_text = []
+
+        def _flush_buffers():
+            _flush_table()
+            _flush_text()
+
         for line in lines:
             l = line.strip()
+            # Handle multi-line math block state machine
+            if in_math_block:
+                current_math.append(line)
+                if l.endswith('$$') or l.endswith('\\]'):
+                    in_math_block = False
+                    raw_blocks.append('\n'.join(current_math))
+                    current_math = []
+                continue
+
+            # Precise math block detection (prevents swallow-up if closing delimiter is on same line)
+            is_single_line_math = (l.startswith('$$') and l.endswith('$$') and len(l) > 2) or \
+                                  (l.startswith('\\[') and l.endswith('\\]') and len(l) >= 4)
+            has_closing_on_line = ('$$' in l[2:]) if l.startswith('$$') else ('\\]' in l[2:])
+            is_math_open = (l.startswith('$$') or l.startswith('\\[')) and not has_closing_on_line
+
+            if is_single_line_math:
+                _flush_buffers()
+                raw_blocks.append(l)
+                continue
+            elif is_math_open:
+                _flush_buffers()
+                in_math_block = True
+                current_math.append(line)
+                continue
+
             # Table row
             if l.startswith('|') and l.endswith('|'):
-                if current_text:
-                    raw_blocks.append('\n'.join(current_text))
-                    current_text = []
+                _flush_text()
                 current_table.append(l)
-            # Standalone image markdown
+            # Standalone image
             elif l.startswith('![') and l.endswith(')'):
-                if current_table:
-                    raw_blocks.append('\n'.join(current_table))
-                    current_table = []
-                if current_text:
-                    raw_blocks.append('\n'.join(current_text))
-                    current_text = []
+                _flush_buffers()
                 raw_blocks.append(l)
             else:
-                if current_table:
-                    raw_blocks.append('\n'.join(current_table))
-                    current_table = []
+                _flush_table()
                 if l:
                     current_text.append(l)
-                    
-        if current_table:
-            raw_blocks.append('\n'.join(current_table))
-        if current_text:
-            raw_blocks.append('\n'.join(current_text))
-            
+
+        if in_math_block and current_math:
+            raw_blocks.append('\n'.join(current_math))
+        _flush_buffers()
+
+        def _is_atomic_block(b: str) -> bool:
+            return (
+                b.startswith('|') or
+                (b.startswith('![') and b.endswith(')')) or
+                (b.startswith('$$') and b.endswith('$$') and len(b) > 2) or
+                (b.startswith('\\[') and b.endswith('\\]') and len(b) > 2) or
+                (b.startswith('#') and len(b) < 150)
+            )
+
         sentences = []
         current_offset = 0
-        
+
         for block in raw_blocks:
             b_str = block.strip()
             if not b_str:
                 continue
-                
-            # Keep table or image as a single atomic unit
-            if b_str.startswith('|') or (b_str.startswith('![') and b_str.endswith(')')) or (b_str.startswith('#') and len(b_str) < 150):
+
+            # Keep table, image, math block, or heading as a single atomic unit
+            if _is_atomic_block(b_str):
                 start_char = text.find(b_str, current_offset)
                 if start_char == -1:
                     start_char = current_offset

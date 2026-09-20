@@ -1,5 +1,34 @@
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+
+// Bounded LRU KaTeX Render Cache (prevents memory leak & OOM in long reading sessions)
+const MAX_MATH_CACHE = 500
+const mathRenderCache = new Map()
+
+// Universal cross-browser regex (no lookbehind assertions for Safari/iOS compatibility)
+const INLINE_MATH_REGEX = /(\$(?:[^\s\$][^\$]*[^\s\$]|[^\s\$])\$)/
+
+function renderCachedKaTeX(formula, displayMode = false) {
+  const cacheKey = `${displayMode ? 'D' : 'I'}:${formula}`
+  if (mathRenderCache.has(cacheKey)) {
+    const cached = mathRenderCache.get(cacheKey)
+    mathRenderCache.delete(cacheKey)
+    mathRenderCache.set(cacheKey, cached)
+    return cached
+  }
+  try {
+    const html = katex.renderToString(formula, { displayMode, throwOnError: false, trust: false })
+    if (mathRenderCache.size >= MAX_MATH_CACHE) {
+      const oldest = mathRenderCache.keys().next().value
+      mathRenderCache.delete(oldest)
+    }
+    mathRenderCache.set(cacheKey, html)
+    return html
+  } catch (e) {
+    return null
+  }
+}
+
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
@@ -808,12 +837,7 @@ export function Reader() {
             if (isFormulaBlock) {
               const mathFormula = rawText.replace(FORMULA_START_REGEX, "").replace(FORMULA_END_REGEX, "").trim();
 
-              let renderedHtml = null;
-              try {
-                renderedHtml = katex.renderToString(mathFormula, { displayMode: true, throwOnError: false });
-              } catch (e) {
-                renderedHtml = null;
-              }
+              const renderedHtml = renderCachedKaTeX(mathFormula, true);
 
               return (
                 <div key={sent.id || sIdx} className="my-5 p-4 sm:p-6 text-center bg-indigo-50/70 dark:bg-indigo-950/30 rounded-2xl border-2 border-indigo-200/80 dark:border-indigo-900/60 shadow-sm overflow-x-auto">
@@ -829,7 +853,47 @@ export function Reader() {
               );
             }
 
-            const words = sent.text.split(' ')
+            const tokens = []
+            const rawSentText = sent.text || ''
+            if (rawSentText.includes('$')) {
+              const rawParts = rawSentText.split(INLINE_MATH_REGEX)
+              let wordCounter = 0
+              rawParts.forEach((part) => {
+                if (!part) return
+                if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
+                  const inner = part.slice(1, -1).trim()
+                  // Exact currency detection: only flag as currency if strictly numbers or price ranges
+                  const isPureCurrency = /^\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$/.test(inner) ||
+                                         /^\d+(?:\.\d+)?\s*(?:-|to|–|—)\s*\$?\d+(?:\.\d+)?$/.test(inner) ||
+                                         /^\d+(?:\.\d+)?\s*(?:million|billion|thousand|trillion|dollars?|cents?|usd|idr|eur)\b/i.test(inner)
+
+                  // LaTeX Math Syntax: symbols, operators, Greek letters, sub/superscripts, equations, or single variable
+                  const isMathSyntax = !isPureCurrency && (
+                    /[\\^_={}\+\*\/<>~]|\b(?:log|sin|cos|tan|tau|alpha|beta|gamma|Delta|approx|sum|int)\b|^[a-zA-Z]$/.test(inner) ||
+                    (inner.includes('-') && !/^[0-9\s\-]+$/.test(inner))
+                  )
+
+                  if (isMathSyntax) {
+                    const mathWordCount = part.split(' ').length
+                    tokens.push({ type: 'math', content: inner, raw: part, wIdx: wordCounter })
+                    wordCounter += mathWordCount
+                  } else {
+                    const fallbackWords = part.split(' ').filter(Boolean)
+                    fallbackWords.forEach((w) => {
+                      tokens.push({ type: 'word', content: w, wIdx: wordCounter++ })
+                    })
+                  }
+                } else {
+                  const partWords = part.split(' ').filter(Boolean)
+                  partWords.forEach((w) => {
+                    tokens.push({ type: 'word', content: w, wIdx: wordCounter++ })
+                  })
+                }
+              })
+            } else {
+              const defaultWords = rawSentText.split(' ').filter(Boolean)
+              defaultWords.forEach((w, idx) => tokens.push({ type: 'word', content: w, wIdx: idx }))
+            }
             return (
               <div key={sent.id || sIdx} className="space-y-2">
                 <div 
@@ -837,12 +901,31 @@ export function Reader() {
                   onTouchEnd={(e) => handleTextSelection(e, sent.id)}
                   className="group relative flex items-start justify-between gap-2 p-1 sm:p-1.5 rounded-duo hover:bg-gray-50 dark:hover:bg-dark-border/40 transition-colors"
                 >
-                  {/* Sentence text with clickable words */}
+                  {/* Sentence text with clickable words & KaTeX inline math */}
                   <p className="flex-1 leading-relaxed break-words min-w-0">
-                  {words.map((word, wIdx) => {
+                  {tokens.map((token, tIdx) => {
+                    const isLast = tIdx === tokens.length - 1
+                    if (token.type === 'math') {
+                      const mathHtml = renderCachedKaTeX(token.content, false)
+                      return (
+                        <span key={`tok-${tIdx}`} className="inline-block align-baseline">
+                          {mathHtml ? (
+                            <span
+                              dangerouslySetInnerHTML={{ __html: mathHtml }}
+                              className="px-1 text-indigo-700 dark:text-indigo-300 font-semibold select-none"
+                            />
+                          ) : (
+                            <code className="font-mono text-xs text-indigo-600">{token.raw}</code>
+                          )}
+                          {!isLast && ' '}
+                        </span>
+                      )
+                    }
+                    const word = token.content
+                    const wIdx = token.wIdx
                     const isSelected = activeWordPopup && activeWordPopup.sentenceId === sent.id && activeWordPopup.wIdx === wIdx
                     return (
-                      <span key={wIdx} className="relative inline-block">
+                      <span key={`tok-${tIdx}`} className="relative inline-block">
                         <button
                           onClick={(e) => handleWordClick(e, sent.id, word, wIdx)}
                           data-selected-word={isSelected ? "true" : undefined}
