@@ -7,7 +7,7 @@ import {
   Check, Plus, Sparkles, BookOpen, Sun, Moon, Type, 
   SlidersHorizontal, AlertTriangle, X, Play, Square,
   GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText,
-  Layers, Target, Search
+  Layers, Target, Search, PanelBottom, MessageSquare
 } from 'lucide-react'
 import { booksApi, translationsApi, vocabularyApi } from '../utils/api'
 import { useReaderStore, useVocabularyStore } from '../stores'
@@ -34,8 +34,11 @@ export function Reader() {
     motherLanguage, setMotherLanguage,
     translationEngine,
     customBaseUrl, customApiKey, customModel,
-    userCefrLevel
+    userCefrLevel,
+    popupMode, setPopupMode
   } = useReaderStore()
+
+  const isBottomSheet = (popupMode || 'bottom-sheet') === 'bottom-sheet'
 
   // Book & Chapter state
   const [book, setBook] = useState(null)
@@ -831,20 +834,32 @@ export function Reader() {
                         {' '}
                         {isSelected && (
                           <>
-                            {/* Mobile Dimmed Backdrop */}
+                            {/* Dimmed Backdrop (always active in bottom-sheet mode, mobile-only in tooltip mode) */}
                             <div
-                              className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 sm:hidden transition-opacity"
+                              className={`fixed inset-0 bg-black/50 backdrop-blur-xs z-40 transition-opacity ${isBottomSheet ? '' : 'sm:hidden'}`}
                               onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
                             />
 
-                            {/* Responsive Container: Fixed Bottom Sheet on Mobile (<sm), Floating Anchored Tooltip on Desktop (>=sm) */}
-                            <div className="fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 animate-slide-up sm:animate-bounce-in w-full sm:w-[600px] md:w-[720px] lg:w-[780px] sm:max-w-[96vw] max-h-[88vh] sm:max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-3xl sm:rounded-2xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 sm:border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case">
-                              {/* Mobile Grab Handle */}
-                              <div className="w-12 h-1.5 bg-gray-300 dark:bg-dark-border rounded-full mx-auto mb-3 sm:hidden shrink-0" />
+                            {/* Responsive Popup Container: Bottom Sheet or Floating Tooltip based on popupMode setting */}
+                            <div className={
+                              isBottomSheet
+                                ? "fixed inset-x-0 bottom-0 z-50 animate-slide-up w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-3xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 border-x-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
+                                : "fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 animate-slide-up sm:animate-bounce-in w-full sm:w-[600px] md:w-[720px] lg:w-[780px] sm:max-w-[96vw] max-h-[88vh] sm:max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-3xl sm:rounded-2xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 sm:border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
+                            }>
+                              {/* Grab Handle */}
+                              <div
+                                className={`w-12 h-1.5 bg-gray-300 dark:bg-dark-border rounded-full mx-auto mb-3 shrink-0 cursor-pointer hover:bg-gray-400 transition-colors ${isBottomSheet ? 'block' : 'sm:hidden'}`}
+                                onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
+                                title="Tutup panel"
+                              />
 
-                              {/* Tooltip Pointer Arrow (Desktop Only) */}
-                              <div className="hidden sm:block absolute -top-[9px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[8px] border-x-transparent border-b-[9px] border-b-gray-300 dark:border-b-dark-border" />
-                              <div className="hidden sm:block absolute -top-[7px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[7px] border-x-transparent border-b-[7px] border-b-white dark:border-b-dark-card" />
+                              {/* Tooltip Pointer Arrow (Tooltip Mode Desktop Only) */}
+                              {!isBottomSheet && (
+                                <>
+                                  <div className="hidden sm:block absolute -top-[9px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[8px] border-x-transparent border-b-[9px] border-b-gray-300 dark:border-b-dark-border" />
+                                  <div className="hidden sm:block absolute -top-[7px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[7px] border-x-transparent border-b-[7px] border-b-white dark:border-b-dark-card" />
+                                </>
+                              )}
 
                             {/* Header & Word */}
                             <div className="flex items-start justify-between gap-2 mb-3">
@@ -1613,6 +1628,33 @@ export function Reader() {
                   className={`p-3 rounded-duo border-2 ${theme === 'dark' ? 'border-duo-blue bg-duo-blue/10' : 'border-gray-200'}`}
                 >
                   <Moon className="w-5 h-5 text-duo-blue" />
+                </button>
+              </div>
+            </div>
+
+            {/* Popup Mode Selector */}
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sm">Gaya Penjelasan:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPopupMode('bottom-sheet')}
+                  className={`px-3 py-1.5 rounded-duo font-bold text-xs flex items-center gap-1 transition-all ${
+                    isBottomSheet ? 'bg-duo-green text-white shadow-3d' : 'bg-gray-100 dark:bg-dark-border text-eel dark:text-dark-text'
+                  }`}
+                >
+                  <PanelBottom className="w-3.5 h-3.5" />
+                  Panel Bawah
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPopupMode('tooltip')}
+                  className={`px-3 py-1.5 rounded-duo font-bold text-xs flex items-center gap-1 transition-all ${
+                    !isBottomSheet ? 'bg-duo-green text-white shadow-3d' : 'bg-gray-100 dark:bg-dark-border text-eel dark:text-dark-text'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Tooltip
                 </button>
               </div>
             </div>

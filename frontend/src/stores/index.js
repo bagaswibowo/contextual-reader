@@ -53,6 +53,7 @@ export const useReaderStore = create(
       userCefrLevel: 'B2', // 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
       summaryDetailLevel: 'concise', // 'concise' | 'detailed'
       showMarginSummary: true,
+      popupMode: 'bottom-sheet', // 'bottom-sheet' | 'tooltip'
       
       setFontSize: (size) => set({ fontSize: Math.max(12, Math.min(32, size)) }),
       setFontFamily: (family) => set({ fontFamily: family }),
@@ -69,6 +70,7 @@ export const useReaderStore = create(
       setUserCefrLevel: (userCefrLevel) => set({ userCefrLevel }),
       setSummaryDetailLevel: (summaryDetailLevel) => set({ summaryDetailLevel }),
       setShowMarginSummary: (showMarginSummary) => set({ showMarginSummary }),
+      setPopupMode: (popupMode) => set({ popupMode }),
     }),
     {
       name: 'reader-settings',

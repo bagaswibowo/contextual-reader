@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings as SettingsIcon, Sliders, Moon, Sun, Type, Trash2, CheckCircle2, Cpu, Globe, Zap, Key, Server } from 'lucide-react'
+import { Settings as SettingsIcon, Sliders, Moon, Sun, Type, Trash2, CheckCircle2, Cpu, Globe, Zap, Key, Server, PanelBottom, MessageSquare } from 'lucide-react'
 import { useReaderStore } from '../stores'
 import { useTheme } from '../hooks/useTheme'
 import { coreApi } from '../utils/api'
@@ -16,7 +16,8 @@ export function Settings() {
     translationEngine, setTranslationEngine,
     customBaseUrl, setCustomBaseUrl,
     customApiKey, setCustomApiKey,
-    customModel, setCustomModel
+    customModel, setCustomModel,
+    popupMode, setPopupMode
   } = useReaderStore()
 
   const [healthStatus, setHealthStatus] = useState(null)
@@ -274,6 +275,42 @@ export function Settings() {
                   className={`p-3 rounded-duo border-2 ${theme === 'dark' ? 'border-duo-blue bg-duo-blue/10' : 'border-gray-200'}`}
                 >
                   <Moon className="w-5 h-5 text-duo-blue" />
+                </button>
+              </div>
+            </div>
+
+            {/* Popup Mode (Bottom Sheet vs Floating Tooltip) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-dark-border">
+              <div>
+                <span className="font-bold text-sm block">Gaya Penjelasan Kata:</span>
+                <span className="text-xs text-gray-500">Panel bawah ala aplikasi mobile atau tooltip melayang</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPopupMode('bottom-sheet')}
+                  className={`px-3.5 py-2 rounded-duo font-bold text-xs flex items-center gap-1.5 transition-all ${
+                    (popupMode || 'bottom-sheet') === 'bottom-sheet'
+                      ? 'bg-duo-green text-white shadow-3d'
+                      : 'bg-gray-100 dark:bg-dark-border text-eel dark:text-dark-text hover:bg-gray-200'
+                  }`}
+                  title="Muncul dari tepi bawah layar (ala mobile app, lebih lega di desktop)"
+                >
+                  <PanelBottom className="w-4 h-4" />
+                  Panel Bawah
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPopupMode('tooltip')}
+                  className={`px-3.5 py-2 rounded-duo font-bold text-xs flex items-center gap-1.5 transition-all ${
+                    popupMode === 'tooltip'
+                      ? 'bg-duo-green text-white shadow-3d'
+                      : 'bg-gray-100 dark:bg-dark-border text-eel dark:text-dark-text hover:bg-gray-200'
+                  }`}
+                  title="Mengambang tepat di bawah kata yang diklik pada teks"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Tooltip
                 </button>
               </div>
             </div>
