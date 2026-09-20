@@ -37,6 +37,8 @@ class Chapter(models.Model):
     title = models.CharField(max_length=500, blank=True)
     content = models.TextField()
     word_count = models.IntegerField(default=0)
+    page_number = models.IntegerField(default=1)
+    level = models.IntegerField(default=0)
     start_offset = models.IntegerField(default=0)
     end_offset = models.IntegerField(default=0)
 

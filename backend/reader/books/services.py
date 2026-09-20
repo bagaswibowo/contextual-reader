@@ -1,3 +1,6 @@
+import posixpath
+from lxml import html as lxml_html
+import html
 import logging
 import zipfile
 logger = logging.getLogger(__name__)
@@ -71,7 +74,52 @@ class ParsedChapter:
     index: int
     title: str
     content: str
+    page_number: int = 1
+    level: int = 0
 
+
+WORDS_PER_PAGE_ESTIMATE = 250
+
+
+def extract_epub_item_text(raw_html, anchor: str = None) -> str:
+    """Extract clean text content from EPUB HTML using DOM traversal with safe no-network parser"""
+    if not raw_html:
+        return ""
+    try:
+        raw_bytes = raw_html.encode('utf-8') if isinstance(raw_html, str) else raw_html
+        parser = lxml_html.HTMLParser(encoding='utf-8', remove_comments=True, no_network=True)
+        tree = lxml_html.fromstring(raw_bytes, parser=parser)
+        for el in tree.xpath('//script|//style'):
+            el.drop_tree()
+
+        if anchor:
+            nodes = tree.xpath('//*[@id=$aid or @name=$aid]', aid=anchor)
+            if nodes:
+                target = nodes[0]
+                # If target is a block container (div/section/article/etc.), its text_content is the chapter
+                if len(target) > 0 or target.tag in ('div', 'section', 'article', 'main'):
+                    txt = target.text_content()
+                    if txt and len(txt.strip()) > 20:
+                        return re.sub(r'\s+', ' ', txt).strip()
+
+                # If target is a heading or inline anchor, collect siblings until next section/heading
+                elements = [target]
+                for sib in target.itersiblings():
+                    if sib.get('id') or sib.get('name') or sib.tag in ('h1', 'h2', 'h3', 'section'):
+                        break
+                    elements.append(sib)
+                txt = " ".join(el.text_content() for el in elements).strip()
+                if len(txt) > 20:
+                    return re.sub(r'\s+', ' ', txt)
+
+        txt = tree.text_content()
+        return re.sub(r'\s+', ' ', txt).strip()
+    except Exception as e:
+        logger.warning(f"Failed to parse EPUB HTML with lxml, falling back to regex: {e}")
+        text_str = raw_html.decode('utf-8', errors='ignore') if isinstance(raw_html, bytes) else raw_html
+        cleaned = re.sub(r'<[^>]+>', ' ', text_str)
+        cleaned = html.unescape(cleaned)
+        return re.sub(r'\s+', ' ', cleaned).strip()
 
 @dataclass
 class ParsedSentence:
@@ -146,41 +194,100 @@ class BookParser:
             raise ValueError(f"Unsupported format: {format}")
     
     @staticmethod
-    def _parse_epub(file_path: str) -> List[ParsedChapter]:
+    def _parse_epub_by_documents(book) -> List[ParsedChapter]:
         chapters = []
-        book = epub.read_epub(file_path)
-        
+        cum_words = 0
         for item in book.get_items():
             if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                content = item.get_content().decode('utf-8', errors='ignore')
-                text = re.sub(r'<[^>]+>', ' ', content)
-                text = re.sub(r'\s+', ' ', text).strip()
-                
+                raw_html = item.get_content()
+                text = extract_epub_item_text(raw_html)
                 if text and len(text) > 100:
-                    title_match = re.search(r'<h[1-3][^>]*>(.*?)</h[1-3]>', content, re.IGNORECASE)
+                    raw_str = raw_html.decode('utf-8', errors='ignore')
+                    title_match = re.search(r'<h[1-3][^>]*>(.*?)</h[1-3]>', raw_str, re.IGNORECASE)
                     title = title_match.group(1) if title_match else f"Chapter {len(chapters) + 1}"
-                    title = re.sub(r'<[^>]+>', '', title).strip()
-                    
+                    title = html.unescape(re.sub(r"<[^>]+>", "", title)).strip()
+                    w_count = len(text.split())
+                    calc_page = max(1, 1 + (cum_words // WORDS_PER_PAGE_ESTIMATE))
                     chapters.append(ParsedChapter(
                         index=len(chapters),
                         title=title or f"Chapter {len(chapters) + 1}",
-                        content=text
+                        content=text,
+                        page_number=calc_page,
+                        level=0
                     ))
-        
+                    cum_words += w_count
+
         if not chapters:
             all_text = []
             for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                    content = item.get_content().decode('utf-8', errors='ignore')
-                    text = re.sub(r'<[^>]+>', ' ', content)
-                    text = re.sub(r'\s+', ' ', text).strip()
+                    text = extract_epub_item_text(item.get_content())
                     if text:
                         all_text.append(text)
-            
             full_text = " ".join(all_text)
-            chapters = [ParsedChapter(index=0, title="Full Book", content=full_text)]
-            
+            chapters = [ParsedChapter(index=0, title="Full Book", content=full_text, page_number=1, level=0)]
+
         return chapters
+
+    @staticmethod
+    def _parse_epub(file_path: str) -> List[ParsedChapter]:
+        book = epub.read_epub(file_path)
+
+        def _flatten_toc(toc_list, level=0):
+            items = []
+            for it in toc_list:
+                if isinstance(it, tuple):
+                    sec, children = it
+                    s_title = getattr(sec, 'title', '') or ''
+                    s_href = getattr(sec, 'href', '') or ''
+                    if s_title:
+                        items.append((s_title, s_href, level))
+                    items.extend(_flatten_toc(children, level + 1))
+                elif isinstance(it, epub.Link):
+                    items.append((getattr(it, 'title', '') or '', getattr(it, 'href', '') or '', level))
+            return items
+
+        flat_toc = _flatten_toc(book.toc) if hasattr(book, 'toc') and book.toc else []
+
+        if flat_toc:
+            chapters = []
+            cum_words = 0
+            doc_map = {posixpath.normpath(item.get_name()): item for item in book.get_items() if item.get_type() == ebooklib.ITEM_DOCUMENT}
+
+            for idx, (title, href, level) in enumerate(flat_toc):
+                parts = href.split('#', 1)
+                file_href = posixpath.normpath(parts[0])
+                anchor = parts[1] if len(parts) > 1 else None
+
+                doc_item = doc_map.get(file_href)
+                if not doc_item:
+                    for k, v in doc_map.items():
+                        if k == file_href or k.endswith('/' + file_href):
+                            doc_item = v
+                            break
+
+                text = ""
+                if doc_item:
+                    text = extract_epub_item_text(doc_item.get_content(), anchor=anchor)
+
+                if not text.strip():
+                    text = f"# {title}\n\n"
+
+                w_count = len(text.split())
+                calc_page = max(1, 1 + (cum_words // WORDS_PER_PAGE_ESTIMATE))
+                chapters.append(ParsedChapter(
+                    index=len(chapters),
+                    title=title or f"Chapter {len(chapters) + 1}",
+                    content=text,
+                    page_number=calc_page,
+                    level=level
+                ))
+                cum_words += w_count
+
+            if chapters:
+                return chapters
+
+        return BookParser._parse_epub_by_documents(book)
 
     @staticmethod
     def _parse_txt(file_path: str) -> List[ParsedChapter]:
@@ -219,17 +326,42 @@ class BookParser:
         return chapters
 
     @staticmethod
-    def _build_chapters_from_boundaries(boundaries: List[Tuple[int, str]], pages_text: List[str], total_pages: int) -> List[ParsedChapter]:
+    def _build_chapters_from_boundaries(boundaries: List[Tuple], pages_text: List[str], total_pages: int) -> List[ParsedChapter]:
         chapters = []
-        for i, (start_p, title) in enumerate(boundaries):
-            end_p = boundaries[i + 1][0] if i + 1 < len(boundaries) else total_pages
-            joined_text = "\n\n".join([pages_text[p] for p in range(start_p, end_p) if pages_text[p].strip()])
+        n = len(boundaries)
+        local_pages = list(pages_text)
+
+        for i in range(n):
+            item = boundaries[i]
+            if len(item) == 3:
+                start_p, lvl, title = item
+            else:
+                start_p, title = item
+                lvl = 0
+
+            if i + 1 < n and boundaries[i + 1][0] == start_p:
+                next_title = boundaries[i + 1][2] if len(boundaries[i + 1]) == 3 else boundaries[i + 1][1]
+                p_text = local_pages[start_p] if 0 <= start_p < total_pages else ""
+                idx_split = p_text.lower().find(next_title.lower()) if next_title else -1
+                if idx_split > 0:
+                    joined_text = p_text[:idx_split].strip()
+                    local_pages[start_p] = p_text[idx_split:].strip()
+                else:
+                    joined_text = f"# {title}\n\n"
+            else:
+                end_p = boundaries[i + 1][0] if i + 1 < n else total_pages
+                slice_pages = [local_pages[p] for p in range(start_p, max(start_p + 1, end_p)) if 0 <= p < total_pages and local_pages[p].strip()]
+                joined_text = "\n\n".join(slice_pages)
+
             if not joined_text.strip():
                 joined_text = f"# {title}\n\n"
+
             chapters.append(ParsedChapter(
                 index=len(chapters),
                 title=title,
-                content=joined_text
+                content=joined_text,
+                page_number=start_p + 1,
+                level=lvl
             ))
         return chapters
 
@@ -290,125 +422,103 @@ class BookParser:
         os.makedirs(media_img_dir, exist_ok=True)
         book_prefix = hashlib.md5(file_path.encode()).hexdigest()[:8]
         
-        with pdfplumber.open(file_path) as pdf:
-            for page_num, page in enumerate(pdf.pages):
-                page_content = []
-                try:
-                    if page_num == 0 and len(pdf.pages) > 1:
-                        # Academic Paper Page 1: separate abstract from left metadata sidebar
-                        words = page.extract_words()
-                        top_words = [w for w in words if w['top'] < 180]
-                        top_title = ' '.join(w['text'] for w in sorted(top_words, key=lambda w: (round(w['top']/10), w['x0'])))
-                        # Remove journal ISSN/DOI metadata from top title
-                        top_title = re.sub(r'Journal for Lesson.*?(?=Contextual|Development|[A-Z][a-z]+)', '', top_title, flags=re.I).strip()
-                        
-                        # Right column abstract text (x0 >= 200)
-                        abstract_words = [w for w in words if 180 <= w['top'] < 720 and w['x0'] >= 200]
-                        abstract_text = ' '.join(w['text'] for w in sorted(abstract_words, key=lambda w: (round(w['top']/10), w['x0'])))
-                        abstract_text = re.sub(r'A\s*B\s*S\s*T\s*R\s*A\s*K|A\s*B\s*S\s*T\s*R\s*A\s*C\s*T', '', abstract_text).strip()
-                        
-                        # Intro text at bottom of page 1
-                        intro_words = [w for w in words if w['top'] >= 720]
-                        intro_text = ' '.join(w['text'] for w in sorted(intro_words, key=lambda w: (round(w['top']/10), w['x0'])))
-                        
-                        p1_md = []
-                        if top_title:
-                            p1_md.append(f"# {top_title}\n")
-                        if abstract_text:
-                            p1_md.append(f"## Abstract\n{abstract_text}\n")
-                        if intro_text:
-                            p1_md.append(f"## Introduction\n{intro_text}\n")
-                        page_content.append('\n\n'.join(p1_md))
-                    else:
-                        raw_text = page.extract_text(x_tolerance=2, y_tolerance=3) or ''
-                        lines = raw_text.splitlines()
-                        clean_lines = []
-                        
-                        # 1. Strip running headers, journal identifiers, DOIs, and page numbers
-                        for line in lines:
-                            l_str = line.strip()
-                            if not l_str:
-                                continue
-                            if re.search(r'Journal for Lesson|P-ISSN|E-ISSN|Open Access|https?://|doi\.org|Vol\.\s*\d+,\s*No\.\s*\d+|Komang Nanda Cahyani|Article history|Received |Accepted |Available online|CC BY-SA|Copyright ©', l_str, re.I):
-                                continue
-                            if re.match(r'^\d+$', l_str):
-                                continue
-                            clean_lines.append(l_str)
-                        
-                        # 2. De-hyphenate words broken across lines and join paragraphs
-                        page_text = '\n'.join(clean_lines)
-                        page_text = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', page_text)
-                        
-                        paras = re.split(r'\n{2,}', page_text)
-                        for p in paras:
-                            joined = ' '.join(l.strip() for l in p.splitlines() if l.strip())
-                            if re.match(r'^(1\.|2\.|3\.|4\.|5\.|6\.|7\.|I\.|II\.|III\.|IV\.|INTRODUCTION|METHOD|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)', joined, re.I):
-                                page_content.append(f"\n\n## {joined}\n\n")
-                            elif len(joined) > 15:
-                                page_content.append(joined)
-                except Exception as e:
-                    print(f"Error extracting text from PDF page {page_num}: {e}")
-                
-                # 3. Table Extraction (Grid + Borderless Academic Tables)
-                try:
-                    tables = page.extract_tables()
-                    if not tables:
-                        tables = page.extract_tables(table_settings={
-                            'vertical_strategy': 'text',
-                            'horizontal_strategy': 'lines',
-                            'snap_tolerance': 4,
-                            'join_tolerance': 4
-                        })
-                    if tables:
-                        for tbl in tables:
-                            clean_tbl = [[str(cell or '').replace('\n', ' ').strip() for cell in row] for row in tbl if any(row)]
-                            if len(clean_tbl) >= 2 and len(clean_tbl[0]) >= 2:
-                                header = clean_tbl[0]
-                                rows = clean_tbl[1:]
-                                md_table = []
-                                md_table.append("| " + " | ".join(header) + " |")
-                                md_table.append("| " + " | ".join(['---'] * len(header)) + " |")
-                                for r in rows:
-                                    padded = r + [''] * (len(header) - len(r))
-                                    md_table.append("| " + " | ".join(padded[:len(header)]) + " |")
-                                page_content.append("\n\n" + "\n".join(md_table) + "\n\n")
-                except Exception as e:
-                    print(f"Table extraction skipped on page {page_num}: {e}")
+        pdfium_doc = None
+        total_extracted_images = 0
+        MAX_IMAGES_PER_BOOK = 200
 
-                # 4. Figure/Image Extraction
-                try:
-                    for img_idx, img_obj in enumerate(page.images):
-                        w = img_obj.get('width', 0)
-                        h = img_obj.get('height', 0)
-                        if w >= 70 and h >= 40 and (w * h) >= 3500 and 'stream' in img_obj:
-                            img_bytes = img_obj['stream'].get_data()
-                            img_filename = f"{book_prefix}_p{page_num+1}_img{img_idx+1}.jpg"
-                            img_path = os.path.join(media_img_dir, img_filename)
-                            with open(img_path, 'wb') as f_img:
-                                f_img.write(img_bytes)
-                            img_url = f"/media/book_images/{img_filename}"
-                            page_content.append(f"\n\n![Gambar Halaman {page_num+1}]({img_url})\n\n")
-                except Exception as e:
-                    logger.debug(f"Figure extraction skipped on page {page_num}: {e}")
-                
-                pages_text.append("\n\n".join(page_content) if page_content else "")
-            
-            # Scanned book fallback: AI Vision OCR via VLM
-            valid_pages = sum(1 for p in pages_text if p.strip())
-            if valid_pages < len(pdf.pages) * 0.3:
-                # Enrich blank pages with AI Vision OCR without discarding non-blank text
-                for page_num in range(min(50, len(pdf.pages))):
-                    if not pages_text[page_num].strip():
+        try:
+            try:
+                pdfium_doc = pdfium.PdfDocument(file_path)
+            except Exception as e:
+                logger.warning(f"Failed to open PDF with pdfium for image extraction: {e}")
+
+            with pdfplumber.open(file_path) as pdf:
+                for page_num, page in enumerate(pdf.pages):
+                    page_content = []
+                    try:
+                        text = page.extract_text(layout=False) or ""
+                        if text.strip():
+                            text = re.sub(r"(\w+)-\n(\w+)", r"\1\2", text)
+                            text = re.sub(r"[ \t]+", " ", text)
+                            lines = [line.strip() for line in text.split("\n") if line.strip()]
+                            text = "\n".join(lines)
+                            page_content.append(text)
+                    except Exception as e:
+                        logger.debug(f"Text extraction failed on page {page_num}: {e}")
+
+                    # 3. Table Extraction
+                    try:
+                        tables = page.extract_tables()
+                        if tables:
+                            for tbl in tables:
+                                clean_tbl = [[str(cell or '').replace('\n', ' ').strip() for cell in row] for row in tbl if any(row)]
+                                if len(clean_tbl) >= 2 and len(clean_tbl[0]) >= 2:
+                                    header = clean_tbl[0]
+                                    rows = clean_tbl[1:]
+                                    md_table = []
+                                    md_table.append("| " + " | ".join(header) + " |")
+                                    md_table.append("| " + " | ".join(['---'] * len(header)) + " |")
+                                    for r in rows:
+                                        padded = r + [''] * (len(header) - len(r))
+                                        md_table.append("| " + " | ".join(padded[:len(header)]) + " |")
+                                    page_content.append("\n\n" + "\n".join(md_table) + "\n\n")
+                    except Exception as e:
+                        logger.debug(f"Table extraction skipped on page {page_num}: {e}")
+
+                    # 4. Figure/Image Extraction via pypdfium2 native decoder with resource limits
+                    if pdfium_doc and total_extracted_images < MAX_IMAGES_PER_BOOK:
                         try:
-                            pil_img = pdf.pages[page_num].to_image(resolution=150).original
-                            buf = io.BytesIO()
-                            pil_img.save(buf, format="JPEG", quality=85)
-                            ocr_text = _ocr_page_via_vlm(buf.getvalue())
-                            if ocr_text:
-                                pages_text[page_num] = ocr_text
+                            p_doc = pdfium_doc[page_num]
+                            try:
+                                img_count = 0
+                                for obj in p_doc.get_objects():
+                                    if total_extracted_images >= MAX_IMAGES_PER_BOOK:
+                                        break
+                                    if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE:
+                                        try:
+                                            bitmap = obj.get_bitmap()
+                                            pil_img = bitmap.to_pil()
+                                            w, h = pil_img.size
+                                            if w >= 70 and h >= 40 and (w * h) >= 3500:
+                                                img_count += 1
+                                                total_extracted_images += 1
+                                                img_filename = f"{book_prefix}_p{page_num+1}_img{img_count}.jpg"
+                                                img_path = os.path.join(media_img_dir, img_filename)
+                                                if pil_img.mode != 'RGB':
+                                                    pil_img = pil_img.convert('RGB')
+                                                pil_img.save(img_path, format="JPEG", quality=85, optimize=True)
+                                                img_url = f"/media/book_images/{img_filename}"
+                                                page_content.append(f"\n\n![Gambar Halaman {page_num+1}]({img_url})\n\n")
+                                        except Exception as img_err:
+                                            logger.debug(f"Single image decode error on page {page_num}: {img_err}")
+                            finally:
+                                p_doc.close()
                         except Exception as e:
-                            logger.warning(f"AI Vision OCR failed on page {page_num}: {e}")
-        
+                            logger.debug(f"Figure extraction skipped on page {page_num}: {e}")
+
+                    pages_text.append("\n\n".join(page_content) if page_content else "")
+
+                # Scanned book fallback: AI Vision OCR via VLM
+                valid_pages = sum(1 for p in pages_text if p.strip())
+                if valid_pages < len(pdf.pages) * 0.3:
+                    for page_num in range(min(50, len(pdf.pages))):
+                        if not pages_text[page_num].strip():
+                            try:
+                                pil_img = pdf.pages[page_num].to_image(resolution=150).original
+                                buf = io.BytesIO()
+                                pil_img.save(buf, format="JPEG", quality=85)
+                                ocr_text = _ocr_page_via_vlm(buf.getvalue())
+                                if ocr_text:
+                                    pages_text[page_num] = ocr_text
+                            except Exception as e:
+                                logger.warning(f"AI Vision OCR failed on page {page_num}: {e}")
+        finally:
+            if pdfium_doc:
+                try:
+                    pdfium_doc.close()
+                except Exception:
+                    pass
+
         if not any(p.strip() for p in pages_text):
             return [ParsedChapter(0, "Chapter 1", "No readable text content found in PDF.")]
 
@@ -436,19 +546,12 @@ class BookParser:
             logger.warning(f"Native PDF TOC extraction failed: {e}")
 
         if len(raw_toc) >= 2:
-            grouped = OrderedDict()
-            for p, lvl, t in raw_toc:
-                if p not in grouped:
-                    grouped[p] = []
-                grouped[p].append(t)
-
-            sorted_pages = sorted(grouped.keys())
+            sorted_toc = sorted(raw_toc, key=lambda x: (x[0], x[1]))
             boundaries = []
-            if sorted_pages[0] > 0:
-                boundaries.append((0, "Front Matter"))
-            for p in sorted_pages:
-                title = " / ".join(grouped[p])[:150]
-                boundaries.append((p, title))
+            if sorted_toc[0][0] > 0:
+                boundaries.append((0, 0, "Front Matter"))
+            for p, lvl, t in sorted_toc:
+                boundaries.append((p, lvl, t[:150]))
 
             return BookParser._build_chapters_from_boundaries(boundaries, pages_text, total_pages)
 
@@ -470,9 +573,9 @@ class BookParser:
         if len(detected_headings) >= 2:
             boundaries = []
             if detected_headings[0][0] > 0:
-                boundaries.append((0, "Front Matter"))
+                boundaries.append((0, 0, "Front Matter"))
             for p_idx, title in detected_headings:
-                boundaries.append((p_idx, title))
+                boundaries.append((p_idx, 0, title))
 
             return BookParser._build_chapters_from_boundaries(boundaries, pages_text, total_pages)
 
@@ -489,7 +592,9 @@ class BookParser:
             chapters.append(ParsedChapter(
                 index=len(chapters),
                 title=title,
-                content=joined_text
+                content=joined_text,
+                page_number=start_page,
+                level=0
             ))
 
         return chapters

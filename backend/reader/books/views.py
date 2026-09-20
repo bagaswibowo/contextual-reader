@@ -84,6 +84,8 @@ class BookViewSet(viewsets.ModelViewSet):
                     title=ch_data.title,
                     content=ch_data.content,
                     word_count=ch_word_count,
+                    page_number=ch_data.page_number,
+                    level=ch_data.level,
                     start_offset=0,
                     end_offset=len(ch_data.content),
                 )

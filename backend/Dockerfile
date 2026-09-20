@@ -29,4 +29,4 @@ USER app
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py makemigrations && python manage.py migrate && gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 reader.wsgi"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 reader.wsgi"]

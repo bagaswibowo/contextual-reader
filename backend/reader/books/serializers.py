@@ -18,13 +18,13 @@ class ChapterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Chapter
-        fields = ['id', 'index', 'title', 'content', 'word_count', 'sentences']
+        fields = ['id', 'index', 'title', 'content', 'word_count', 'page_number', 'level', 'sentences']
 
 
 class ChapterListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
-        fields = ['id', 'index', 'title', 'word_count']
+        fields = ['id', 'index', 'title', 'word_count', 'page_number', 'level']
 
 
 class BookSerializer(serializers.ModelSerializer):

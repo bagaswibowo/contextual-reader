@@ -68,6 +68,7 @@ export function Reader() {
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
+        setShowTocModal(false)
         setActiveWordPopup((prev) => (prev !== null ? null : prev))
         setActiveSentencePopup((prev) => (prev !== null ? null : prev))
       }
@@ -732,18 +733,22 @@ export function Reader() {
               const imgMatch = rawText.match(/!\[(.*?)\]\((.*?)\)/);
               if (imgMatch) {
                 const alt = imgMatch[1];
-                const src = imgMatch[2];
+                const rawSrc = imgMatch[2];
+                const fullSrc = /^https?:\/\//i.test(rawSrc) ? rawSrc : new URL(rawSrc.startsWith('/') ? rawSrc : `/${rawSrc}`, window.location.origin).href;
                 return (
-                  <div key={sent.id || sIdx} className="my-8 text-center bg-gray-50/80 dark:bg-dark-card/60 p-4 rounded-2xl border-2 border-gray-200 dark:border-dark-border shadow-sm">
+                  <figure key={sent.id || sIdx} className="my-8 text-center bg-gray-50/90 dark:bg-dark-card/80 p-4 sm:p-5 rounded-2xl border-2 border-gray-200 dark:border-dark-border shadow-sm transition-all">
                     <img 
-                      src={src.startsWith('http') ? src : `${window.location.origin}${src}`} 
+                      src={fullSrc} 
                       alt={alt} 
-                      className="max-h-[420px] max-w-full mx-auto rounded-xl shadow-md object-contain"
+                      className="max-h-[500px] max-w-full mx-auto rounded-xl shadow-md object-contain bg-white p-2"
                       loading="lazy"
-                      onError={(e) => { e.currentTarget.classList.add("hidden"); }} 
+                      onError={(e) => {
+                        const fig = e.currentTarget.closest('figure');
+                        if (fig) fig.style.display = 'none';
+                      }} 
                     />
-                    <p className="text-xs font-semibold text-gray-500 dark:text-dark-muted mt-3 font-mono">{alt}</p>
-                  </div>
+                    <figcaption className="text-xs font-semibold text-gray-500 dark:text-dark-muted mt-3 font-mono tracking-wide">{alt}</figcaption>
+                  </figure>
                 );
               }
             }
@@ -1551,36 +1556,63 @@ export function Reader() {
 
       {/* Table of Contents Modal */}
       {showTocModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="card-duo max-w-md w-full p-6 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between pb-4 border-b-2 border-gray-100 dark:border-dark-border mb-4">
-              <h3 className="heading-3 flex items-center gap-2">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowTocModal(false); }}
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in"
+        >
+          <div className="card-duo max-w-lg md:max-w-xl w-full p-4 sm:p-6 max-h-[85vh] flex flex-col bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border shadow-2xl rounded-2xl">
+            <div className="flex items-center justify-between pb-3.5 border-b border-gray-200 dark:border-dark-border shrink-0">
+              <h3 className="font-heading font-extrabold text-lg sm:text-xl flex items-center gap-2.5 text-eel dark:text-dark-text">
                 <BookOpen className="w-5 h-5 text-duo-green" />
-                Daftar Isi Bab
+                Table of Contents
               </h3>
-              <button onClick={() => setShowTocModal(false)} className="p-1">
+              <button 
+                onClick={() => setShowTocModal(false)} 
+                className="p-1.5 rounded-lg text-gray-400 hover:text-eel dark:hover:text-white hover:bg-gray-100 dark:hover:bg-dark-border transition-colors"
+                aria-label="Tutup daftar isi"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-2">
-              {toc.map((ch, idx) => (
-                <button
-                  key={ch.id || idx}
-                  onClick={() => {
-                    loadChapter(ch.index)
-                    setShowTocModal(false)
-                  }}
-                  className={`w-full text-left px-4 py-3 rounded-duo font-ui font-bold text-sm transition-all flex items-center justify-between ${
-                    idx === chapterIndex
-                      ? 'bg-duo-green text-white shadow-3d'
-                      : 'hover:bg-gray-100 dark:hover:bg-dark-border text-eel dark:text-dark-text'
-                  }`}
-                >
-                  <span className="truncate pr-2">{ch.title}</span>
-                  <span className="text-xs opacity-75">{ch.word_count} kata</span>
-                </button>
-              ))}
+            <div className="flex-1 overflow-y-auto py-2 pr-1 divide-y divide-gray-100/60 dark:divide-dark-border/40">
+              {toc.map((ch, idx) => {
+                const lvl = typeof ch.level === 'number' ? ch.level : 0;
+                const isTopLevel = lvl === 0;
+                const prevLvl = idx > 0 && typeof toc[idx - 1].level === 'number' ? toc[idx - 1].level : 0;
+                const needsTopSpacing = isTopLevel && idx > 0 && prevLvl > 0;
+                const isCurrent = idx === chapterIndex;
+                const indentPadding = lvl === 1 ? 'pl-6 sm:pl-7' : lvl >= 2 ? 'pl-10 sm:pl-12' : 'pl-2';
+
+                return (
+                  <button
+                    key={ch.id || idx}
+                    onClick={() => {
+                      loadChapter(ch.index)
+                      setShowTocModal(false)
+                    }}
+                    title={`${ch.title} — Halaman ${ch.page_number || idx + 1} (${ch.word_count || 0} kata)`}
+                    className={`w-full text-left py-2.5 px-3 rounded-lg transition-all flex items-baseline justify-between gap-3 group ${
+                      needsTopSpacing ? 'mt-3.5 pt-3 border-t-0' : ''
+                    } ${
+                      isCurrent
+                        ? 'bg-duo-green/15 dark:bg-duo-green/25 text-duo-green-dark dark:text-duo-green font-extrabold ring-1 ring-duo-green/30'
+                        : 'hover:bg-gray-100/80 dark:hover:bg-dark-border/60 text-eel dark:text-dark-text'
+                    }`}
+                  >
+                    <div className={`flex-1 min-w-0 flex items-baseline gap-2 ${indentPadding}`}>
+                      <span className={`break-words ${lvl === 0 ? 'font-bold text-[15px] text-eel dark:text-dark-text tracking-tight' : 'font-normal text-sm text-eel/90 dark:text-dark-text/90'}`}>
+                        {ch.title}
+                      </span>
+                    </div>
+                    <div className="shrink-0 flex items-baseline gap-1.5 ml-3">
+                      <span className="text-right tabular-nums font-mono text-sm text-gray-400 dark:text-gray-500 font-semibold group-hover:text-eel dark:group-hover:text-dark-text transition-colors">
+                        {ch.page_number || idx + 1}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
