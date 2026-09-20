@@ -62,6 +62,19 @@ export function Reader() {
   const [voices, setVoices] = useState([])
   const synthRef = useRef(typeof window !== 'undefined' ? window.speechSynthesis : null)
   const audioRef = useRef(null)
+  const touchStartYRef = useRef(0)
+
+  // Dismiss popups on Escape key
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setActiveWordPopup((prev) => (prev !== null ? null : prev))
+        setActiveSentencePopup((prev) => (prev !== null ? null : prev))
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -851,12 +864,34 @@ export function Reader() {
                                 ? "fixed inset-x-0 bottom-0 z-50 animate-slide-up w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto max-h-[88vh] sm:max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-3xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 border-x-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
                                 : "fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 animate-slide-up sm:animate-bounce-in w-full sm:w-[600px] md:w-[720px] lg:w-[780px] sm:max-w-[96vw] max-h-[88vh] sm:max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-3xl sm:rounded-2xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 sm:border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
                             }>
-                              {/* Grab Handle */}
+                              {/* Grab Handle Container with Accessible Touch Target */}
                               <div
-                                className={`w-12 h-1.5 bg-gray-300 dark:bg-dark-border rounded-full mx-auto mb-3 shrink-0 cursor-pointer hover:bg-gray-400 transition-colors ${isBottomSheet ? 'block' : 'sm:hidden'}`}
+                                role="button"
+                                tabIndex={0}
+                                aria-label="Tutup panel kata"
+                                className={`w-full py-2.5 -mt-2 mb-1 flex items-center justify-center cursor-pointer touch-manipulation select-none shrink-0 ${isBottomSheet ? 'flex' : 'sm:hidden'}`}
                                 onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
-                                title="Tutup panel"
-                              />
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setActiveWordPopup(null); } }}
+                                onTouchStart={(e) => {
+                                  if (e.touches.length === 1) {
+                                    touchStartYRef.current = e.touches[0].clientY;
+                                  }
+                                }}
+                                onTouchCancel={() => { touchStartYRef.current = 0; }}
+                                onTouchEnd={(e) => {
+                                  if (e.changedTouches.length === 1) {
+                                    const dy = e.changedTouches[0].clientY - touchStartYRef.current;
+                                    if (dy > 40) {
+                                      e.stopPropagation();
+                                      setActiveWordPopup(null);
+                                    }
+                                  }
+                                  touchStartYRef.current = 0;
+                                }}
+                                title="Tarik ke bawah atau klik untuk menutup"
+                              >
+                                <div className="w-12 h-1.5 bg-gray-300 dark:bg-dark-border rounded-full hover:bg-gray-400 transition-colors" />
+                              </div>
 
                               {/* Tooltip Pointer Arrow (Tooltip Mode Desktop Only) */}
                               {!isBottomSheet && (

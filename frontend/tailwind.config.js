@@ -53,8 +53,13 @@ export default {
         'bounce-in': 'bounceIn 0.3s ease-out',
         'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
         'confetti': 'confetti 0.6s ease-out',
+        'slide-up': 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
       },
       keyframes: {
+        slideUp: {
+          '0%': { transform: 'translateY(100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
         bounceIn: {
           '0%': { transform: 'scale(0.9)', opacity: '0' },
           '50%': { transform: 'scale(1.05)' },
