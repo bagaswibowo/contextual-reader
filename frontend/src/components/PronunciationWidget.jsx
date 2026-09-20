@@ -12,86 +12,19 @@ import {
   getDhhSupport
 } from '../utils/visemeConstants';
 
-// Module-level cache for decoded audio & keyframe maps
-const MAX_CACHE_SIZE = 50;
-const pronunciationCache = new Map();
+// BCP-47 Speech Synthesis Regionalization with graceful prefix fallback
+export const BCP47_LOCALES = {
+  en: 'en-US', id: 'id-ID', ja: 'ja-JP', zh: 'zh-CN', 'zh-cn': 'zh-CN', 'zh-tw': 'zh-TW',
+  es: 'es-ES', fr: 'fr-FR', de: 'de-DE', it: 'it-IT', pt: 'pt-BR', nl: 'nl-NL',
+  ko: 'ko-KR', ar: 'ar-SA', ru: 'ru-RU', tr: 'tr-TR', vi: 'vi-VN', th: 'th-TH',
+  hi: 'hi-IN', pl: 'pl-PL', sv: 'sv-SE', uk: 'uk-UA', el: 'el-GR', cs: 'cs-CZ'
+};
 
-function setPronunciationCache(key, data) {
-  if (pronunciationCache.size >= MAX_CACHE_SIZE) {
-    const firstKey = pronunciationCache.keys().next().value;
-    const old = pronunciationCache.get(firstKey);
-    if (old && old.blobUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
-      try { URL.revokeObjectURL(old.blobUrl); } catch (_) {}
-    }
-    pronunciationCache.delete(firstKey);
-  }
-  pronunciationCache.set(key, data);
-}
-let sharedAudioContext = null;
-
-function getAudioContext() {
-  if (typeof window === 'undefined') return null;
-  if (!sharedAudioContext) {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtx) sharedAudioContext = new AudioCtx();
-  }
-  if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
-    sharedAudioContext.resume().catch(() => {});
-  }
-  return sharedAudioContext;
-}
-
-// Native PCM silence & speech onset/offset detector (Adaptive noise-floor & peak energy)
-function detectSpeechBounds(audioBuffer) {
-  const pcm = audioBuffer.getChannelData(0);
-  const sampleRate = audioBuffer.sampleRate;
-  const len = pcm.length;
-  const totalDur = len / sampleRate;
-
-  let peak = 0;
-  for (let i = 0; i < len; i++) {
-    const abs = Math.abs(pcm[i]);
-    if (abs > peak) peak = abs;
-  }
-
-  const threshold = Math.max(0.010, peak * 0.035);
-  let startIdx = 0;
-  let endIdx = len - 1;
-
-  for (let i = 0; i < len; i++) {
-    if (Math.abs(pcm[i]) > threshold) {
-      startIdx = Math.max(0, i - Math.floor(sampleRate * 0.015)); // 15ms lead-in
-      break;
-    }
-  }
-
-  for (let i = len - 1; i >= 0; i--) {
-    if (Math.abs(pcm[i]) > threshold) {
-      endIdx = Math.min(len - 1, i + Math.floor(sampleRate * 0.025)); // 25ms release
-      break;
-    }
-  }
-
-  let speechStartSec = startIdx / sampleRate;
-  let speechEndSec = endIdx / sampleRate;
-
-  // Defensive fallback: Google TTS trailing silence is typically 200-300ms
-  if (speechEndSec - speechStartSec < 0.15) {
-    speechStartSec = Math.min(0.10, totalDur * 0.10);
-    speechEndSec = Math.max(speechStartSec + 0.20, totalDur - 0.24);
-  }
-
-  return { speechStartSec, speechEndSec };
-}
-
-// Precompute timeline keyframe map (fonem -> timestamp -> video frame)
-function buildKeyframeMap(phonemes, speechStartSec, speechEndSec) {
-  const span = Math.max(0.05, speechEndSec - speechStartSec);
-  return phonemes.map((p) => ({
-    ...p,
-    startSec: speechStartSec + p.startRatio * span,
-    endSec: speechStartSec + p.endRatio * span
-  }));
+function getBcp47Locale(langCode = 'en') {
+  const code = (langCode || 'en').toLowerCase().trim();
+  if (BCP47_LOCALES[code]) return BCP47_LOCALES[code];
+  const prefix = code.split(/[-_]/)[0];
+  return BCP47_LOCALES[prefix] || (code.length === 2 ? `${code}-${code.toUpperCase()}` : 'en-US');
 }
 
 // Subtle tactile feedback for DHH learners
@@ -156,50 +89,12 @@ export function PronunciationWidget({
     }
   };
 
-  // Pre-fetch & pre-compute alignment map offline/ahead of time with AbortController
+  // Reset sequencer state when target word or language changes
   useEffect(() => {
     activeIndexRef.current = 0;
     setActivePhonemeIndex(0);
     setCurrentFrame(phonemes[0]?.frame || 'rest.png');
     stopPlayback();
-
-    const cleanWord = (currentWord || '').trim().toLowerCase();
-    if (!cleanWord) return;
-
-    const controller = new AbortController();
-    const cacheKey = `${currentLang || 'en'}_${cleanWord}`;
-
-    if (!pronunciationCache.has(cacheKey)) {
-      const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(currentLang || 'en')}`;
-      fetch(proxyUrl, { signal: controller.signal })
-        .then((res) => {
-          if (!res.ok) throw new Error('TTS fetch failed');
-          return res.blob();
-        })
-        .then(async (blob) => {
-          const blobUrl = URL.createObjectURL(blob);
-          let bounds = null;
-          try {
-            const ctx = getAudioContext();
-            if (ctx) {
-              const arrayBuffer = await blob.arrayBuffer();
-              const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-              bounds = detectSpeechBounds(audioBuffer);
-            }
-          } catch (e) {
-            // AudioContext decode fallback
-          }
-
-          setPronunciationCache(cacheKey, { blobUrl, bounds });
-        })
-        .catch((err) => {
-          if (err.name === 'AbortError') return;
-        });
-    }
-
-    return () => {
-      controller.abort();
-    };
   }, [currentWord, currentIpa, currentLang, currentTranslit]);
 
   // Clean up on unmount
@@ -236,67 +131,6 @@ export function PronunciationWidget({
     changeActiveIndex(0);
   };
 
-  const fallbackPacedSpeech = (cleanWord, token) => {
-    const totalDurationMs = Math.max(350, phonemes.length * 85 * (1 / playbackSpeed));
-    const startTime = performance.now();
-
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(cleanWord);
-        const speechLangs = {
-          en: 'en-US', id: 'id-ID', fr: 'fr-FR', es: 'es-ES', de: 'de-DE',
-          it: 'it-IT', pt: 'pt-BR', nl: 'nl-NL', ja: 'ja-JP', zh: 'zh-CN'
-        };
-        const langCode = (currentLang || 'en').toLowerCase().slice(0, 2);
-        utterance.lang = speechLangs[langCode] || speechLangs[currentLang] || 'en-US';
-        utterance.rate = playbackSpeed;
-        utterance.onend = () => {
-          if (token === playTokenRef.current) {
-            if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
-            changeActiveIndex(phonemes.length - 1);
-            setTimeout(() => {
-              if (token === playTokenRef.current) {
-                setIsPlaying(false);
-                changeActiveIndex(0);
-              }
-            }, 260);
-          }
-        };
-        window.speechSynthesis.speak(utterance);
-      } catch (_) {}
-    }
-
-    const loopFallback = () => {
-      if (token !== playTokenRef.current) return;
-      const elapsed = performance.now() - startTime;
-      const progress = Math.min(0.999, Math.max(0, elapsed / totalDurationMs));
-
-      let foundIdx = 0;
-      for (let i = 0; i < phonemes.length; i++) {
-        if (progress >= phonemes[i].startRatio && progress < phonemes[i].endRatio) {
-          foundIdx = i;
-          break;
-        }
-      }
-      changeActiveIndex(foundIdx);
-
-      if (elapsed < totalDurationMs) {
-        animFrameIdRef.current = requestAnimationFrame(loopFallback);
-      } else {
-        changeActiveIndex(phonemes.length - 1);
-        setTimeout(() => {
-          if (token === playTokenRef.current) {
-            setIsPlaying(false);
-            changeActiveIndex(0);
-          }
-        }, 260);
-      }
-    };
-
-    animFrameIdRef.current = requestAnimationFrame(loopFallback);
-  };
-
   const handleTogglePlay = (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
 
@@ -314,120 +148,63 @@ export function PronunciationWidget({
     const token = ++playTokenRef.current;
     setIsPlaying(true);
 
-    const cacheKey = `${currentLang || 'en'}_${cleanWord}`;
-    const cached = pronunciationCache.get(cacheKey);
+    // 1. Play audio in background (TTS API with Web Speech fallback)
     const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(currentLang || 'en')}`;
-    const audioSrc = cached?.blobUrl || proxyUrl;
-
-    const audio = new Audio(audioSrc);
+    const audio = new Audio(proxyUrl);
     audio.playbackRate = playbackSpeed;
     audioRef.current = audio;
 
-    let bounds = cached?.bounds || null;
-
-    const startAudioSyncedLoop = () => {
-      if (!bounds) {
-        const dur = audio.duration || 1.0;
-        bounds = {
-          speechStartSec: Math.min(0.10, dur * 0.10),
-          speechEndSec: Math.max(0.25, dur - 0.24)
-        };
+    audio.play().catch(() => {
+      // Fallback to Web Speech API with BCP-47 regionalization
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(cleanWord);
+          utterance.lang = getBcp47Locale(currentLang);
+          utterance.rate = playbackSpeed;
+          window.speechSynthesis.speak(utterance);
+        } catch (_) {}
       }
+    });
 
-      const playStartTime = performance.now();
-      const playStartMediaTime = audioRef.current.currentTime;
-      const rate = audioRef.current.playbackRate || playbackSpeed || 1.0;
+    // 2. Deterministic DHH Viseme Sequencer (OpenPronounce acoustic weight duration standard)
+    const totalWeight = phonemes.reduce((sum, p) => sum + getPhonemeWeight(p.frame), 0) || 1;
+    // Calibrated natural speech unit tempo (~75ms per weight unit at 1.0x)
+    let msPerWeight = (75 / playbackSpeed);
 
-      const syncFrame = () => {
-        if (token !== playTokenRef.current || !audioRef.current || audioRef.current.paused || audioRef.current.ended) {
-          return;
-        }
-
-        const realCur = audioRef.current.currentTime;
-        const elapsedSec = ((performance.now() - playStartTime) / 1000) * rate;
-        const estCur = playStartMediaTime + elapsedSec;
-        const curTime = Math.abs(realCur - estCur) < 0.20 ? estCur : realCur;
-
-        const speechStart = bounds.speechStartSec;
-        const speechEnd = bounds.speechEndSec;
-
-        // Active voice finished: cut off trailing silence immediately
-        if (curTime >= speechEnd || realCur >= speechEnd) {
-          try { audioRef.current.pause(); } catch (_) {}
-          changeActiveIndex(phonemes.length - 1);
-          if (animTimerRef.current) clearTimeout(animTimerRef.current);
-          animTimerRef.current = setTimeout(() => {
-            if (token === playTokenRef.current) {
-              setIsPlaying(false);
-              changeActiveIndex(0);
-            }
-          }, 260);
-          return;
-        }
-
-        // Silent lead-in: hold first phoneme
-        if (curTime < speechStart) {
-          changeActiveIndex(0);
-        } else {
-          // Active phonation span: sync with phoneme ratios
-          const activeSpan = Math.max(0.05, speechEnd - speechStart);
-          const progress = Math.min(0.999, Math.max(0, (curTime - speechStart) / activeSpan));
-
-          let foundIdx = 0;
-          for (let i = 0; i < phonemes.length; i++) {
-            if (progress >= phonemes[i].startRatio && progress < phonemes[i].endRatio) {
-              foundIdx = i;
-              break;
-            }
-          }
-          changeActiveIndex(foundIdx);
-        }
-
-        animFrameIdRef.current = requestAnimationFrame(syncFrame);
-      };
-
-      animFrameIdRef.current = requestAnimationFrame(syncFrame);
+    // Dynamic calibration when audio duration is loaded (cuts Google TTS ~240ms trailing silence)
+    const calibrateWithAudio = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0.3) {
+        const audibleSec = Math.max(0.25, audio.duration - 0.24);
+        msPerWeight = (audibleSec / playbackSpeed / totalWeight) * 1000;
+      }
     };
 
-    audio.addEventListener('loadedmetadata', () => {
-      if (!bounds && audio.duration) {
-        bounds = {
-          speechStartSec: Math.min(0.10, audio.duration * 0.10),
-          speechEndSec: Math.max(0.25, audio.duration - 0.24)
-        };
-      }
-    });
+    audio.addEventListener('loadedmetadata', calibrateWithAudio);
+    audio.addEventListener('canplay', calibrateWithAudio);
 
-    audio.addEventListener('playing', () => {
-      if (token === playTokenRef.current) {
-        startAudioSyncedLoop();
-      }
-    });
-
-    audio.onended = () => {
-      if (token === playTokenRef.current) {
-        if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+    let currentIdx = 0;
+    const stepNext = () => {
+      if (token !== playTokenRef.current) return;
+      if (currentIdx >= phonemes.length) {
         changeActiveIndex(phonemes.length - 1);
-        setTimeout(() => {
+        animTimerRef.current = setTimeout(() => {
           if (token === playTokenRef.current) {
             setIsPlaying(false);
             changeActiveIndex(0);
           }
-        }, 260);
+        }, 250);
+        return;
       }
+
+      changeActiveIndex(currentIdx);
+      const weight = getPhonemeWeight(phonemes[currentIdx]?.frame);
+      const stepDuration = Math.max(75, msPerWeight * weight);
+      currentIdx++;
+      animTimerRef.current = setTimeout(stepNext, stepDuration);
     };
 
-    audio.onerror = () => {
-      if (token === playTokenRef.current) {
-        fallbackPacedSpeech(cleanWord, token);
-      }
-    };
-
-    audio.play().catch(() => {
-      if (token === playTokenRef.current) {
-        fallbackPacedSpeech(cleanWord, token);
-      }
-    });
+    stepNext();
   };
 
   const stepPhoneme = (direction) => {
