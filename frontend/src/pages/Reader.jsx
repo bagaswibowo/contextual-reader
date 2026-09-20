@@ -99,22 +99,6 @@ export function Reader() {
     loadBookData()
   }, [bookId])
 
-  // Auto-scroll clicked word into the top visible area so it is NEVER covered by bottom-sheet
-  useEffect(() => {
-    if (activeWordPopup && isBottomSheet) {
-      setTimeout(() => {
-        const el = document.querySelector('button[data-selected-word="true"]');
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          if (rect.top > window.innerHeight * 0.38 || rect.bottom > window.innerHeight * 0.50) {
-            const targetY = window.scrollY + rect.top - (window.innerHeight * 0.22);
-            window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
-          }
-        }
-      }, 50);
-    }
-  }, [activeWordPopup?.word, activeWordPopup?.sentenceId, activeWordPopup?.wIdx, isBottomSheet]);
-
   // Load specific chapter
   const loadChapter = async (index) => {
     try {
@@ -855,21 +839,21 @@ export function Reader() {
                         {' '}
                         {isSelected && (
                           <>
-                            {/* Translucent Backdrop (always non-intrusive so text and active word remain clearly visible) */}
+                            {/* Dimmed Backdrop */}
                             <div
-                              className={`fixed inset-0 bg-black/25 backdrop-blur-[1px] z-40 transition-opacity ${isBottomSheet ? '' : 'sm:hidden'}`}
+                              className={`fixed inset-0 bg-black/50 backdrop-blur-xs z-40 transition-opacity ${isBottomSheet ? '' : 'sm:hidden'}`}
                               onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
                             />
 
-                            {/* Responsive Popup Container: Half-screen Bottom Sheet (50vh) or Floating Tooltip */}
+                            {/* Responsive Popup Container: Roomy Bottom Sheet (85vh) or Floating Tooltip */}
                             <div className={
                               isBottomSheet
-                                ? "fixed inset-x-0 bottom-0 z-50 animate-slide-up w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto max-h-[52vh] sm:max-h-[50vh] overflow-y-auto p-3.5 sm:p-5 rounded-t-3xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 border-x-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
+                                ? "fixed inset-x-0 bottom-0 z-50 animate-slide-up w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto max-h-[88vh] sm:max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-3xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 border-x-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
                                 : "fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 animate-slide-up sm:animate-bounce-in w-full sm:w-[600px] md:w-[720px] lg:w-[780px] sm:max-w-[96vw] max-h-[88vh] sm:max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-3xl sm:rounded-2xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 sm:border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
                             }>
                               {/* Grab Handle */}
                               <div
-                                className={`w-12 h-1.5 bg-gray-300 dark:bg-dark-border rounded-full mx-auto mb-2.5 shrink-0 cursor-pointer hover:bg-gray-400 transition-colors ${isBottomSheet ? 'block' : 'sm:hidden'}`}
+                                className={`w-12 h-1.5 bg-gray-300 dark:bg-dark-border rounded-full mx-auto mb-3 shrink-0 cursor-pointer hover:bg-gray-400 transition-colors ${isBottomSheet ? 'block' : 'sm:hidden'}`}
                                 onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
                                 title="Tutup panel"
                               />
