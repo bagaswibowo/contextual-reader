@@ -41,12 +41,20 @@ function getAudioContext() {
   return sharedAudioContext;
 }
 
-// Native PCM silence & speech onset/offset detector
+// Native PCM silence & speech onset/offset detector (Adaptive noise-floor & peak energy)
 function detectSpeechBounds(audioBuffer) {
   const pcm = audioBuffer.getChannelData(0);
   const sampleRate = audioBuffer.sampleRate;
   const len = pcm.length;
-  const threshold = 0.012; // Sensitive threshold for consonants & plosives
+  const totalDur = len / sampleRate;
+
+  let peak = 0;
+  for (let i = 0; i < len; i++) {
+    const abs = Math.abs(pcm[i]);
+    if (abs > peak) peak = abs;
+  }
+
+  const threshold = Math.max(0.010, peak * 0.035);
   let startIdx = 0;
   let endIdx = len - 1;
 
@@ -59,13 +67,20 @@ function detectSpeechBounds(audioBuffer) {
 
   for (let i = len - 1; i >= 0; i--) {
     if (Math.abs(pcm[i]) > threshold) {
-      endIdx = Math.min(len - 1, i + Math.floor(sampleRate * 0.020)); // 20ms release
+      endIdx = Math.min(len - 1, i + Math.floor(sampleRate * 0.025)); // 25ms release
       break;
     }
   }
 
-  const speechStartSec = startIdx / sampleRate;
-  const speechEndSec = Math.max(speechStartSec + 0.1, endIdx / sampleRate);
+  let speechStartSec = startIdx / sampleRate;
+  let speechEndSec = endIdx / sampleRate;
+
+  // Defensive fallback: Google TTS trailing silence is typically 200-300ms
+  if (speechEndSec - speechStartSec < 0.15) {
+    speechStartSec = Math.min(0.10, totalDur * 0.10);
+    speechEndSec = Math.max(speechStartSec + 0.20, totalDur - 0.24);
+  }
+
   return { speechStartSec, speechEndSec };
 }
 
@@ -163,25 +178,19 @@ export function PronunciationWidget({
         })
         .then(async (blob) => {
           const blobUrl = URL.createObjectURL(blob);
-          let keyframes = null;
+          let bounds = null;
           try {
             const ctx = getAudioContext();
             if (ctx) {
               const arrayBuffer = await blob.arrayBuffer();
               const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-              const { speechStartSec, speechEndSec } = detectSpeechBounds(audioBuffer);
-              keyframes = buildKeyframeMap(phonemes, speechStartSec, speechEndSec);
+              bounds = detectSpeechBounds(audioBuffer);
             }
           } catch (e) {
             // AudioContext decode fallback
           }
 
-          if (!keyframes) {
-            const fallbackDur = Math.max(0.6, phonemes.length * 0.15);
-            keyframes = buildKeyframeMap(phonemes, fallbackDur * 0.08, fallbackDur * 0.78);
-          }
-
-          setPronunciationCache(cacheKey, { blobUrl, keyframes });
+          setPronunciationCache(cacheKey, { blobUrl, bounds });
         })
         .catch((err) => {
           if (err.name === 'AbortError') return;
@@ -227,6 +236,67 @@ export function PronunciationWidget({
     changeActiveIndex(0);
   };
 
+  const fallbackPacedSpeech = (cleanWord, token) => {
+    const totalDurationMs = Math.max(350, phonemes.length * 85 * (1 / playbackSpeed));
+    const startTime = performance.now();
+
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanWord);
+        const speechLangs = {
+          en: 'en-US', id: 'id-ID', fr: 'fr-FR', es: 'es-ES', de: 'de-DE',
+          it: 'it-IT', pt: 'pt-BR', nl: 'nl-NL', ja: 'ja-JP', zh: 'zh-CN'
+        };
+        const langCode = (currentLang || 'en').toLowerCase().slice(0, 2);
+        utterance.lang = speechLangs[langCode] || speechLangs[currentLang] || 'en-US';
+        utterance.rate = playbackSpeed;
+        utterance.onend = () => {
+          if (token === playTokenRef.current) {
+            if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+            changeActiveIndex(phonemes.length - 1);
+            setTimeout(() => {
+              if (token === playTokenRef.current) {
+                setIsPlaying(false);
+                changeActiveIndex(0);
+              }
+            }, 260);
+          }
+        };
+        window.speechSynthesis.speak(utterance);
+      } catch (_) {}
+    }
+
+    const loopFallback = () => {
+      if (token !== playTokenRef.current) return;
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(0.999, Math.max(0, elapsed / totalDurationMs));
+
+      let foundIdx = 0;
+      for (let i = 0; i < phonemes.length; i++) {
+        if (progress >= phonemes[i].startRatio && progress < phonemes[i].endRatio) {
+          foundIdx = i;
+          break;
+        }
+      }
+      changeActiveIndex(foundIdx);
+
+      if (elapsed < totalDurationMs) {
+        animFrameIdRef.current = requestAnimationFrame(loopFallback);
+      } else {
+        changeActiveIndex(phonemes.length - 1);
+        setTimeout(() => {
+          if (token === playTokenRef.current) {
+            setIsPlaying(false);
+            changeActiveIndex(0);
+          }
+        }, 260);
+      }
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(loopFallback);
+  };
+
   const handleTogglePlay = (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
 
@@ -236,57 +306,128 @@ export function PronunciationWidget({
     }
 
     stopPlayback();
-
-    // 1. Play audio in background (TTS API or Web Speech API)
-    const cleanWord = (currentWord || '').trim().toLowerCase();
-    if (cleanWord) {
-      const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(currentLang || 'en')}`;
-      const audio = new Audio(proxyUrl);
-      audio.playbackRate = playbackSpeed;
-      audioRef.current = audio;
-      audio.play().catch(() => {
-        // Fallback to Web Speech API
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-          try {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(currentWord);
-            const speechLangs = {
-              en: 'en-US', id: 'id-ID', fr: 'fr-FR', es: 'es-ES', de: 'de-DE',
-              it: 'it-IT', pt: 'pt-BR', nl: 'nl-NL', ja: 'ja-JP', zh: 'zh-CN'
-            };
-            const langCode = (currentLang || 'en').toLowerCase().slice(0, 2);
-            utterance.lang = speechLangs[langCode] || speechLangs[currentLang] || 'en-US';
-            utterance.rate = playbackSpeed;
-            window.speechSynthesis.speak(utterance);
-          } catch (_) {}
-        }
-      });
-    }
-
-    // 2. Guaranteed frame-by-frame visual viseme articulation sequence (OpenPronounce standard)
     if (!phonemes || !phonemes.length) return;
+
+    const cleanWord = (currentWord || '').trim().toLowerCase();
+    if (!cleanWord) return;
 
     const token = ++playTokenRef.current;
     setIsPlaying(true);
-    let currentIdx = 0;
-    const baseStepMs = (1 / playbackSpeed) * 180; // ~257ms at 0.70x DHH tempo
 
-    const stepNext = () => {
-      if (token !== playTokenRef.current) return;
-      if (currentIdx >= phonemes.length) {
-        setIsPlaying(false);
-        changeActiveIndex(0);
-        return;
+    const cacheKey = `${currentLang || 'en'}_${cleanWord}`;
+    const cached = pronunciationCache.get(cacheKey);
+    const proxyUrl = `/api/translations/tts/?text=${encodeURIComponent(cleanWord)}&lang=${encodeURIComponent(currentLang || 'en')}`;
+    const audioSrc = cached?.blobUrl || proxyUrl;
+
+    const audio = new Audio(audioSrc);
+    audio.playbackRate = playbackSpeed;
+    audioRef.current = audio;
+
+    let bounds = cached?.bounds || null;
+
+    const startAudioSyncedLoop = () => {
+      if (!bounds) {
+        const dur = audio.duration || 1.0;
+        bounds = {
+          speechStartSec: Math.min(0.10, dur * 0.10),
+          speechEndSec: Math.max(0.25, dur - 0.24)
+        };
       }
 
-      changeActiveIndex(currentIdx);
-      const weight = getPhonemeWeight(phonemes[currentIdx]?.frame);
-      const stepDuration = Math.max(130, baseStepMs * (weight / 1.2));
-      currentIdx++;
-      animTimerRef.current = setTimeout(stepNext, stepDuration);
+      const playStartTime = performance.now();
+      const playStartMediaTime = audioRef.current.currentTime;
+      const rate = audioRef.current.playbackRate || playbackSpeed || 1.0;
+
+      const syncFrame = () => {
+        if (token !== playTokenRef.current || !audioRef.current || audioRef.current.paused || audioRef.current.ended) {
+          return;
+        }
+
+        const realCur = audioRef.current.currentTime;
+        const elapsedSec = ((performance.now() - playStartTime) / 1000) * rate;
+        const estCur = playStartMediaTime + elapsedSec;
+        const curTime = Math.abs(realCur - estCur) < 0.20 ? estCur : realCur;
+
+        const speechStart = bounds.speechStartSec;
+        const speechEnd = bounds.speechEndSec;
+
+        // Active voice finished: cut off trailing silence immediately
+        if (curTime >= speechEnd || realCur >= speechEnd) {
+          try { audioRef.current.pause(); } catch (_) {}
+          changeActiveIndex(phonemes.length - 1);
+          if (animTimerRef.current) clearTimeout(animTimerRef.current);
+          animTimerRef.current = setTimeout(() => {
+            if (token === playTokenRef.current) {
+              setIsPlaying(false);
+              changeActiveIndex(0);
+            }
+          }, 260);
+          return;
+        }
+
+        // Silent lead-in: hold first phoneme
+        if (curTime < speechStart) {
+          changeActiveIndex(0);
+        } else {
+          // Active phonation span: sync with phoneme ratios
+          const activeSpan = Math.max(0.05, speechEnd - speechStart);
+          const progress = Math.min(0.999, Math.max(0, (curTime - speechStart) / activeSpan));
+
+          let foundIdx = 0;
+          for (let i = 0; i < phonemes.length; i++) {
+            if (progress >= phonemes[i].startRatio && progress < phonemes[i].endRatio) {
+              foundIdx = i;
+              break;
+            }
+          }
+          changeActiveIndex(foundIdx);
+        }
+
+        animFrameIdRef.current = requestAnimationFrame(syncFrame);
+      };
+
+      animFrameIdRef.current = requestAnimationFrame(syncFrame);
     };
 
-    stepNext();
+    audio.addEventListener('loadedmetadata', () => {
+      if (!bounds && audio.duration) {
+        bounds = {
+          speechStartSec: Math.min(0.10, audio.duration * 0.10),
+          speechEndSec: Math.max(0.25, audio.duration - 0.24)
+        };
+      }
+    });
+
+    audio.addEventListener('playing', () => {
+      if (token === playTokenRef.current) {
+        startAudioSyncedLoop();
+      }
+    });
+
+    audio.onended = () => {
+      if (token === playTokenRef.current) {
+        if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+        changeActiveIndex(phonemes.length - 1);
+        setTimeout(() => {
+          if (token === playTokenRef.current) {
+            setIsPlaying(false);
+            changeActiveIndex(0);
+          }
+        }, 260);
+      }
+    };
+
+    audio.onerror = () => {
+      if (token === playTokenRef.current) {
+        fallbackPacedSpeech(cleanWord, token);
+      }
+    };
+
+    audio.play().catch(() => {
+      if (token === playTokenRef.current) {
+        fallbackPacedSpeech(cleanWord, token);
+      }
+    });
   };
 
   const stepPhoneme = (direction) => {
