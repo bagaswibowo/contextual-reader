@@ -469,6 +469,7 @@ class BookParser:
                     if pdfium_doc and total_extracted_images < MAX_IMAGES_PER_BOOK:
                         try:
                             p_doc = pdfium_doc[page_num]
+                            pw, ph = p_doc.get_width(), p_doc.get_height()
                             try:
                                 img_count = 0
                                 for obj in p_doc.get_objects():
@@ -476,6 +477,13 @@ class BookParser:
                                         break
                                     if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE:
                                         try:
+                                            # Filter out full-page raster scans (backgrounds)
+                                            l, b_pos, r, t = obj.get_pos()
+                                            cov_w = (r - l) / pw if pw > 0 else 0
+                                            cov_h = (t - b_pos) / ph if ph > 0 else 0
+                                            if cov_w >= 0.85 and cov_h >= 0.85:
+                                                continue
+
                                             bitmap = obj.get_bitmap()
                                             pil_img = bitmap.to_pil()
                                             w, h = pil_img.size
@@ -488,14 +496,17 @@ class BookParser:
                                                     pil_img = pil_img.convert('RGB')
                                                 pil_img.save(img_path, format="JPEG", quality=85, optimize=True)
                                                 img_url = f"/media/book_images/{img_filename}"
-                                                page_content.append(f"\n\n![Gambar Halaman {page_num+1}]({img_url})\n\n")
+
+                                                # Extract real figure caption if present on page
+                                                cap_match = re.search(r"((?:Figure|Fig\.|Gambar)\s+\d+[\.\d]*[^\n\.\:]*[\:\.][^\n]{1,80})", text, re.IGNORECASE)
+                                                img_label = cap_match.group(1).strip() if cap_match else f"Gambar Halaman {page_num+1}"
+                                                page_content.append(f"\n\n![{img_label}]({img_url})\n\n")
                                         except Exception as img_err:
                                             logger.debug(f"Single image decode error on page {page_num}: {img_err}")
                             finally:
                                 p_doc.close()
                         except Exception as e:
                             logger.debug(f"Figure extraction skipped on page {page_num}: {e}")
-
                     pages_text.append("\n\n".join(page_content) if page_content else "")
 
                 # Scanned book fallback: AI Vision OCR via VLM
