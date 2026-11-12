@@ -101,10 +101,13 @@ export function Library() {
   }
 
   const getLanguageBadge = (lang) => {
-    const code = (lang || 'en').toUpperCase()
+    const code = lang ? lang.toUpperCase() : '?'
     return (
-      <span className="badge-duo bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-mono font-bold px-2 py-0.5 rounded">
-        {code}
+      <span
+        title={lang ? `Bahasa buku: ${code}` : 'Bahasa buku belum terdeteksi'}
+        className="badge-duo bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-mono font-bold px-2 py-0.5 rounded inline-flex items-center gap-1"
+      >
+        <span>{code}</span>
       </span>
     )
   }

@@ -1,0 +1,74 @@
+/* ==========================================================================
+   Design Tokens - Contextual Reader (Sprint 0 / Sprint 1)
+   File target: src/styles/tokens.css (imported in globals.css)
+   ========================================================================== */
+
+:root {
+  /* LIGHT THEME (DEFAULT) */
+  --cr-bg-page: #FFFFFF;
+  --cr-bg-surface: #F8FAFC;
+  --cr-bg-surface-elevated: #FFFFFF;
+  --cr-text-primary: #0F172A;
+  --cr-text-secondary: #475569;
+  --cr-text-accent: #1B6A27;
+
+  --cr-btn-primary-bg: #22752B;
+  --cr-btn-primary-hover: #1B6A27;
+  --cr-btn-primary-shadow: #14531E;
+  --cr-btn-primary-text: #FFFFFF;
+
+  --cr-border-interactive: #64748B;
+  --cr-border-subtle: #E2E8F0;
+  --cr-ring-focus: #0284C7;
+
+  --cr-highlight-sentence: rgba(254, 240, 138, 0.55);
+  --cr-highlight-word-hover: rgba(34, 117, 43, 0.12);
+  --cr-highlight-word-active: rgba(34, 117, 43, 0.28);
+}
+
+html.sepia {
+  /* SEPIA THEME */
+  --cr-bg-page: #FBF3E4;
+  --cr-bg-surface: #F4E8D1;
+  --cr-bg-surface-elevated: #F7EDE0;
+  --cr-text-primary: #2E1E11;
+  --cr-text-secondary: #684F38;
+  --cr-text-accent: #1E6328;
+
+  --cr-btn-primary-bg: #2D6632;
+  --cr-btn-primary-hover: #225126;
+  --cr-btn-primary-shadow: #193D1C;
+  --cr-btn-primary-text: #FFFFFF;
+
+  --cr-border-interactive: #8C6D4F;
+  --cr-border-subtle: #E5D5BF;
+  --cr-ring-focus: #A04A00;
+
+  --cr-highlight-sentence: rgba(235, 213, 160, 0.70);
+  --cr-highlight-word-hover: rgba(45, 102, 50, 0.15);
+  --cr-highlight-word-active: rgba(45, 102, 50, 0.30);
+}
+
+html.dark {
+  /* DARK THEME */
+  /* Aligned with Tailwind dark.bg to prevent shade clash (H-2) */
+  --cr-bg-page: #131F24;
+  --cr-bg-surface: #1A242B;
+  --cr-bg-surface-elevated: #222E37;
+  --cr-text-primary: #F8FAFC;
+  --cr-text-secondary: #94A3B8;
+  --cr-text-accent: #5BE22B;
+
+  --cr-btn-primary-bg: #22752B;
+  --cr-btn-primary-hover: #2E9439;
+  --cr-btn-primary-shadow: #134E1C;
+  --cr-btn-primary-text: #FFFFFF;
+
+  --cr-border-interactive: #64748B;
+  --cr-border-subtle: #2D3748;
+  --cr-ring-focus: #38BDF8;
+
+  --cr-highlight-sentence: rgba(30, 58, 95, 0.65);
+  --cr-highlight-word-hover: rgba(91, 226, 43, 0.20);
+  --cr-highlight-word-active: rgba(91, 226, 43, 0.40);
+}

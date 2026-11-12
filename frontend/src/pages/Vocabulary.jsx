@@ -1,14 +1,17 @@
 import { PronunciationWidget } from '../components/PronunciationWidget'
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Brain, BookOpen, Volume2, RotateCcw, CheckCircle2, 
-  XCircle, HelpCircle, Sparkles, Flame, Search, Filter, Trash2 
+  XCircle, HelpCircle, Sparkles, Flame, Search, Filter, Trash2, History 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { vocabularyApi, booksApi } from '../utils/api'
+import { LookupHistoryTab } from '../components/history/LookupHistoryTab'
 
 export function Vocabulary() {
-  const [activeTab, setActiveTab] = useState('list') // 'list' | 'flashcards'
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('list') // 'list' | 'flashcards' | 'history'
   const [vocabulary, setVocabulary] = useState([])
   const [books, setBooks] = useState([])
   const [selectedBook, setSelectedBook] = useState('')
@@ -188,6 +191,17 @@ export function Vocabulary() {
           }`}
         >
           Sesi Review Flashcard
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-5 py-2.5 rounded-duo font-ui font-extrabold text-sm transition-all flex items-center gap-1.5 ${
+            activeTab === 'history'
+              ? 'bg-purple-600 text-white shadow-3d'
+              : 'text-eel dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-border'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>Riwayat</span>
         </button>
       </div>
 
@@ -487,6 +501,19 @@ export function Vocabulary() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB 3: RIWAYAT PENCARIAN (F2) */}
+      {activeTab === 'history' && (
+        <div className="space-y-4">
+          <LookupHistoryTab
+            onNavigateBook={(item) => {
+              if (item.bookId) {
+                navigate(`/reader/${item.bookId}`)
+              }
+            }}
+          />
         </div>
       )}
     </div>
