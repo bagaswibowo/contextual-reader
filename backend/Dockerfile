@@ -1,32 +1,19 @@
-FROM python:3.11-slim
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libc-dev \
-    libpq-dev \
-    tesseract-ocr \
-    tesseract-ocr-ind \
-    tesseract-ocr-eng \
-    poppler-utils \
-    && rm -rf /var/lib/apt/lists/*
+# Multistage Dockerfile Backend (Minimal)
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
-
-# Install Python dependencies
+RUN apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Copy project
+FROM python:3.11-slim
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
 COPY . .
-
-# Create non-root user and setup directories
-RUN useradd --create-home --shell /bin/bash app \
-    && mkdir -p /app/db_data /app/media \
-    && chown -R app:app /app /app/db_data /app/media
-
-USER app
-
-EXPOSE 8000
-
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 reader.wsgi"]
+RUN mkdir -p /app/db_data /app/media /app/logs
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh && apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 CMD curl -f http://localhost:8000/api/core/health/ || exit 1
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["gunicorn", "reader.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]

@@ -93,7 +93,6 @@ cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp ../.env.example .env   # then fill in SECRET_KEY and ALLOWED_HOSTS
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
@@ -109,24 +108,13 @@ npm run dev
 
 ## Environment Variables
 
-All backend configuration is read from the environment. See
-[`.env.example`](.env.example) for the complete list. The most important ones:
-
 | Variable | Description | Example / Default |
 | :--- | :--- | :--- |
-| `SECRET_KEY` | Django secret key (required when `DEBUG=False`) | generated, never committed |
-| `DEBUG` | Django debug mode | `False` |
-| `ALLOWED_HOSTS` | Comma-separated public hostnames (no wildcard) | `reader.example.com` |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated exact origins | `https://reader.example.com` |
-| `CORS_ALLOW_ALL_ORIGINS` | Allow every origin (do not use in production) | `False` |
-| `CORS_ALLOW_CREDENTIALS` | Send cookies cross-origin | `False` |
-| `OMNIROUTE_BASE_URL` | OpenAI-compatible LLM endpoint, including `/v1` | empty (LLM disabled) |
-| `OMNIROUTE_URL` | Legacy alias of `OMNIROUTE_BASE_URL` | empty |
-| `OMNIROUTE_MODEL` | OmniRoute model target | `auto/best-free` |
-| `LLM_ALLOWED_HOSTS` | Hosts accepted for client `custom_base_url` | host of `OMNIROUTE_BASE_URL` |
-| `MAX_FILE_SIZE` | Maximum upload size in bytes | `104857600` |
-| `SUPPORTED_FORMATS` | Accepted upload extensions | `epub,txt,pdf,md,zip` |
-| `TUNNEL_TOKEN` | Cloudflare Tunnel token (infra only) | never committed |
+| `SECRET_KEY` | Django Secret Key | `xxx` |
+| `DEBUG` | Django Debug Mode | `0` |
+| `OMNIROUTE_URL` | OmniRoute LLM Proxy Endpoint | `http://xxx:20129/v1` |
+| `OMNIROUTE_MODEL` | OmniRoute Model Target | `auto/best-free` |
+| `TUNNEL_TOKEN` | Cloudflare Tunnel Token | `xxx` |
 
 ---
 
