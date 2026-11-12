@@ -140,7 +140,7 @@ jobs:
           LLM_ALLOWED_HOSTS: localhost
         run: |
           cd contextual-reader
-          docker compose up -d
+          docker compose up -d backend frontend
 
       - name: Wait for services
         run: |
@@ -156,7 +156,7 @@ jobs:
         if: always()
         run: |
           cd contextual-reader
-          docker compose down -v
+          docker compose down -v -v
 
   release:
     name: Create Release

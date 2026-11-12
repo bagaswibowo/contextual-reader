@@ -23,6 +23,8 @@ services:
       - SQLITE_TIMEOUT=${SQLITE_TIMEOUT}
       - LOG_LEVEL=${LOG_LEVEL}
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+    env_file:
+      - .env
     volumes:
       - backend_data:/app/db_data
       - backend_media:/app/media
@@ -82,13 +84,14 @@ services:
       - reader-net
 
   cftunnel-reader:
+    profiles: ['tunnel']
     image: cloudflare/cloudflared:2024.12.1  # Pin versi tag
     container_name: cftunnel-reader
     restart: unless-stopped
     environment:
       - TUNNEL_TOKEN_FILE=/etc/cloudflared/tunnel-token
     volumes:
-      - ./cloudflared:/etc/cloudflared
+      - /home/sxz/projects/tokens:/etc/cloudflared:ro
     networks:
       - reader-net
 
