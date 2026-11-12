@@ -1,11 +1,15 @@
-import re
+import json
+from unittest import mock
+
 from django.test import TestCase
+
 from reader.translations.services import (
     GrammarAnalyzer,
     GoogleTranslateClient,
     UniversalWordTokenizer,
-    TranslationService
+    TranslationService,
 )
+
 
 class GrammarAnalyzerTest(TestCase):
     def test_simple_future_tense(self):
@@ -35,27 +39,77 @@ class GrammarAnalyzerTest(TestCase):
         self.assertIn("Simple Present Tense", result["tense"])
 
 
+def fake_response(payload, status_code=200):
+    response = mock.Mock()
+    response.status_code = status_code
+    response.json.return_value = payload
+    response.text = ''
+    return response
+
+
 class GoogleTranslateClientTest(TestCase):
-    def test_translate_sentence_id(self):
-        text = "The quick brown fox jumps over the lazy dog."
-        result = GoogleTranslateClient.translate_sentence(text, target_lang="id")
-        self.assertNotEqual(result["indonesian_text"], text)
-        self.assertTrue(len(result["indonesian_text"]) > 0)
+    """All network calls are mocked; these tests never touch the internet."""
+
+    @mock.patch('reader.translations.services.requests.get')
+    def test_translate_sentence_id(self, mock_get):
+        mock_get.return_value = fake_response([[['Halo dunia.']]])
+        result = GoogleTranslateClient.translate_sentence(
+            "Hello world.", target_lang="id"
+        )
+        self.assertEqual(result["indonesian_text"], "Halo dunia.")
         self.assertIn("tense", result)
 
-    def test_translate_sentence_ja(self):
-        text = "I love learning new languages."
-        result = GoogleTranslateClient.translate_sentence(text, target_lang="ja")
-        self.assertNotEqual(result["indonesian_text"], text)
-        self.assertTrue(len(result["indonesian_text"]) > 0)
+    @mock.patch('reader.translations.services.requests.get')
+    def test_translate_sentence_ja(self, mock_get):
+        mock_get.return_value = fake_response([[['こんにちは']]])
+        result = GoogleTranslateClient.translate_sentence(
+            "Hello.", target_lang="ja"
+        )
+        self.assertEqual(result["indonesian_text"], "こんにちは")
 
-    def test_translate_word(self):
-        result = GoogleTranslateClient.translate_word("apple", target_lang="id", mother_lang="id")
-        self.assertTrue(len(result["contextual_meaning"]) > 0)
+    @mock.patch('reader.translations.services.requests.get')
+    def test_translate_word(self, mock_get):
+        mock_get.return_value = fake_response([[['apel']]])
+        result = GoogleTranslateClient.translate_word(
+            "apple", target_lang="id", mother_lang="id"
+        )
+        self.assertEqual(result["contextual_meaning"], "apel")
+
+    @mock.patch('reader.translations.services.requests.get')
+    def test_translate_sentence_falls_back_when_offline(self, mock_get):
+        mock_get.side_effect = ConnectionError('offline')
+        result = GoogleTranslateClient.translate_sentence(
+            "Hello world.", target_lang="id"
+        )
+        self.assertEqual(result["indonesian_text"], "Hello world.")
 
 
 class UniversalWordTokenizerTest(TestCase):
-    def test_token_pairs(self):
-        translated_text = "こんにちは 世界"
-        pairs = UniversalWordTokenizer.get_token_pairs(translated_text, target_lang="ja", mother_lang="id")
-        self.assertTrue(isinstance(pairs, list))
+    @mock.patch('reader.translations.services.requests.get')
+    def test_token_pairs(self, mock_get):
+        mock_get.return_value = fake_response([[['hello', 'halo']]])
+        pairs = UniversalWordTokenizer.get_token_pairs(
+            "hello world", target_lang="en", mother_lang="id"
+        )
+        self.assertIsInstance(pairs, list)
+        self.assertTrue(all('word' in pair for pair in pairs))
+
+
+class TranslationServiceOfflineTest(TestCase):
+    @mock.patch('reader.translations.services.requests.get')
+    def test_llm_engine_falls_back_to_google_without_endpoint(self, mock_get):
+        mock_get.return_value = fake_response([[['Halo.']]])
+        from reader.books.models import Book, Chapter, Sentence
+
+        book = Book.objects.create(title='T', format='txt', status='ready')
+        chapter = Chapter.objects.create(book=book, index=0, content='Hello.')
+        sentence = Sentence.objects.create(chapter=chapter, index=0, text='Hello.')
+
+        with mock.patch(
+            'reader.translations.services.LLMClient.get_completion_text',
+            side_effect=RuntimeError('no endpoint'),
+        ):
+            translation = TranslationService().translate_sentence(
+                sentence, target_lang='id', engine='llm'
+            )
+        self.assertEqual(translation.indonesian_text, 'Halo.')
