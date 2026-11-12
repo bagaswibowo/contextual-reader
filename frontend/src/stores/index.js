@@ -74,6 +74,27 @@ export const useReaderStore = create(
     }),
     {
       name: 'reader-settings',
+      // Migration & sanitation: ensure any legacy customApiKey saved in localStorage is pruned
+      onRehydrateStorage: () => (state) => {
+        try {
+          const raw = localStorage.getItem('reader-settings')
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            if (parsed?.state?.customApiKey) {
+              delete parsed.state.customApiKey
+              localStorage.setItem('reader-settings', JSON.stringify(parsed))
+            }
+          }
+        } catch (e) {
+          // ignore parsing error
+        }
+      },
+      partialize: (state) => {
+        // Security: Exclude customApiKey from persistent localStorage
+        // customApiKey is strictly kept in-memory for the current session only
+        const { customApiKey, ...rest } = state
+        return rest
+      },
     }
   )
 )

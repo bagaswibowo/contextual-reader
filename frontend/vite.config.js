@@ -15,6 +15,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Disable sourcemaps in production by default to prevent leaking source code (2.37MB)
+    // Only generate sourcemaps if explicitly requested via environment flag
+    sourcemap: process.env.GENERATE_SOURCEMAP === 'true',
   },
 })
