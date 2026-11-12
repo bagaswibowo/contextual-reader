@@ -338,13 +338,22 @@ class GoogleTranslateClient:
             }
 
 
+class LLMNotConfigured(RuntimeError):
+    """Raised when an LLM call is attempted without a configured endpoint."""
+
+
 class LLMClient:
     """OpenAI-compatible LLM Client supporting OmniRoute Proxy and Custom AI Providers (OpenAI, OpenRouter, Custom API Key)"""
     
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None):
-        self.base_url = (base_url or settings.OMNIROUTE_URL).rstrip('/')
+        resolved = (
+            base_url
+            or getattr(settings, 'OMNIROUTE_BASE_URL', '')
+            or getattr(settings, 'OMNIROUTE_URL', '')
+        )
+        self.base_url = (resolved or '').rstrip('/')
         self.model = model or settings.OMNIROUTE_MODEL
-        self.api_key = api_key or getattr(settings, 'OMNIROUTE_API_KEY', 'omniroute-local')
+        self.api_key = api_key or getattr(settings, 'OMNIROUTE_API_KEY', '')
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
@@ -352,6 +361,8 @@ class LLMClient:
         })
     
     def chat_completion(self, messages: List[Dict], temperature: float = 0.3, max_tokens: int = 1000) -> Dict:
+        if not self.base_url:
+            raise LLMNotConfigured('No LLM endpoint configured (OMNIROUTE_BASE_URL is empty).')
         payload = {
             'model': self.model,
             'messages': messages,
@@ -361,7 +372,9 @@ class LLMClient:
         response = self.session.post(
             f'{self.base_url}/chat/completions',
             json=payload,
-            timeout=5.0
+            timeout=5.0,
+            # Do not follow redirects: a redirect could bypass the SSRF allowlist.
+            allow_redirects=False,
         )
         response.raise_for_status()
         return response.json()

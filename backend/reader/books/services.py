@@ -28,7 +28,14 @@ def _ocr_page_via_vlm(page_image_bytes: bytes) -> str:
     try:
         b64_img = base64.b64encode(page_image_bytes).decode('utf-8')
         api_key = getattr(settings, 'OMNIROUTE_API_KEY', '') or os.environ.get('HERMES_CUSTOM_LOCALHOST_20128_API_KEY', '')
-        base_url = getattr(settings, 'OMNIROUTE_BASE_URL', 'http://127.0.0.1:20128/v1')
+        base_url = (
+            getattr(settings, 'OMNIROUTE_BASE_URL', '')
+            or getattr(settings, 'OMNIROUTE_URL', '')
+        ).rstrip('/')
+        if not base_url:
+            # No LLM endpoint configured: skip OCR instead of silently calling
+            # a hardcoded localhost address that does not exist in production.
+            return ''
         
         prompt = (
             "You are olmOCR, a high-precision document OCR engine.\n"
