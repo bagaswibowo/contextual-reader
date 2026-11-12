@@ -1,4 +1,6 @@
 # Translations views
+import re
+
 import requests
 from django.http import HttpResponse
 from rest_framework import viewsets, status
@@ -6,9 +8,15 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from reader.books.models import Sentence
 from reader.core.security import LLMUrlError, validate_llm_base_url
+from .dictionary import DictionaryNotFound, lookup as lookup_dictionary
+from .language_detection import detect_language
 from .models import WordTranslation, SentenceTranslation
 from .serializers import WordTranslationSerializer, SentenceTranslationSerializer
 from .services import translation_service
+
+MAX_DETECT_CHARS = 5000
+MAX_CONTEXT_CHARS = 1000
+WORD_PATTERN = re.compile(r"^[\w\s'’.\-]+$", re.UNICODE)
 
 
 class InvalidCustomBaseUrl(Exception):
@@ -118,6 +126,42 @@ class TranslationViewSet(viewsets.ViewSet):
             results.append(SentenceTranslationSerializer(t).data)
 
         return Response(results)
+
+    @action(detail=False, methods=['get'])
+    def dictionary(self, request):
+        """Return definitions, senses, synonyms and IPA for a word (DB cached)."""
+        word = (request.query_params.get('word') or '').strip()
+        lang = (request.query_params.get('lang') or '').strip()
+        context = (request.query_params.get('context') or '').strip()
+
+        if not word or not lang:
+            return self._bad_request('word and lang parameters are required')
+        if len(word) > 255:
+            return self._bad_request('word must be at most 255 characters')
+        if len(lang) > 10:
+            return self._bad_request('lang must be at most 10 characters')
+        if len(context) > MAX_CONTEXT_CHARS:
+            return self._bad_request(f'context must be at most {MAX_CONTEXT_CHARS} characters')
+        if not WORD_PATTERN.match(word):
+            return self._bad_request('word contains unsupported characters')
+
+        try:
+            payload = lookup_dictionary(word, lang, context=context)
+        except DictionaryNotFound as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(payload)
+
+    @action(detail=False, methods=['post'])
+    def detect(self, request):
+        """Detect the language of a short text (max 5000 characters)."""
+        text = request.data.get('text')
+        if not isinstance(text, str) or not text.strip():
+            return self._bad_request('text is required')
+        if len(text) > MAX_DETECT_CHARS:
+            return self._bad_request(f'text must be at most {MAX_DETECT_CHARS} characters')
+
+        return Response(detect_language(text))
 
     @action(detail=False, methods=['get'])
     def tts(self, request):

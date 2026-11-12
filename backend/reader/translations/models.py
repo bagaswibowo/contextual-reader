@@ -31,6 +31,28 @@ class WordTranslation(models.Model):
         return f"{self.word} -> {self.contextual_meaning} ({self.target_lang})"
 
 
+class DictionaryEntry(models.Model):
+    """DB-backed cache for dictionary lookups (one row per word + source lang)."""
+
+    word = models.CharField(max_length=255)
+    word_lower = models.CharField(max_length=255, db_index=True)
+    lang = models.CharField(max_length=10)
+    part_of_speech = models.CharField(max_length=50, blank=True)
+    senses = models.JSONField(default=list)
+    synonyms = models.JSONField(default=list)
+    phonetic_ipa = models.CharField(max_length=100, blank=True)
+    audio_url = models.CharField(max_length=500, blank=True)
+    source = models.CharField(max_length=50, default='llm')
+    fetched_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('word_lower', 'lang')]
+        indexes = [models.Index(fields=['word_lower', 'lang'])]
+
+    def __str__(self):
+        return f"{self.word} ({self.lang})"
+
+
 class SentenceTranslation(models.Model):
     """Cached sentence translations"""
     sentence = models.ForeignKey(Sentence, on_delete=models.CASCADE, related_name='translations')
