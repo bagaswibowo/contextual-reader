@@ -94,6 +94,29 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
   exit 1
 fi
 
+echo "⏳ Recreating frontend..."
+docker compose up -d --no-deps --force-recreate frontend
+
+echo "⏳ Checking frontend health..."
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+  if docker compose ps frontend | grep -q "healthy"; then
+    echo "✅ Frontend is healthy"
+    break
+  fi
+  RETRY_COUNT=$((RETRY_COUNT + 1))
+  echo "⏳ Waiting for frontend to be healthy... ($RETRY_COUNT/$MAX_RETRIES)"
+  sleep 2
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+  echo "❌ Frontend health check failed. Rollback in progress..."
+  docker compose up -d --no-deps --force-recreate backend frontend
+  echo "❌ Deployment failed. Manual rollback required."
+  exit 1
+fi
+
+echo "✅ All services are healthy"
 docker compose ps
 ENDSSH
 
