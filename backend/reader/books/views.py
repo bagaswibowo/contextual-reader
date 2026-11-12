@@ -105,7 +105,7 @@ class BookViewSet(viewsets.ModelViewSet):
             
             book.total_chapters = len(chapters_data)
             book.total_words = total_words
-            book.status = 'completed'
+            book.status = 'ready'
             book.processed_at = timezone.now()
             book.save()
 

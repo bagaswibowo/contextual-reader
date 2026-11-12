@@ -3,6 +3,7 @@ import zipfile
 # Books app serializers
 import os
 import re
+from django.conf import settings
 from rest_framework import serializers
 from .models import Book, Chapter, Sentence
 
@@ -51,16 +52,25 @@ class BookUploadSerializer(serializers.ModelSerializer):
         if not file:
             raise serializers.ValidationError({"file": "File is required."})
 
-        # Check file size (100MB limit)
-        if file.size > 100 * 1024 * 1024:
-            raise serializers.ValidationError({"file": "File size exceeds 100MB limit."})
+        # Size limit comes from settings so the backend and deployment agree.
+        max_size = settings.MAX_FILE_SIZE
+        if file.size is not None and file.size > max_size:
+            raise serializers.ValidationError({
+                "file": f"File size exceeds the {max_size // (1024 * 1024)}MB limit."
+            })
 
         # Infer extension & format
         filename = file.name or ""
         ext = filename.split('.')[-1].lower() if '.' in filename else ""
-        
-        if ext not in ['epub', 'txt', 'pdf', 'md', 'zip']:
-            raise serializers.ValidationError({"file": f"Unsupported format (.{ext}). Use EPUB, TXT, PDF, MD, or ZIP (MinerU)."})
+
+        # Only formats the model and parser actually support are accepted.
+        model_formats = {choice[0] for choice in Book.FORMAT_CHOICES}
+        supported = [fmt for fmt in settings.SUPPORTED_FORMATS if fmt in model_formats]
+        if ext not in supported:
+            allowed = ', '.join(fmt.upper() for fmt in supported)
+            raise serializers.ValidationError({
+                "file": f"Unsupported format (.{ext or 'none'}). Use {allowed}."
+            })
 
         # Validate magic bytes / file signature
         try:
