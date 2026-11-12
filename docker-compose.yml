@@ -8,15 +8,36 @@ services:
     container_name: contextual-reader-backend
     restart: unless-stopped
     environment:
-      - SECRET_KEY=xxx
+      - SECRET_KEY=${SECRET_KEY}
       - DEBUG=0
-      - OMNIROUTE_URL=http://xxx:20129/v1
-      - OMNIROUTE_MODEL=auto/best-free
-      - ALLOWED_HOSTS=*
-      - CORS_ALLOW_ALL_ORIGINS=True
+      - OMNIROUTE_URL=${OMNIROUTE_URL}
+      - OMNIROUTE_MODEL=${OMNIROUTE_MODEL}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS}
+      - CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS}
     volumes:
       - backend_data:/app/db_data
       - backend_media:/app/media
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/core/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - reader-net
 
@@ -30,17 +51,38 @@ services:
       - "8088:80"
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - reader-net
 
   cftunnel-reader:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2024.12.1  # Pin versi tag
     container_name: cftunnel-reader
     restart: unless-stopped
-    network_mode: host
     environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
-    command: tunnel --no-autoupdate run
+      - TUNNEL_TOKEN_FILE=/etc/cloudflared/tunnel-token
+    volumes:
+      - ./cloudflared:/etc/cloudflared
+    networks:
+      - reader-net
 
 volumes:
   backend_data:
