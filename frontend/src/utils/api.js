@@ -56,6 +56,23 @@ export const booksApi = {
 
 // API keys are strictly passed via in-memory parameters (customConfig.customApiKey)
 // and must never be read from or written to persistent browser storage (localStorage).
+//
+// Custom provider fields are only sent when the user actually selected the
+// "custom" engine AND supplied a value. The backend validates custom_base_url
+// against the LLM_ALLOWED_HOSTS allowlist on every request that carries it,
+// regardless of `engine`; sending a leftover base URL while using Google/Omni
+// therefore fails the whole request with HTTP 400
+// ("custom_base_url is disabled because no LLM host allowlist is configured").
+// It also avoids shipping the user's API key to the server when it is unused.
+const customProviderFields = (engine, customConfig = {}) => {
+  if (engine !== 'custom') return {}
+  const fields = {}
+  if (customConfig.customBaseUrl) fields.custom_base_url = customConfig.customBaseUrl
+  if (customConfig.customApiKey) fields.custom_api_key = customConfig.customApiKey
+  if (customConfig.customModel) fields.custom_model = customConfig.customModel
+  return fields
+}
+
 export const translationsApi = {
   word: (sentenceId, word, targetLang = 'id', engine = 'google', customConfig = {}) => 
     api.post('/translations/word/', {
@@ -64,9 +81,7 @@ export const translationsApi = {
       target_lang: targetLang,
       mother_lang: customConfig.mother_lang || 'id',
       engine,
-      custom_base_url: customConfig.customBaseUrl,
-      custom_api_key: customConfig.customApiKey,
-      custom_model: customConfig.customModel
+      ...customProviderFields(engine, customConfig)
     }),
   sentence: (sentenceId, targetLang = 'id', engine = 'google', customConfig = {}) => 
     api.post('/translations/sentence/', {
@@ -74,38 +89,32 @@ export const translationsApi = {
       target_lang: targetLang,
       mother_lang: customConfig.mother_lang || 'id',
       engine,
-      custom_base_url: customConfig.customBaseUrl,
-      custom_api_key: customConfig.customApiKey,
-      custom_model: customConfig.customModel
+      ...customProviderFields(engine, customConfig)
     }),
   batchSentence: (sentenceIds, targetLang = 'id', engine = 'google', customConfig = {}) => 
     api.post('/translations/batch-sentence/', {
       sentence_ids: sentenceIds,
       target_lang: targetLang,
       engine,
-      custom_base_url: customConfig.customBaseUrl,
-      custom_api_key: customConfig.customApiKey,
-      custom_model: customConfig.customModel
+      ...customProviderFields(engine, customConfig)
     }),
-  explain3d: (sentenceText, selectedText, userLevel = 'B2', targetLang = 'id', sentenceId = null, customConfig = {}) =>
+  explain3d: (sentenceText, selectedText, userLevel = 'B2', targetLang = 'id', sentenceId = null, customConfig = {}, engine = 'google') =>
     api.post('/translations/explain-3d/', {
       sentence_text: sentenceText,
       selected_text: selectedText,
       user_level: userLevel,
       target_lang: targetLang,
       sentence_id: sentenceId,
-      custom_base_url: customConfig.customBaseUrl,
-      custom_api_key: customConfig.customApiKey,
-      custom_model: customConfig.customModel
+      engine,
+      ...customProviderFields(engine, customConfig)
     }),
-  paragraphSummary: (paragraphText, detailLevel = 'concise', targetLang = 'id', customConfig = {}) =>
+  paragraphSummary: (paragraphText, detailLevel = 'concise', targetLang = 'id', customConfig = {}, engine = 'google') =>
     api.post('/translations/paragraph-summary/', {
       paragraph_text: paragraphText,
       detail_level: detailLevel,
       target_lang: targetLang,
-      custom_base_url: customConfig.customBaseUrl,
-      custom_api_key: customConfig.customApiKey,
-      custom_model: customConfig.customModel
+      engine,
+      ...customProviderFields(engine, customConfig)
     }),
 }
 
