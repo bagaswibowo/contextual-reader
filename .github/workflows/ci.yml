@@ -31,6 +31,10 @@ jobs:
           pip install django djangorestframework
 
       - name: Run migrations
+        env:
+          SECRET_KEY: ci-dummy-sprint0
+          ALLOWED_HOSTS: localhost
+          DEBUG: '0'
         run: |
           cd contextual-reader/backend
           python manage.py migrate --no-input
@@ -61,8 +65,8 @@ jobs:
       - name: Lint Python (backend)
         run: |
           cd contextual-reader/backend
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv,node_modules
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv,node_modules
 
   frontend-build:
     name: Frontend Build
@@ -79,6 +83,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: contextual-reader/frontend/package-lock.json
 
       - name: Install frontend dependencies
         run: |
@@ -86,6 +91,8 @@ jobs:
           npm ci
 
       - name: Build frontend
+        env:
+          GENERATE_SOURCEMAP: 'false'
         run: |
           cd contextual-reader/frontend
           npm run build
@@ -119,13 +126,20 @@ jobs:
 
       - name: Setup Docker Compose
         run: |
-          cd contextual-reader/infra
+          cd contextual-reader
           sudo apt-get update
           sudo apt-get install -y docker-compose-plugin
 
       - name: Start services
+        env:
+          SECRET_KEY: ci-dummy-sprint0
+          ALLOWED_HOSTS: localhost
+          CORS_ALLOW_ALL_ORIGINS: 'false'
+          CORS_ALLOW_CREDENTIALS: 'false'
+          TUNNEL_TOKEN: ci-dummy-sprint0
+          LLM_ALLOWED_HOSTS: localhost
         run: |
-          cd contextual-reader/infra
+          cd contextual-reader
           docker compose up -d
 
       - name: Wait for services
@@ -135,14 +149,14 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          cd contextual-reader/infra
+          cd contextual-reader
           python smoke.py
 
       - name: Stop services
         if: always()
         run: |
-          cd contextual-reader/infra
-          docker compose down
+          cd contextual-reader
+          docker compose down -v
 
   release:
     name: Create Release
