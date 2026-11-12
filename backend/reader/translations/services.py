@@ -346,6 +346,12 @@ class LLMClient:
     """OpenAI-compatible LLM Client supporting OmniRoute Proxy and Custom AI Providers (OpenAI, OpenRouter, Custom API Key)"""
     
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None):
+        if base_url:
+            # Defence in depth: validate again here so any future caller that
+            # forgets the view-level check cannot turn this into an SSRF.
+            from reader.core.security import validate_llm_base_url
+
+            base_url = validate_llm_base_url(base_url)
         resolved = (
             base_url
             or getattr(settings, 'OMNIROUTE_BASE_URL', '')
