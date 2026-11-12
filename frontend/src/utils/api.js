@@ -54,6 +54,8 @@ export const booksApi = {
   delete: (id) => api.delete(`/books/${id}/`),
 }
 
+// API keys are strictly passed via in-memory parameters (customConfig.customApiKey)
+// and must never be read from or written to persistent browser storage (localStorage).
 export const translationsApi = {
   word: (sentenceId, word, targetLang = 'id', engine = 'google', customConfig = {}) => 
     api.post('/translations/word/', {
