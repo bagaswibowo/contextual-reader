@@ -2,8 +2,8 @@
 # Smoke test untuk Contextual Reader CI
 # Tes endpoint dasar tanpa memerlukan database yang berat
 
-import requests
 import sys
+import requests
 
 BASE_URL = "http://localhost:8088"
 
@@ -46,15 +46,32 @@ def test_vocabulary():
         return False
 
 def test_static_files():
-    """Test static files cache header"""
-    print("Testing /assets/ cache header...")
+    """Test static files cache header (/favicon.svg and /assets/)"""
+    print("Testing static cache headers (/favicon.svg and /assets/)...")
     try:
-        resp = requests.head(f"{BASE_URL}/assets/reader.css", timeout=5)
-        cache_header = resp.headers.get("Cache-Control", "")
-        if "immutable" not in cache_header.lower():
-            print(f"  ✗ Cache-Control tidak mengandung 'immutable': {cache_header}")
+        # 1. Test top-level static asset (/favicon.svg -> max-age=86400, public)
+        resp_fav = requests.head(f"{BASE_URL}/favicon.svg", timeout=5)
+        assert resp_fav.status_code == 200, f"Expected 200 for favicon, got {resp_fav.status_code}"
+        fav_header = resp_fav.headers.get("Cache-Control", "")
+        if "86400" not in fav_header:
+            print(f"  ✗ Cache-Control favicon tidak mengandung '86400': {fav_header}")
             return False
-        print(f"  ✓ Static files cacheable (Cache-Control: {cache_header})")
+        if "public" not in fav_header.lower():
+            print(f"  ✗ Cache-Control favicon tidak mengandung 'public': {fav_header}")
+            return False
+        print(f"  ✓ Favicon cacheable (Cache-Control: {fav_header})")
+
+        # 2. Test content-hashed / immutable asset under /assets/
+        resp_asset = requests.head(f"{BASE_URL}/assets/visemes/rest.png", timeout=5)
+        assert resp_asset.status_code == 200, f"Expected 200 for asset, got {resp_asset.status_code}"
+        asset_header = resp_asset.headers.get("Cache-Control", "")
+        if "immutable" not in asset_header.lower():
+            print(f"  ✗ Cache-Control asset tidak mengandung 'immutable': {asset_header}")
+            return False
+        if "31536000" not in asset_header:
+            print(f"  ✗ Cache-Control asset tidak mengandung '31536000': {asset_header}")
+            return False
+        print(f"  ✓ Static files cacheable (Cache-Control: {asset_header})")
         return True
     except Exception as e:
         print(f"  ✗ Static files test failed: {e}")
