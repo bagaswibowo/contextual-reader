@@ -251,7 +251,7 @@ export function PronunciationWidget({
                   }}
                   className={`px-2 py-0.5 rounded-full transition-all ${
                     !isTrans
-                      ? 'bg-duo-blue text-white shadow-xs'
+                      ? 'bg-duo-blue text-white shadow-sm'
                       : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
                   }`}
                   title="Tampilkan artikulasi kata bahasa asli"
@@ -267,7 +267,7 @@ export function PronunciationWidget({
                   }}
                   className={`px-2 py-0.5 rounded-full transition-all ${
                     isTrans
-                      ? 'bg-duo-blue text-white shadow-xs'
+                      ? 'bg-duo-blue text-white shadow-sm'
                       : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
                   }`}
                   title="Tampilkan artikulasi kata hasil terjemahan"
@@ -309,7 +309,7 @@ export function PronunciationWidget({
                   }}
                   className={`text-[10px] font-extrabold px-2 py-1 rounded-full transition-all ${
                     playbackSpeed === spd
-                      ? 'bg-duo-blue text-white shadow-xs'
+                      ? 'bg-duo-blue text-white shadow-sm'
                       : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
                   }`}
                   title={
@@ -363,7 +363,7 @@ export function PronunciationWidget({
               }}
             />
             {/* Active Phoneme Overlay Badge */}
-            <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-xs px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-white flex items-center gap-1">
+            <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-white flex items-center gap-1">
               <span>/{activePhoneme?.symbol}/</span>
             </div>
 

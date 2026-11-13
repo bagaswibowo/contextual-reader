@@ -116,6 +116,17 @@ export const translationsApi = {
       engine,
       ...customProviderFields(engine, customConfig)
     }),
+  dictionary: (word, lang = 'en', context = '', options = {}) =>
+    api.get('/translations/dictionary/', {
+      params: { word, lang, context },
+      ...options
+    }),
+  detect: (text, options = {}) =>
+    api.post('/translations/detect/', { text }, options),
+  ttsUrl: (text, lang = 'en') =>
+    `/api/translations/tts/?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`,
+  feedback: (payload) =>
+    api.post('/translations/feedback/', payload),
 }
 
 export const vocabularyApi = {
