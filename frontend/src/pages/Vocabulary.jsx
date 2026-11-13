@@ -1,14 +1,17 @@
 import { PronunciationWidget } from '../components/PronunciationWidget'
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Brain, BookOpen, Volume2, RotateCcw, CheckCircle2, 
-  XCircle, HelpCircle, Sparkles, Flame, Search, Filter, Trash2 
+  XCircle, HelpCircle, Sparkles, Flame, Search, Filter, Trash2, History 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { vocabularyApi, booksApi } from '../utils/api'
+import { LookupHistoryTab } from '../components/history/LookupHistoryTab'
 
 export function Vocabulary() {
-  const [activeTab, setActiveTab] = useState('list') // 'list' | 'flashcards'
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('list') // 'list' | 'flashcards' | 'history'
   const [vocabulary, setVocabulary] = useState([])
   const [books, setBooks] = useState([])
   const [selectedBook, setSelectedBook] = useState('')
@@ -168,26 +171,37 @@ export function Vocabulary() {
       </div>
 
       {/* View Switcher Tabs */}
-      <div className="flex items-center gap-3 border-b-2 border-gray-200 dark:border-dark-border pb-2">
+      <div className="no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto border-b-2 border-gray-200 px-1 pb-2 dark:border-dark-border sm:gap-3">
         <button
           onClick={() => setActiveTab('list')}
-          className={`px-5 py-2.5 rounded-duo font-ui font-extrabold text-sm transition-all ${
+          className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-duo px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5 ${
             activeTab === 'list'
               ? 'bg-duo-green text-white shadow-3d'
-              : 'text-eel dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-border'
+              : 'text-eel hover:bg-gray-100 dark:text-dark-text dark:hover:bg-dark-border'
           }`}
         >
           Semua Kata ({vocabList.length})
         </button>
         <button
           onClick={startFlashcardSession}
-          className={`px-5 py-2.5 rounded-duo font-ui font-extrabold text-sm transition-all ${
+          className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-duo px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5 ${
             activeTab === 'flashcards'
               ? 'bg-duo-blue text-white shadow-3d-blue'
-              : 'text-eel dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-border'
+              : 'text-eel hover:bg-gray-100 dark:text-dark-text dark:hover:bg-dark-border'
           }`}
         >
           Sesi Review Flashcard
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-duo px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5 ${
+            activeTab === 'history'
+              ? 'bg-[var(--cr-text-accent)] text-[var(--cr-btn-primary-text)] shadow-3d'
+              : 'text-eel hover:bg-gray-100 dark:text-dark-text dark:hover:bg-dark-border'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>Riwayat</span>
         </button>
       </div>
 
@@ -487,6 +501,19 @@ export function Vocabulary() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB 3: RIWAYAT PENCARIAN (F2) */}
+      {activeTab === 'history' && (
+        <div className="space-y-4">
+          <LookupHistoryTab
+            onNavigateBook={(item) => {
+              if (item.bookId) {
+                navigate(`/reader/${item.bookId}`)
+              }
+            }}
+          />
         </div>
       )}
     </div>
