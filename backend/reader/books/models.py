@@ -11,10 +11,18 @@ class Book(models.Model):
         ('failed', 'Failed'),
     ]
 
+    FORMAT_CHOICES = [
+        ('epub', 'EPUB'),
+        ('txt', 'TXT'),
+        ('pdf', 'PDF'),
+        ('md', 'Markdown'),
+        ('zip', 'ZIP (MinerU)'),
+    ]
+
     title = models.CharField(max_length=500)
     author = models.CharField(max_length=500, blank=True)
     file = models.FileField(upload_to='books/', max_length=500)
-    format = models.CharField(max_length=10, choices=[('epub', 'EPUB'), ('txt', 'TXT'), ('pdf', 'PDF')])
+    format = models.CharField(max_length=10, choices=FORMAT_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     total_chapters = models.IntegerField(default=0)
     total_words = models.IntegerField(default=0)

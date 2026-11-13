@@ -168,7 +168,18 @@ export function Settings() {
                   </div>
 
                   <div>
-                    <label className="font-bold block mb-1">API Key:</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold block">API Key (Hanya Memori Sesi):</label>
+                      {customApiKey && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomApiKey('')}
+                          className="text-[11px] text-red-500 hover:underline font-bold"
+                        >
+                          Hapus dari Sesi
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="password"
                       placeholder="sk-or-v1-... atau sk-..."
@@ -176,6 +187,10 @@ export function Settings() {
                       onChange={(e) => setCustomApiKey(e.target.value)}
                       className="input-duo w-full p-2.5 font-mono"
                     />
+                    <div className="mt-1.5 p-2 bg-blue-50 dark:bg-blue-950/40 rounded-duo border border-blue-200 dark:border-blue-900/50 text-[11px] text-blue-800 dark:text-blue-300">
+                      <p className="font-semibold">🔒 Keamanan Kunci API:</p>
+                      <p>Kunci API Anda hanya disimpan di memori selama tab/sesi browser aktif dan <strong>tidak pernah disimpan ke localStorage / disk</strong>. Kunci akan otomatis terhapus saat tab browser ditutup.</p>
+                    </div>
                   </div>
 
                   <div>

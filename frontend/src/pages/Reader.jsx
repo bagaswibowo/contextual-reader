@@ -180,7 +180,8 @@ export function Reader() {
         userCefrLevel || 'B2',
         targetLanguage || 'id',
         sentenceId,
-        customConfig
+        customConfig,
+        translationEngine || 'google'
       )
       setActiveWordPopup(prev => ({
         ...prev,

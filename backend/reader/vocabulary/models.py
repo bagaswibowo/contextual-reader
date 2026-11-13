@@ -1,5 +1,6 @@
 # Vocabulary app models
 from django.db import models
+from django.utils import timezone
 from django.conf import settings
 from reader.books.models import Book, Sentence
 from reader.translations.models import WordTranslation
@@ -24,7 +25,8 @@ class VocabularyEntry(models.Model):
     review_count = models.IntegerField(default=0)
     correct_count = models.IntegerField(default=0)
     last_reviewed = models.DateTimeField(null=True, blank=True)
-    next_review = models.DateTimeField(null=True, blank=True)
+    # New entries are due immediately so they enter the review queue.
+    next_review = models.DateTimeField(default=timezone.now, db_index=True)
     ease_factor = models.FloatField(default=2.5)  # SM-2 algorithm
     interval = models.IntegerField(default=1)  # days
     

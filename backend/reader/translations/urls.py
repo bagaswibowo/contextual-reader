@@ -3,6 +3,8 @@ from .views import TranslationViewSet
 
 urlpatterns = [
     path('word/', TranslationViewSet.as_view({'post': 'word'}), name='word-translation'),
+    path('dictionary/', TranslationViewSet.as_view({'get': 'dictionary'}), name='dictionary-lookup'),
+    path('detect/', TranslationViewSet.as_view({'post': 'detect'}), name='language-detect'),
     path('sentence/', TranslationViewSet.as_view({'post': 'sentence'}), name='sentence-translation'),
     path('batch-sentence/', TranslationViewSet.as_view({'post': 'batch_sentence'}), name='batch-sentence-translation'),
     path('tts/', TranslationViewSet.as_view({'get': 'tts'}), name='tts-audio'),
