@@ -2,10 +2,28 @@ import React from 'react'
 import { Bookmark, Check, X } from 'lucide-react'
 import { WordAudioButton } from './widgets/WordAudioButton'
 
+const LANGUAGE_LABELS = {
+  id: 'Indonesia',
+  en: 'Inggris',
+  es: 'Spanyol',
+  fr: 'Prancis',
+  de: 'Jerman',
+  ja: 'Jepang',
+  ko: 'Korea',
+  zh: 'Mandarin',
+  ar: 'Arab',
+  ru: 'Rusia',
+}
+
+function languageLabel(code) {
+  const key = (code || '').toLowerCase()
+  return LANGUAGE_LABELS[key] || (code ? code.toUpperCase() : 'Asal')
+}
+
 /**
  * DrawerHeader
- * Displays word title, phonetic IPA, dual audio buttons, save bookmark, and close button (DESIGN §3.2).
- * Touch targets >= 44x44 px (AC-WI-05, AC-WI-06, A11Y-08, A11Y-09).
+ * Word title, IPA, dual audio, save toggle and close (DESIGN §3.2).
+ * Compact on mobile so the sheet keeps room for content (AC-WI-04, AC-WI-05, AC-WI-06).
  */
 export function DrawerHeader({
   word = '',
@@ -30,76 +48,77 @@ export function DrawerHeader({
   const isSourcePlaying = playingAudioKey === `audio_source_${displayWord}`
   const isTargetPlaying = playingAudioKey === `audio_target_${displayTarget}`
 
-  const sourceLangLabel = sourceLang.toLowerCase() === 'id' ? 'Indonesia' : 'Inggris'
-  const targetLangLabel = targetLang.toLowerCase() === 'id' ? 'Indonesia' : targetLang.toUpperCase()
-
   return (
-    <div className={`p-4 sm:p-5 border-b border-[var(--cr-border-subtle)] space-y-3 bg-[var(--cr-bg-surface-elevated)] ${className}`}>
-      {/* Top row: Word, IPA, Close button */}
-      <div className="flex items-start justify-between gap-3">
+    <div
+      className={`shrink-0 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-4 pt-3 pb-3 sm:px-5 sm:pt-4 sm:pb-4 ${className}`}
+    >
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h2
             id="cr-drawer-word-title"
-            className="font-heading font-extrabold text-2xl text-[var(--cr-text-primary)] leading-tight break-words [overflow-wrap:anywhere]"
+            className="font-heading text-[22px] font-extrabold leading-[1.15] text-[var(--cr-text-primary)] break-words [overflow-wrap:anywhere] sm:text-2xl"
           >
             {displayWord}
           </h2>
 
-          {/* Phonetic IPA or placeholder to prevent layout shift */}
-          <div className="pt-0.5">
+          <div className="mt-0.5 flex items-baseline gap-2">
             {ipa ? (
-              <span className="font-mono text-xs text-[var(--cr-text-secondary)]">
+              <span className="font-mono text-[13px] text-[var(--cr-text-secondary)]">
                 {ipa.startsWith('/') ? ipa : `/${ipa}/`}
               </span>
             ) : (
               <span
                 aria-label="Fonetik tidak tersedia"
-                className="font-mono text-xs text-[var(--cr-text-secondary)] opacity-50"
+                className="font-mono text-[13px] text-[var(--cr-text-secondary)] opacity-60"
               >
                 —
+              </span>
+            )}
+            {displayTarget && (
+              <span className="truncate text-[13px] font-semibold text-[var(--cr-text-accent)]">
+                {displayTarget}
               </span>
             )}
           </div>
         </div>
 
-        {/* Close Button (44x44) */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Tutup kamus"
-          className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] hover:bg-[var(--cr-bg-surface)] inline-flex items-center justify-center transition-colors shrink-0"
+          className="min-h-[44px] min-w-[44px] -mr-1 -mt-1 inline-flex shrink-0 items-center justify-center rounded-xl text-[var(--cr-text-secondary)] transition-colors hover:bg-[var(--cr-bg-surface)] hover:text-[var(--cr-text-primary)]"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Second row: Dual Audio Buttons + Bookmark Action */}
-      <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
-        <div className="flex items-center gap-2">
-          {/* Source Audio */}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
           <WordAudioButton
             text={displayWord}
             lang={sourceLang}
-            label={sourceLangLabel}
+            label={languageLabel(sourceLang)}
             isPlaying={isSourcePlaying}
             audioUrl={sourceAudioUrl}
-            onPlay={(txt, lng, url) => onPlayAudio && onPlayAudio(txt, lng, `audio_source_${displayWord}`, url)}
+            onPlay={(txt, lng, url) =>
+              onPlayAudio && onPlayAudio(txt, lng, `audio_source_${displayWord}`, url)
+            }
           />
 
-          {/* Target Audio (if target word exists) */}
           {displayTarget && (
             <WordAudioButton
               text={displayTarget}
               lang={targetLang}
-              label={targetLangLabel}
+              label={languageLabel(targetLang)}
               isPlaying={isTargetPlaying}
               audioUrl={targetAudioUrl}
-              onPlay={(txt, lng, url) => onPlayAudio && onPlayAudio(txt, lng, `audio_target_${displayTarget}`, url)}
+              onPlay={(txt, lng, url) =>
+                onPlayAudio && onPlayAudio(txt, lng, `audio_target_${displayTarget}`, url)
+              }
             />
           )}
         </div>
 
-        {/* Save Word Toggle Button (44x44) */}
         {onToggleSave && (
           <button
             type="button"
@@ -108,21 +127,21 @@ export function DrawerHeader({
             aria-pressed={saved}
             aria-label={saved ? `Kata ${displayWord} tersimpan` : `Simpan kata ${displayWord}`}
             title={saved ? 'Tersimpan di kosakata' : 'Simpan kata ke kosakata'}
-            className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-xs font-bold border transition-all inline-flex items-center gap-1.5 select-none ${
+            className={`min-h-[44px] min-w-[44px] shrink-0 rounded-xl border px-2.5 text-xs font-bold transition-colors inline-flex select-none items-center justify-center gap-1.5 sm:px-3.5 ${
               saved
-                ? 'bg-[var(--cr-btn-primary-bg)] border-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)] shadow-xs'
-                : 'bg-[var(--cr-bg-surface)] border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:border-[var(--cr-border-interactive)] hover:text-[var(--cr-text-primary)]'
+                ? 'border-[var(--cr-btn-primary-bg)] bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)]'
+                : 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-secondary)] hover:border-[var(--cr-border-interactive)] hover:text-[var(--cr-text-primary)]'
             }`}
           >
             {saved ? (
               <>
-                <Check className="w-4 h-4 text-white" />
-                <span>Tersimpan</span>
+                <Check className="w-4 h-4" />
+                <span className="hidden sm:inline">Tersimpan</span>
               </>
             ) : (
               <>
                 <Bookmark className="w-4 h-4" />
-                <span>Simpan</span>
+                <span className="hidden sm:inline">Simpan</span>
               </>
             )}
           </button>

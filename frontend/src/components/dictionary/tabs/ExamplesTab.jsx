@@ -118,7 +118,7 @@ function highlightKeyword(text, keyword) {
   return (
     <>
       {before}
-      <mark className="bg-[var(--cr-highlight-sentence)] text-[var(--cr-text-primary)] font-bold rounded-xs px-1">
+      <mark className="rounded-sm bg-[var(--cr-highlight-sentence)] px-1 font-bold text-[var(--cr-text-primary)]">
         {match}
       </mark>
       {after}

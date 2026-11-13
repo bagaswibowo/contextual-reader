@@ -970,7 +970,7 @@ export function Reader() {
                           data-selected-word={isSelected ? "true" : undefined}
                           className={`word-clickable rounded transition-all ${
                             isSelected 
-                              ? 'bg-duo-green/30 font-extrabold text-eel dark:text-dark-text ring-2 ring-duo-green shadow-xs px-1' 
+                              ? 'bg-duo-green/30 font-extrabold text-eel dark:text-dark-text ring-2 ring-duo-green shadow-sm px-1' 
                               : 'hover:bg-duo-green/10 px-0.5'
                           }`}
                         >
@@ -981,15 +981,15 @@ export function Reader() {
                           <>
                             {/* Dimmed Backdrop */}
                             <div
-                              className={`fixed inset-0 bg-black/40 backdrop-blur-xs z-40 transition-opacity ${isBottomSheet ? '' : 'sm:hidden'}`}
+                              className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity ${isBottomSheet ? '' : 'sm:hidden'}`}
                               onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
                             />
 
                             {/* Responsive Popup Container: Compact Tier 1 Popover (DESIGN §4.3, max 180px desktop / 220px mobile) */}
                             <div className={
                               isBottomSheet
-                                ? "fixed inset-x-0 bottom-0 z-50 animate-slide-up w-full max-w-lg mx-auto max-h-[220px] overflow-y-auto p-4 rounded-t-3xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 border-x-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
-                                : "fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 animate-slide-up sm:animate-bounce-in w-full sm:w-[380px] sm:max-w-[96vw] max-h-[220px] sm:max-h-[180px] overflow-y-auto p-4 rounded-t-3xl sm:rounded-2xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 sm:border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
+                                ? "cr-scroll-contain fixed inset-x-0 bottom-0 z-50 animate-slide-up w-full max-w-lg mx-auto max-h-[50dvh] overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] rounded-t-3xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 border-x-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
+                                : "cr-scroll-contain fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 animate-slide-up sm:animate-bounce-in w-full sm:w-[380px] sm:max-w-[96vw] max-h-[50dvh] sm:max-h-[180px] overflow-y-auto p-4 rounded-t-3xl sm:rounded-2xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 sm:border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
                             }>
                               {/* Grab Handle Container with Accessible Touch Target */}
                               <div

@@ -11,6 +11,8 @@
   --cr-text-primary: #0F172A;
   --cr-text-secondary: #475569;
   --cr-text-accent: #1B6A27;
+  /* Danger text (measured 6.28:1 on --cr-bg-surface) */
+  --cr-text-danger: #B42318;
 
   --cr-btn-primary-bg: #22752B;
   --cr-btn-primary-hover: #1B6A27;
@@ -34,6 +36,8 @@ html.sepia {
   --cr-text-primary: #2E1E11;
   --cr-text-secondary: #684F38;
   --cr-text-accent: #1E6328;
+  /* Danger text (measured 7.67:1 on --cr-bg-surface) */
+  --cr-text-danger: #8A1C12;
 
   --cr-btn-primary-bg: #2D6632;
   --cr-btn-primary-hover: #225126;
@@ -58,6 +62,8 @@ html.dark {
   --cr-text-primary: #F8FAFC;
   --cr-text-secondary: #94A3B8;
   --cr-text-accent: #5BE22B;
+  /* Danger text (measured 8.31:1 on --cr-bg-surface) */
+  --cr-text-danger: #FCA5A5;
 
   --cr-btn-primary-bg: #22752B;
   --cr-btn-primary-hover: #2E9439;

@@ -61,9 +61,9 @@ export function TranslationsTab({
                 }
               }}
               aria-pressed={isSelected}
-              className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer space-y-1.5 ${
+              className={`p-3.5 rounded-2xl border transition-colors text-left cursor-pointer space-y-1.5 ${
                 isSelected
-                  ? 'border-[var(--cr-text-accent)] bg-[var(--cr-bg-surface-elevated)] ring-2 ring-[var(--cr-text-accent)] shadow-sm'
+                  ? 'border-[var(--cr-text-accent)] bg-[var(--cr-highlight-word-hover)]'
                   : 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] hover:border-[var(--cr-border-interactive)]'
               }`}
             >

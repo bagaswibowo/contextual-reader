@@ -166,7 +166,7 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
   if (isStorageCorrupt) {
     return (
       <div className="p-8 text-center text-xs space-y-2">
-        <p className="font-bold text-red-500">Penyimpanan lokal tidak dapat dibaca.</p>
+        <p className="font-bold text-[var(--cr-text-danger)]">Penyimpanan lokal tidak dapat dibaca.</p>
         <button
           type="button"
           onClick={() => {
@@ -174,7 +174,7 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
             setIsStorageCorrupt(false)
             setHistoryItems([])
           }}
-          className="px-4 py-2 bg-[var(--cr-btn-primary-bg)] text-white rounded-xl font-bold"
+          className="min-h-[44px] rounded-xl bg-[var(--cr-btn-primary-bg)] px-4 py-2 font-bold text-[var(--cr-btn-primary-text)]"
         >
           Reset Riwayat
         </button>
@@ -199,13 +199,13 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setFilterMode('all')}
             className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
               filterMode === 'all'
-                ? 'bg-[var(--cr-bg-surface-elevated)] border-[var(--cr-text-accent)] text-[var(--cr-text-accent)] shadow-xs'
+                ? 'bg-[var(--cr-bg-surface-elevated)] border-[var(--cr-text-accent)] text-[var(--cr-text-accent)] shadow-sm'
                 : 'border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
             }`}
           >
@@ -216,7 +216,7 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
             onClick={() => setFilterMode('saved')}
             className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
               filterMode === 'saved'
-                ? 'bg-[var(--cr-bg-surface-elevated)] border-[var(--cr-text-accent)] text-[var(--cr-text-accent)] shadow-xs'
+                ? 'bg-[var(--cr-bg-surface-elevated)] border-[var(--cr-text-accent)] text-[var(--cr-text-accent)] shadow-sm'
                 : 'border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
             }`}
           >
@@ -228,7 +228,7 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
               type="button"
               onClick={handleClearAll}
               title="Hapus seluruh riwayat"
-              className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:text-red-500 hover:border-red-400 transition-colors inline-flex items-center justify-center"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[var(--cr-border-subtle)] p-2 text-[var(--cr-text-secondary)] transition-colors hover:border-[var(--cr-text-danger)] hover:text-[var(--cr-text-danger)]"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -238,7 +238,7 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
 
       {/* Undo Notification Banner (5 seconds) */}
       {undoItem && (
-        <div className="p-3 rounded-xl bg-[var(--cr-bg-surface-elevated)] border border-[var(--cr-border-subtle)] shadow-md flex items-center justify-between text-xs animate-in">
+        <div className="cr-anim-fade flex items-center justify-between gap-3 rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3 text-xs shadow-md">
           <span>
             {undoItem.isAll
               ? 'Seluruh riwayat telah dihapus.'
@@ -250,7 +250,7 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
             className="font-bold text-[var(--cr-text-accent)] underline hover:opacity-80 inline-flex items-center gap-1"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Urungkan (5d)</span>
+            <span>Urungkan (5s)</span>
           </button>
         </div>
       )}

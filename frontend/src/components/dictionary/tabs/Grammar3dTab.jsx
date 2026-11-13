@@ -28,7 +28,7 @@ export function Grammar3dTab({
   if (error) {
     return (
       <div className={`p-6 text-center space-y-3 ${className}`}>
-        <p className="text-xs font-bold text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-xs font-bold text-[var(--cr-text-danger)]">{error}</p>
         {onRetry && (
           <button
             type="button"
@@ -98,7 +98,7 @@ export function Grammar3dTab({
       {/* Card 2: Structure & SVO */}
       {grammar.structure && (
         <div className="p-4 rounded-2xl bg-[var(--cr-bg-surface-elevated)] border border-[var(--cr-border-subtle)] space-y-1.5">
-          <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 text-xs font-extrabold uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 text-[var(--cr-text-secondary)] text-xs font-extrabold uppercase tracking-wider">
             <GitBranch className="w-3.5 h-3.5" />
             <span>Struktur Kalimat (SVO)</span>
           </div>
@@ -116,7 +116,7 @@ export function Grammar3dTab({
       {/* Card 3: Word Role in Context */}
       {grammar.role && (
         <div className="p-4 rounded-2xl bg-[var(--cr-bg-surface-elevated)] border border-[var(--cr-border-subtle)] space-y-1.5">
-          <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 text-xs font-extrabold uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 text-[var(--cr-text-secondary)] text-xs font-extrabold uppercase tracking-wider">
             <Zap className="w-3.5 h-3.5" />
             <span>Peran Kata {word ? `(${word})` : ''}</span>
           </div>
@@ -134,17 +134,17 @@ export function Grammar3dTab({
           </span>
           <div className="flex flex-wrap gap-2 text-[11px]">
             {grammar.verbs?.length > 0 && (
-              <span className="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-mono">
+              <span className="px-2 py-1 rounded-lg bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] border border-[var(--cr-border-subtle)] font-mono">
                 <strong>Verba:</strong> {grammar.verbs.join(', ')}
               </span>
             )}
             {grammar.nouns?.length > 0 && (
-              <span className="px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-mono">
+              <span className="px-2 py-1 rounded-lg bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] border border-[var(--cr-border-subtle)] font-mono">
                 <strong>Nomina:</strong> {grammar.nouns.join(', ')}
               </span>
             )}
             {grammar.adjectives?.length > 0 && (
-              <span className="px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-mono">
+              <span className="px-2 py-1 rounded-lg bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] border border-[var(--cr-border-subtle)] font-mono">
                 <strong>Adjektiva:</strong> {grammar.adjectives.join(', ')}
               </span>
             )}

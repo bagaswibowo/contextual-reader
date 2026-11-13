@@ -4,6 +4,7 @@ import { Plus, BookOpen, Trash2, Loader2, AlertCircle, FileText, CheckCircle, Cl
 import toast from 'react-hot-toast'
 import { booksApi } from '../utils/api'
 import { useBookStore } from '../stores'
+import { BookLanguageBadge } from '../components/language/BookLanguageBadge'
 
 export function Library() {
   const navigate = useNavigate()
@@ -101,14 +102,16 @@ export function Library() {
   }
 
   const getLanguageBadge = (lang) => {
-    const code = lang ? lang.toUpperCase() : '?'
+    let targetLang = 'id'
+    try {
+      targetLang = localStorage.getItem('cr_target_lang_v1') || 'id'
+    } catch (e) {}
     return (
-      <span
-        title={lang ? `Bahasa buku: ${code}` : 'Bahasa buku belum terdeteksi'}
-        className="badge-duo bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-mono font-bold px-2 py-0.5 rounded inline-flex items-center gap-1"
-      >
-        <span>{code}</span>
-      </span>
+      <BookLanguageBadge
+        sourceLang={lang || '?'}
+        targetLang={targetLang}
+        interactive={false}
+      />
     )
   }
 

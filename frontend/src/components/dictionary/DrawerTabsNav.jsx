@@ -5,12 +5,13 @@ const DEFAULT_TABS = [
   { id: 'definition', label: 'Definisi', icon: BookOpen },
   { id: 'examples', label: 'Contoh', icon: MessageSquare },
   { id: 'translations', label: 'Terjemahan', icon: Languages },
-  { id: 'grammar', label: 'Tata Bahasa 3D', icon: Layers },
+  { id: 'grammar', label: 'Tata Bahasa', icon: Layers },
 ]
 
 /**
  * DrawerTabsNav
- * Accessible segmented tab navigation with arrow key roving tabindex and WAI-ARIA tab pattern (A11Y-15).
+ * Segmented tab bar using the WAI-ARIA tabs pattern (A11Y-15).
+ * Active state = accent underline + primary text, no border soup.
  */
 export function DrawerTabsNav({
   activeTab = 'definition',
@@ -20,19 +21,31 @@ export function DrawerTabsNav({
 }) {
   const tabListRef = useRef(null)
 
+  const focusTab = (index) => {
+    const buttons = tabListRef.current?.querySelectorAll('[role="tab"]')
+    buttons?.[index]?.focus()
+  }
+
   const handleKeyDown = (e, index) => {
     if (e.key === 'ArrowRight') {
       e.preventDefault()
       const nextIndex = (index + 1) % tabs.length
       onTabChange && onTabChange(tabs[nextIndex].id)
-      const buttons = tabListRef.current?.querySelectorAll('[role="tab"]')
-      buttons?.[nextIndex]?.focus()
+      focusTab(nextIndex)
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault()
       const prevIndex = (index - 1 + tabs.length) % tabs.length
       onTabChange && onTabChange(tabs[prevIndex].id)
-      const buttons = tabListRef.current?.querySelectorAll('[role="tab"]')
-      buttons?.[prevIndex]?.focus()
+      focusTab(prevIndex)
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      onTabChange && onTabChange(tabs[0].id)
+      focusTab(0)
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      const last = tabs.length - 1
+      onTabChange && onTabChange(tabs[last].id)
+      focusTab(last)
     }
   }
 
@@ -41,7 +54,7 @@ export function DrawerTabsNav({
       ref={tabListRef}
       role="tablist"
       aria-label="Navigasi wawasan kata"
-      className={`flex items-center gap-1 p-1 bg-[var(--cr-bg-surface)] border-b border-[var(--cr-border-subtle)] overflow-x-auto no-scrollbar select-none ${className}`}
+      className={`flex shrink-0 items-stretch border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] no-scrollbar overflow-x-auto ${className}`}
     >
       {tabs.map((tab, idx) => {
         const Icon = tab.icon
@@ -57,14 +70,26 @@ export function DrawerTabsNav({
             tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange && onTabChange(tab.id)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
-            className={`min-h-[44px] flex-1 min-w-[70px] sm:min-w-0 px-2.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+            className={`relative flex min-h-[48px] flex-1 shrink-0 items-center justify-center gap-1.5 px-2.5 pb-2.5 pt-2 text-[12px] font-bold transition-colors ${
               isActive
-                ? 'bg-[var(--cr-bg-surface-elevated)] text-[var(--cr-text-primary)] shadow-xs border border-[var(--cr-border-subtle)]'
-                : 'text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] hover:bg-[var(--cr-bg-surface-elevated)]/60'
+                ? 'text-[var(--cr-text-primary)]'
+                : 'text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
             }`}
           >
-            {Icon && <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[var(--cr-text-accent)]' : ''}`} />}
+            {Icon && (
+              <Icon
+                className={`h-3.5 w-3.5 shrink-0 ${
+                  isActive ? 'text-[var(--cr-text-accent)]' : ''
+                }`}
+              />
+            )}
             <span className="whitespace-nowrap">{tab.label}</span>
+            <span
+              aria-hidden="true"
+              className={`absolute inset-x-2 bottom-0 h-[2px] rounded-full transition-opacity ${
+                isActive ? 'bg-[var(--cr-text-accent)] opacity-100' : 'opacity-0'
+              }`}
+            />
           </button>
         )
       })}

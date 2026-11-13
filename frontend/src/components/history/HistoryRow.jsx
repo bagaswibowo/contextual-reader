@@ -24,7 +24,7 @@ export function HistoryRow({
           if (onOpenItem) onOpenItem(item)
         }
       }}
-      className="p-3.5 rounded-2xl bg-[var(--cr-bg-surface-elevated)] border border-[var(--cr-border-subtle)] hover:border-[var(--cr-border-interactive)] transition-all flex items-center justify-between gap-3 text-left cursor-pointer group"
+      className="group flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5 text-left transition-colors hover:border-[var(--cr-border-interactive)]"
     >
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -57,7 +57,7 @@ export function HistoryRow({
           aria-label={saved ? `Hapus bintang kata ${word}` : `Beri bintang kata ${word}`}
           className={`min-h-[44px] min-w-[44px] p-2 rounded-xl border transition-colors inline-flex items-center justify-center ${
             saved
-              ? 'bg-[var(--cr-btn-primary-bg)] border-[var(--cr-btn-primary-bg)] text-white'
+              ? 'bg-[var(--cr-btn-primary-bg)] border-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)]'
               : 'bg-[var(--cr-bg-surface)] border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
           }`}
         >
@@ -70,7 +70,7 @@ export function HistoryRow({
             type="button"
             onClick={() => onDelete(item)}
             aria-label={`Hapus ${word} dari riwayat`}
-            className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-[var(--cr-text-secondary)] hover:text-red-500 hover:bg-[var(--cr-bg-surface)] transition-colors inline-flex items-center justify-center"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-[var(--cr-text-secondary)] transition-colors hover:bg-[var(--cr-bg-surface)] hover:text-[var(--cr-text-danger)]"
           >
             <Trash2 className="w-4 h-4" />
           </button>

@@ -1,10 +1,10 @@
 import React from 'react'
-import { ArrowRight, Globe } from 'lucide-react'
+import { Globe } from 'lucide-react'
 
 /**
  * BookLanguageBadge
- * Renders the book language and target language indicator with 4 variants (DESIGN §13, AC-BB-01, AC-BB-08).
- * Minimum 44x44 touch target.
+ * Book language → target language indicator with 4 variants (DESIGN §13, AC-BB-01, AC-BB-08).
+ * `interactive` renders a 44x44 button; otherwise a static badge for cards (Library).
  */
 export function BookLanguageBadge({
   sourceLang = 'en',
@@ -12,6 +12,7 @@ export function BookLanguageBadge({
   confidence = 1.0,
   isOriginal = false,
   onClick,
+  interactive = true,
   className = '',
 }) {
   const normSource = (sourceLang || '?').slice(0, 2).toUpperCase()
@@ -34,16 +35,33 @@ export function BookLanguageBadge({
     ariaDescription = `Bahasa sumber belum terdeteksi, target ${normTarget}`
   }
 
+  const baseClass =
+    'inline-flex select-none items-center gap-1.5 rounded-lg border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 py-1 text-[11px] font-bold text-[var(--cr-text-secondary)]'
+
+  const content = (
+    <>
+      <Globe className="h-3 w-3 shrink-0 text-[var(--cr-text-accent)]" aria-hidden="true" />
+      <span className="font-mono leading-none tracking-wide">{labelText}</span>
+    </>
+  )
+
+  if (!interactive) {
+    return (
+      <span className={`${baseClass} ${className}`} title={ariaDescription}>
+        {content}
+      </span>
+    )
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`${ariaDescription}. Klik untuk mengganti bahasa target.`}
-      className={`min-h-[44px] min-w-[44px] px-2.5 py-1.5 rounded-xl border transition-all inline-flex items-center gap-1.5 text-xs font-bold select-none text-[var(--cr-text-primary)] bg-[var(--cr-bg-surface-elevated)] border-[var(--cr-border-subtle)] hover:border-[var(--cr-border-interactive)] hover:bg-[var(--cr-bg-surface)] focus-visible:ring-2 focus-visible:ring-[var(--cr-ring-focus)] ${className}`}
+      className={`${baseClass} min-h-[44px] min-w-[44px] px-2.5 py-1.5 text-xs text-[var(--cr-text-primary)] transition-colors hover:border-[var(--cr-border-interactive)] hover:bg-[var(--cr-bg-surface-elevated)] ${className}`}
       title="Ubah bahasa target terjemahan"
     >
-      <Globe className="w-3.5 h-3.5 text-[var(--cr-text-accent)] shrink-0" />
-      <span className="font-mono tracking-wide leading-none">{labelText}</span>
+      {content}
     </button>
   )
 }

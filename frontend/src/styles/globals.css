@@ -62,7 +62,8 @@
 
   /* Focus styles */
   *:focus-visible {
-    @apply outline-none ring-2 ring-duo-green ring-offset-2 ring-offset-white dark:ring-offset-dark-bg;
+    outline: 2px solid var(--cr-ring-focus);
+    outline-offset: 2px;
   }
 }
 
@@ -317,5 +318,87 @@
   @keyframes animateIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ====================================================================
+     Sprint 1 — drawer motion, scroll and surface utilities
+     ==================================================================== */
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cr-scroll-contain {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cr-anim-sheet {
+    animation: crSheetUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .cr-anim-drawer {
+    animation: crDrawerIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  /* One entry class, the surface decides the direction */
+  .cr-drawer-enter {
+    animation: crSheetUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @media (min-width: 768px) {
+    .cr-drawer-enter {
+      animation: crDrawerIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+  }
+  .cr-anim-fade {
+    animation: crFadeIn 0.22s ease-out both;
+  }
+  .cr-anim-rise {
+    animation: crRise 0.28s ease-out both;
+  }
+
+  @keyframes crSheetUp {
+    from { transform: translateY(24px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes crDrawerIn {
+    from { transform: translateX(28px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes crFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes crRise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .cr-skeleton {
+    background-image: linear-gradient(
+      90deg,
+      var(--cr-border-subtle) 0%,
+      var(--cr-bg-surface) 45%,
+      var(--cr-border-subtle) 90%
+    );
+    background-size: 220% 100%;
+    animation: crShimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes crShimmer {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

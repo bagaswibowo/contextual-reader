@@ -221,6 +221,7 @@ export function DictionaryDrawer({
       }
 
       setStatus('loading')
+      setEntry(null)
       setErrorMsg(null)
       setSelectedVariant(null)
       setBlockErrors({})
@@ -380,9 +381,15 @@ export function DictionaryDrawer({
 
   return (
     <>
-      {/* Dimmed Overlay (z-60) */}
+      {/* Mobile dim overlay. Desktop keeps the text readable (AC-WI-04). */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs z-[60] transition-opacity"
+        className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm transition-opacity md:hidden"
+        onClick={handleClose}
+        aria-hidden="true"
+      />
+      {/* Desktop click-away layer, no dimming so reading can continue */}
+      <div
+        className="fixed inset-0 z-[60] hidden md:block"
         onClick={handleClose}
         aria-hidden="true"
       />
@@ -393,11 +400,7 @@ export function DictionaryDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="cr-drawer-word-title"
-        className="fixed z-[61] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] shadow-2xl flex flex-col transition-transform duration-300 ease-out
-                   /* Mobile styles: bottom sheet 72vh */
-                   inset-x-0 bottom-0 max-h-[72vh] rounded-t-3xl border-t-2 border-[var(--cr-border-subtle)]
-                   /* Desktop styles: right drawer 440px */
-                   md:inset-y-0 md:right-0 md:left-auto md:w-[440px] md:max-h-full md:rounded-none md:border-l-2 md:border-t-0"
+        className="cr-drawer-enter fixed inset-x-0 bottom-0 z-[61] flex h-[72dvh] max-h-[72dvh] flex-col rounded-t-3xl border-t border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-full md:w-[440px] md:rounded-none md:border-l md:border-t-0"
       >
         {/* Mobile Drag Handle (Touch target 44px) */}
         <div
@@ -470,7 +473,7 @@ export function DictionaryDrawer({
         />
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className="cr-scroll-contain flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {/* State: Loading or Slow Loading */}
           {(status === 'loading' || status === 'slow') && (
             <DrawerSkeleton
@@ -482,7 +485,7 @@ export function DictionaryDrawer({
           {/* State: Timeout after 8 seconds (AC-WI-11) */}
           {status === 'timeout' && (
             <div className="p-6 text-center space-y-3 rounded-2xl bg-[var(--cr-bg-surface-elevated)] border border-[var(--cr-border-subtle)]">
-              <AlertCircle className="w-8 h-8 mx-auto text-amber-500" />
+              <AlertCircle className="w-8 h-8 mx-auto text-[var(--cr-text-danger)]" />
               <p className="font-bold text-sm text-[var(--cr-text-primary)]">
                 Definisi belum selesai dimuat.
               </p>
@@ -493,7 +496,7 @@ export function DictionaryDrawer({
                 <button
                   type="button"
                   onClick={() => fetchDictionaryData(word, targetLang)}
-                  className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-[var(--cr-btn-primary-bg)] text-white inline-flex items-center gap-1.5"
+                  className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)] inline-flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Coba lagi</span>
@@ -548,14 +551,14 @@ export function DictionaryDrawer({
           {/* State: Error */}
           {status === 'error' && (
             <div className="p-6 text-center space-y-2 rounded-2xl bg-[var(--cr-bg-surface-elevated)] border border-[var(--cr-border-subtle)] text-xs">
-              <p className="font-bold text-sm text-red-600 dark:text-red-400">
+              <p className="font-bold text-sm text-[var(--cr-text-danger)]">
                 Definisi tidak bisa dimuat
               </p>
               <p className="text-[var(--cr-text-secondary)]">{errorMsg || 'Terjadi gangguan jaringan.'}</p>
               <button
                 type="button"
                 onClick={() => fetchDictionaryData(word, targetLang)}
-                className="mt-2 min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-[var(--cr-btn-primary-bg)] text-white inline-flex items-center gap-1.5"
+                className="mt-2 min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)] inline-flex items-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Coba lagi</span>
@@ -564,11 +567,13 @@ export function DictionaryDrawer({
           )}
 
           {/* State: Success - Render Active Tab */}
-          {(status === 'success' || entry) && (
+          {status === 'success' && entry && (
             <div
+              key={activeTab}
               role="tabpanel"
               id={`panel-${activeTab}`}
               aria-labelledby={`tab-${activeTab}`}
+              className="cr-anim-rise"
             >
               {activeTab === 'definition' && (
                 <DefinitionTab
@@ -576,6 +581,7 @@ export function DictionaryDrawer({
                   entry={entry}
                   selectedVariant={selectedVariant}
                   contextSentence={contextSentence}
+                  sourceLang={sourceLang}
                   onSelectVariant={(v) => setSelectedVariant(v)}
                   onOpenWord={handleOpenWord}
                   onPlayAudio={(txt, lng) => handlePlayAudio(txt, lng, `audio_ex_${txt}`)}
