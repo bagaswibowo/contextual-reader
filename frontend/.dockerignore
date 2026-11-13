@@ -2,9 +2,8 @@
 node_modules/
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
-package-lock.json
 yarn.lock
+# package-lock.json HARUS ikut: npm ci gagal tanpa lockfile
 
 # Build output
 dist/
