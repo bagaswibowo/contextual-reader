@@ -2,6 +2,10 @@
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
+# Jaringan server lambat/fluktuatif: beri pip waktu & retry lebih besar agar unduhan wheel tidak gagal di tengah jalan
+ENV PIP_RETRIES=15 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
