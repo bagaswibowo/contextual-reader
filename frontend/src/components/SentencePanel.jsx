@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Globe, Languages, Volume2, X, Lightbulb, RefreshCw, AlertCircle } from 'lucide-react'
 import { translationsApi } from '../utils/api'
-import { AVAILABLE_LANGUAGES } from '../constants/languages'
+import { useLanguages } from '../hooks/useLanguages'
 
-function languageName(code) {
-  const found = AVAILABLE_LANGUAGES.find((item) => item.code === code)
+function languageName(code, list) {
+  const found = (list || []).find((item) => item.code === code)
   return found ? found.name : String(code || '').toUpperCase()
 }
 
@@ -28,7 +28,8 @@ export function SentencePanel({
   const [lang, setLang] = useState(targetLang || 'id')
   const [state, setState] = useState({ loading: false, error: null, data: null })
   const [attempt, setAttempt] = useState(0)
-  const [interlinear, setInterlinear] = useState([])
+  const [interlinear, setInterlinear] = useState({ loading: false, words: [], structure: null, grammar: null })
+  const languages = useLanguages()
   const panelRef = useRef(null)
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
@@ -87,44 +88,33 @@ export function SentencePanel({
   }, [isOpen, sentenceId, lang, translationEngine, attempt])
 
   useEffect(() => {
-    if (!isOpen || !sentenceId || !sentenceText) return undefined
-    const words = sentenceText
-      .split(/\s+/)
-      .map((raw) => raw.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, ''))
-      .filter((word) => word.length >= 2)
-      .slice(0, 16)
-    const cacheKey = `cr_interlinear_v1:${sentenceId}:${lang}`
+    if (!isOpen || !sentenceText) return undefined
+    const cacheKey = `cr_interlinear_v2:${sourceLang}:${lang}:${sentenceText}`
     try {
       const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null')
-      if (Array.isArray(cached) && cached.length === words.length) {
+      if (cached && Array.isArray(cached.words)) {
         setInterlinear(cached)
         return undefined
       }
     } catch (e) {}
 
     let active = true
-    setInterlinear(words.map((word) => ({ word, meaning: '', loading: true })))
-    const custom = customConfig || {}
-    Promise.allSettled(
-      words.map((word) => translationsApi.word(sentenceId, word, lang, translationEngine, custom))
-    ).then((results) => {
-      if (!active) return
-      const rows = words.map((word, index) => {
-        const result = results[index]
-        const data = result.status === 'fulfilled' ? result.value?.data : null
-        return {
-          word,
-          meaning: data?.contextual_meaning || '',
-          alternatives: data?.other_meanings || [],
-          loading: false,
-        }
+    setInterlinear({ loading: true, words: [], structure: null, grammar: null })
+    translationsApi
+      .interlinear(sentenceText, sourceLang, lang)
+      .then((res) => {
+        if (!active) return
+        const data = res.data || {}
+        setInterlinear({ loading: false, ...data })
+        try { localStorage.setItem(cacheKey, JSON.stringify(data)) } catch (e) {}
       })
-      setInterlinear(rows)
-      try { localStorage.setItem(cacheKey, JSON.stringify(rows)) } catch (e) {}
-    })
+      .catch(() => {
+        if (!active) return
+        setInterlinear({ loading: false, words: [], structure: null, grammar: null })
+      })
 
     return () => { active = false }
-  }, [isOpen, sentenceId, sentenceText, lang])
+  }, [isOpen, sentenceId, sentenceText, lang, sourceLang])
 
   if (!isOpen) return null
 
@@ -182,7 +172,7 @@ export function SentencePanel({
         <div className="cr-scroll-contain flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <section className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
             <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
-              Kalimat asli ({languageName(sourceLang)})
+              Kalimat asli ({languageName(sourceLang, languages)})
             </span>
             <p className="mt-1.5 font-body text-[15px] italic leading-relaxed text-[var(--cr-text-primary)]">
               &ldquo;{sentenceText}&rdquo;
@@ -202,7 +192,7 @@ export function SentencePanel({
                 onChange={(event) => setLang(event.target.value)}
                 className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-2 text-xs font-extrabold text-[var(--cr-text-primary)]"
               >
-                {AVAILABLE_LANGUAGES.map((item) => (
+                {languages.map((item) => (
                   <option key={item.code} value={item.code}>
                     {item.name}
                   </option>
@@ -244,31 +234,47 @@ export function SentencePanel({
             </div>
           </section>
 
-          {(data.tense || data.structure) && (
-            <section className="space-y-2 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
+          {(interlinear.grammar?.tense || data.tense) && (
+            <section className="space-y-2.5 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
                 Susunan kalimat
               </span>
-              {data.structure && (
-                <div className="flex flex-wrap gap-1.5">
-                  {String(data.structure).split(/\s*\+\s*/).map((part, index) => (
-                    <span
-                      key={`${part}-${index}`}
-                      className={`rounded-lg border px-2 py-1 text-[11px] font-bold ${
-                        index % 3 === 0
-                          ? 'border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
-                          : index % 3 === 1
-                          ? 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)]'
-                          : 'border-[var(--cr-yellow-text)] bg-[rgba(255,200,0,0.14)] text-[var(--cr-text-primary)]'
-                      }`}
-                    >
-                      {part}
-                    </span>
-                  ))}
-                </div>
+
+              {[['Bahasa buku', interlinear.structure?.source], ['Bahasa terjemahan', interlinear.structure?.target]].map(([label, parts]) =>
+                Array.isArray(parts) && parts.length > 0 ? (
+                  <div key={label}>
+                    <p className="mb-1 text-[10px] font-bold text-[var(--cr-text-secondary)]">{label}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {parts.map((part, index) => (
+                        <span
+                          key={`${label}-${part.label}-${index}`}
+                          className={`rounded-lg border px-2 py-1 text-[11px] font-bold ${
+                            index % 3 === 0
+                              ? 'border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
+                              : index % 3 === 1
+                              ? 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)]'
+                              : 'border-[var(--cr-yellow-text)] bg-[rgba(255,200,0,0.14)] text-[var(--cr-text-primary)]'
+                          }`}
+                        >
+                          {part.label}: {part.text}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null
               )}
-              {data.tense && (
-                <p className="text-[12px] font-bold text-[var(--cr-text-primary)]">{data.tense}</p>
+
+              {!interlinear.structure?.source?.length && data.structure && (
+                <p className="text-[12px] font-bold text-[var(--cr-text-primary)]">{data.structure}</p>
+              )}
+
+              <p className="text-[12px] font-bold text-[var(--cr-text-primary)]">
+                {interlinear.grammar?.tense || data.tense}
+              </p>
+              {interlinear.grammar?.note && (
+                <p className="text-[11px] leading-relaxed text-[var(--cr-text-secondary)]">
+                  {interlinear.grammar.note}
+                </p>
               )}
             </section>
           )}
@@ -277,24 +283,36 @@ export function SentencePanel({
             <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
               Terjemahan per kata
             </span>
-            <div className="flex flex-wrap gap-1.5">
-              {interlinear.map((row, index) => (
-                <button
-                  key={`${row.word}-${index}`}
-                  type="button"
-                  onClick={() => onOpenWord && onOpenWord(row.word)}
-                  className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 py-1 text-left hover:border-[var(--cr-text-accent)]"
-                  title={row.meaning ? `${row.word}: ${row.meaning}` : row.word}
-                >
-                  <span className="block text-[12px] font-bold text-[var(--cr-text-primary)]">{row.word}</span>
-                  <span className="block text-[10px] font-semibold text-[var(--cr-text-secondary)]">
-                    {row.loading ? '…' : row.meaning || '—'}
-                  </span>
-                </button>
-              ))}
-            </div>
+            {interlinear.loading ? (
+              <div className="flex flex-wrap gap-1.5" aria-busy="true">
+                {[0, 1, 2, 3, 4].map((index) => (
+                  <div key={index} className="cr-skeleton h-12 w-20 rounded-xl" />
+                ))}
+              </div>
+            ) : Array.isArray(interlinear.words) && interlinear.words.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {interlinear.words.map((row, index) => (
+                  <button
+                    key={`${row.source}-${index}`}
+                    type="button"
+                    onClick={() => onOpenWord && onOpenWord(row.source)}
+                    className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 py-1 text-left hover:border-[var(--cr-text-accent)]"
+                    title={row.alternatives?.length ? `Arti lain: ${row.alternatives.join(', ')}` : row.source}
+                  >
+                    <span className="block text-[12px] font-bold text-[var(--cr-text-primary)]">{row.source}</span>
+                    <span className="block text-[10px] font-semibold text-[var(--cr-text-secondary)]">
+                      {row.target || '—'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[12px] text-[var(--cr-text-secondary)]">
+                Terjemahan per kata belum tersedia untuk kalimat ini.
+              </p>
+            )}
             <p className="text-[10px] text-[var(--cr-text-secondary)]">
-              Ketuk kata untuk membuka panel kata dan melihat arti lainnya.
+              Ketuk kata untuk membuka panel kata; arti alternatif ada di tab Arti.
             </p>
           </section>
 

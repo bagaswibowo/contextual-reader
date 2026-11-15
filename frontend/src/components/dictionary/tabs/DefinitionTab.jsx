@@ -20,8 +20,9 @@ function languageName(code) {
 }
 
 /**
- * Definisi tab: the word explained entirely in the reader's chosen language,
- * grouped by part of speech, with an example sentence for each meaning.
+ * Definisi tab. Uses definisi_bahasa_pilihan from the dictionary contract:
+ * every sense is already in the chosen language, with its own example and a
+ * flag for the sense that matches the clicked sentence.
  */
 export function DefinitionTab({
   entry = null,
@@ -31,23 +32,10 @@ export function DefinitionTab({
 }) {
   if (!entry) return null
 
-  const translations = Array.isArray(entry.translations_table) ? entry.translations_table : []
-  const motherMeaning = entry.mother_meaning || entry.contextual_meaning || ''
-  const examples = Array.isArray(entry.examples) ? entry.examples : []
-  const primaryKey = String(motherMeaning || '').toLowerCase().trim()
-
-  const grouped = new Map()
-  const seen = new Set()
-  translations.forEach((item) => {
-    const key = String(item.target_word || '').toLowerCase().trim()
-    if (!key || seen.has(key)) return
-    seen.add(key)
-    const pos = (item.pos || 'umum').toLowerCase()
-    if (!grouped.has(pos)) grouped.set(pos, [])
-    grouped.get(pos).push(item)
-  })
-
-  const groups = Array.from(grouped.entries())
+  const definitions = Array.isArray(entry.definisi_bahasa_pilihan)
+    ? entry.definisi_bahasa_pilihan
+    : []
+  const fallbackMeaning = entry.arti_konteks || entry.mother_meaning || entry.contextual_meaning || ''
 
   return (
     <div className={`space-y-3 pb-2 ${className}`}>
@@ -57,60 +45,57 @@ export function DefinitionTab({
           Definisi dalam {languageName(motherLang)}
         </p>
         <p className="mt-1 font-heading text-lg font-extrabold leading-tight text-[var(--cr-text-primary)]">
-          {motherMeaning || word}
+          {fallbackMeaning || word}
         </p>
         <p className="mt-1 text-[11px] font-semibold text-[var(--cr-text-secondary)]">
           Makna yang cocok dengan kalimat yang kamu klik.
         </p>
       </section>
 
-      {groups.length > 0 ? (
-        <div className="space-y-3">
-          {groups.map(([pos, items]) => (
-            <section
-              key={pos}
-              className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4"
+      {definitions.length > 0 ? (
+        <ol className="space-y-2">
+          {definitions.map((item, idx) => (
+            <li
+              key={`${item.makna}-${idx}`}
+              className={`rounded-2xl border p-4 ${
+                item.sesuai_konteks
+                  ? 'border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)]'
+                  : 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)]'
+              }`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--cr-text-secondary)]">
-                {posLabel(pos)}
-              </p>
-              <ul className="mt-2 space-y-3">
-                {items.map((item, idx) => {
-                  const isContext = String(item.target_word || '').toLowerCase().trim() === primaryKey
-                  const example = examples.length > 0 ? examples[idx % examples.length] : null
-                  return (
-                    <li key={`${item.target_word}-${idx}`} className="text-[13px] leading-relaxed">
-                      <div className="flex items-start gap-2">
-                        <span
-                          className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
-                            isContext ? 'bg-[var(--cr-text-accent)]' : 'bg-[var(--cr-border-interactive)]'
-                          }`}
-                          aria-hidden="true"
-                        />
-                        <div>
-                          <span className="font-bold text-[var(--cr-text-primary)]">{item.target_word}</span>
-                          {isContext && (
-                            <span className="ml-1.5 rounded bg-[var(--cr-highlight-word-hover)] px-1 py-0.5 text-[9px] font-extrabold uppercase text-[var(--cr-text-accent)]">
-                              sesuai konteks
-                            </span>
-                          )}
-                          {example?.source_text && (
-                            <span className="mt-0.5 block text-[11px] leading-relaxed text-[var(--cr-text-secondary)]">
-                              “{example.source_text}”
-                              {example.target_text && (
-                                <span className="mt-0.5 block italic">{example.target_text}</span>
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 font-mono text-[10px] font-bold text-[var(--cr-text-secondary)]">
+                  {idx + 1}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {item.kelas_kata && (
+                      <span className="rounded bg-[var(--cr-bg-surface)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
+                        {posLabel(item.kelas_kata)}
+                      </span>
+                    )}
+                    {item.sesuai_konteks && (
+                      <span className="rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-[var(--cr-text-accent)]">
+                        sesuai konteks
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[13px] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
+                    {item.makna}
+                  </p>
+                  {item.contoh && (
+                    <div className="mt-1 text-[11px] italic leading-relaxed text-[var(--cr-text-secondary)]">
+                      <p>“{typeof item.contoh === 'string' ? item.contoh : item.contoh.source_text}”</p>
+                      {typeof item.contoh === 'object' && item.contoh.target_text && (
+                        <p className="not-italic">{item.contoh.target_text}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </li>
           ))}
-        </div>
+        </ol>
       ) : (
         <p className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4 text-[12px] text-[var(--cr-text-secondary)]">
           Definisi dalam bahasa ini belum tersedia untuk kata ini.

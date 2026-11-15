@@ -121,6 +121,9 @@ export const translationsApi = {
       params: { word, lang, context, mother_lang: motherLang },
       ...options
     }),
+  interlinear: (text, sourceLang = 'en', targetLang = 'id') =>
+    api.post('/translations/interlinear/', { text, source_lang: sourceLang, target_lang: targetLang }),
+  languages: () => api.get('/translations/languages/'),
   detect: (text, options = {}) =>
     api.post('/translations/detect/', { text }, options),
   ttsUrl: (text, lang = 'en') =>

@@ -7,7 +7,7 @@ import { DrawerSkeleton } from './widgets/DrawerSkeleton'
 import { MeaningTab } from './tabs/MeaningTab'
 import { PronunciationTab } from './tabs/PronunciationTab'
 import { DefinitionTab } from './tabs/DefinitionTab'
-import { AVAILABLE_LANGUAGES } from '../../constants/languages'
+import { useLanguages } from '../../hooks/useLanguages'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 
 const HISTORY_STORAGE_KEY = 'cr_lookup_history_v1'
@@ -121,6 +121,7 @@ export function DictionaryDrawer({
   const [errorMsg, setErrorMsg] = useState(null)
   const [playingAudioKey, setPlayingAudioKey] = useState(null)
   const [langChangeNotice, setLangChangeNotice] = useState(null)
+  const languages = useLanguages()
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   )
@@ -456,7 +457,7 @@ export function DictionaryDrawer({
             onChange={(event) => onLanguageChange && onLanguageChange(event.target.value)}
             className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 text-xs font-extrabold text-[var(--cr-text-primary)]"
           >
-            {AVAILABLE_LANGUAGES.map((item) => (
+            {languages.map((item) => (
               <option key={item.code} value={item.code}>{item.name}</option>
             ))}
           </select>

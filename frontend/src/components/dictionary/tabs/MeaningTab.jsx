@@ -16,9 +16,8 @@ function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
 }
 
 /**
- * Arti tab: contextual meaning (green), a plain definition, the alternative
- * meanings in grey with an example each, clickable synonyms, and the other
- * translations ordered by frequency.
+ * Arti tab. Reads the fixed card contract from the dictionary response:
+ * arti_konteks, definisi, arti_lain, sinonim and terjemahan_lain.
  */
 export function MeaningTab({
   word = '',
@@ -29,23 +28,17 @@ export function MeaningTab({
 }) {
   if (!entry) return null
 
-  const meaning = entry.mother_meaning || entry.contextual_meaning || ''
-  const translations = Array.isArray(entry.translations_table) ? entry.translations_table : []
+  const meaning = entry.arti_konteks || entry.mother_meaning || entry.contextual_meaning || ''
+  const simpleDefinition =
+    (Array.isArray(entry.definisi_bahasa_pilihan) && entry.definisi_bahasa_pilihan[0]?.makna) ||
+    entry.definisi ||
+    ''
+  const alternativeMeanings = Array.isArray(entry.arti_lain) ? entry.arti_lain : []
+  const synonyms = Array.isArray(entry.sinonim) ? entry.sinonim : entry.synonyms || []
+  const otherTranslations = Array.isArray(entry.terjemahan_lain)
+    ? entry.terjemahan_lain
+    : (entry.translations_table || []).map((item) => item.target_word).filter(Boolean)
   const examples = Array.isArray(entry.examples) ? entry.examples : []
-  const synonyms = Array.isArray(entry.synonyms) ? entry.synonyms : []
-
-  const primaryKey = String(meaning || '').toLowerCase().trim()
-  const seen = new Set([primaryKey])
-  const alternatives = translations.filter((item) => {
-    const key = String(item.target_word || '').toLowerCase().trim()
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-
-  const sortedTranslations = [...translations].sort(
-    (a, b) => (b.frequency || 0) - (a.frequency || 0)
-  )
 
   return (
     <div className={`space-y-4 pb-2 ${className}`}>
@@ -68,14 +61,13 @@ export function MeaningTab({
         )}
       </section>
 
-      {alternatives.length > 0 && (
+      {simpleDefinition && (
         <section aria-labelledby="block-definition" className="space-y-2">
           <BlockLabel icon={Languages} id="block-definition">
-            Definisi sederhana
+            Definisi
           </BlockLabel>
           <p className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2.5 text-[13px] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
-            {posLabel(entry.part_of_speech) || 'Kata'} untuk “{word}”:{' '}
-            {alternatives.slice(0, 3).map((item) => item.target_word).join(', ')}.
+            {simpleDefinition}
           </p>
         </section>
       )}
@@ -84,34 +76,33 @@ export function MeaningTab({
         <BlockLabel icon={Languages} id="block-other-meanings">
           Arti lainnya
         </BlockLabel>
-        {alternatives.length > 0 ? (
+        {alternativeMeanings.length > 0 ? (
           <ul className="space-y-2">
-            {alternatives.map((item, idx) => {
-              const example = examples.length > 0 ? examples[idx % examples.length] : null
-              return (
-                <li
-                  key={`${item.target_word}-${idx}`}
-                  className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-3 py-2.5"
-                >
-                  <div className="flex items-start gap-2">
-                    {item.pos && (
-                      <span className="mt-0.5 shrink-0 rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
-                        {posLabel(item.pos)}
-                      </span>
-                    )}
-                    <span className="text-[13px] font-bold leading-snug text-[var(--cr-text-primary)]">
-                      {item.target_word}
+            {alternativeMeanings.map((item, idx) => (
+              <li
+                key={`${item.makna}-${idx}`}
+                className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-3 py-2.5"
+              >
+                <div className="flex items-start gap-2">
+                  {item.kelas_kata && (
+                    <span className="mt-0.5 shrink-0 rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
+                      {posLabel(item.kelas_kata)}
                     </span>
-                  </div>
-                  {example?.source_text && (
-                    <p className="mt-1 text-[11px] leading-relaxed text-[var(--cr-text-secondary)]">
-                      “{example.source_text}”
-                      {example.target_text && <span className="mt-0.5 block italic">{example.target_text}</span>}
-                    </p>
                   )}
-                </li>
-              )
-            })}
+                  <span className="text-[13px] font-bold leading-snug text-[var(--cr-text-primary)]">
+                    {item.makna}
+                  </span>
+                </div>
+                {item.contoh && (
+                  <div className="mt-1 text-[11px] italic leading-relaxed text-[var(--cr-text-secondary)]">
+                    <p>“{typeof item.contoh === 'string' ? item.contoh : item.contoh.source_text}”</p>
+                    {typeof item.contoh === 'object' && item.contoh.target_text && (
+                      <p className="not-italic">{item.contoh.target_text}</p>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
           </ul>
         ) : (
           <p className="rounded-xl border border-[var(--cr-border-subtle)] px-3 py-2 text-[12px] text-[var(--cr-text-secondary)]">
@@ -144,25 +135,19 @@ export function MeaningTab({
         </section>
       )}
 
-      {sortedTranslations.length > 1 && (
+      {otherTranslations.length > 1 && (
         <section aria-labelledby="block-translations" className="space-y-2">
           <BlockLabel icon={Languages} id="block-translations">
             Terjemahan lainnya
           </BlockLabel>
           <ol className="space-y-1.5">
-            {sortedTranslations.slice(0, 6).map((item, idx) => (
+            {otherTranslations.slice(0, 8).map((text, idx) => (
               <li
-                key={`${item.target_word}-${idx}`}
-                className="flex items-center justify-between gap-2 rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2"
+                key={`${text}-${idx}`}
+                className="flex items-center gap-2 rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2 text-[13px] font-semibold text-[var(--cr-text-primary)]"
               >
-                <span className="text-[13px] font-semibold text-[var(--cr-text-primary)]">
-                  {idx + 1}. {item.target_word}
-                </span>
-                {item.pos && (
-                  <span className="text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
-                    {posLabel(item.pos)}
-                  </span>
-                )}
+                <span className="text-[11px] font-bold text-[var(--cr-text-secondary)]">{idx + 1}</span>
+                {text}
               </li>
             ))}
           </ol>

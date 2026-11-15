@@ -32,7 +32,12 @@ export function PronunciationTab({
   const ipa = entry?.pronunciation?.ipa || entry?.phonetic_ipa || ''
   const guide = entry?.pronunciation?.guide || ''
   const romanization = entry?.pronunciation?.romanization || ''
-  const syllables = syllabify(guide || ipa)
+  const phonetic = entry?.fonetik || guide || ''
+  const syllables = phonetic.includes('-')
+    ? phonetic.split('-').filter(Boolean)
+    : Array.isArray(entry?.suku_kata) && entry.suku_kata.length > 0
+    ? entry.suku_kata
+    : syllabify(phonetic || ipa)
 
   if (!word) return null
 
@@ -51,19 +56,20 @@ export function PronunciationTab({
           ) : (
             <span className="font-mono text-[12px] text-[var(--cr-text-secondary)]">IPA belum tersedia</span>
           )}
-          {guide && (
+          {(entry?.fonetik || guide) && (
             <span className="rounded bg-[var(--cr-bg-surface)] px-2 py-0.5 text-[13px] font-extrabold text-[var(--cr-text-primary)]">
-              {guide}
+              {entry?.fonetik || guide}
             </span>
           )}
           {romanization && !guide && (
             <span className="font-mono text-[12px] text-[var(--cr-text-secondary)]">[{romanization}]</span>
           )}
         </div>
-        {guide && (
+        {(entry?.fonetik || guide) && (
           <p className="mt-1.5 text-[11px] font-medium text-[var(--cr-text-secondary)]">
-            Ejaan baca: <span className="font-bold text-[var(--cr-text-primary)]">{guide}</span>
-            {guide !== guide.toLowerCase() ? ' (huruf besar = suku kata ditekankan)' : ''}
+            Ejaan baca:{' '}
+            <span className="font-bold text-[var(--cr-text-primary)]">{entry?.fonetik || guide}</span>
+            {' '}(huruf besar menandai suku kata yang ditekankan)
           </p>
         )}
         {audioUrl && (
@@ -81,7 +87,7 @@ export function PronunciationTab({
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
             {syllables.map((part, idx) => {
-              const stressed = part === part.toUpperCase() && /[A-Z]/.test(part)
+              const stressed = /[A-Z]/.test(part)
               return (
                 <span
                   key={`${part}-${idx}`}

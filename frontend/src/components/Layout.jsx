@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { BookOpen, Library, Brain, Settings, Sun, Moon, Menu, X } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import { useBookStore, useReaderStore } from '../stores'
-import { AVAILABLE_LANGUAGES } from '../constants/languages'
+import { useLanguages } from '../hooks/useLanguages'
 
 const NAV_ITEMS = [
   { path: '/library', label: 'Perpustakaan', short: 'Buku', icon: Library },
@@ -37,6 +37,7 @@ export function Layout() {
   const menuButtonRef = useRef(null)
   const { currentBook, clearCurrentBook } = useBookStore()
   const { targetLanguage, setTargetLanguage } = useReaderStore()
+  const languages = useLanguages()
 
   const isReader = location.pathname.startsWith('/read')
 
@@ -120,7 +121,7 @@ export function Layout() {
                   onChange={(event) => setTargetLanguage(event.target.value)}
                   className="min-h-[44px] w-full rounded-xl border-2 border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 text-sm font-bold text-[var(--cr-text-primary)]"
                 >
-                  {AVAILABLE_LANGUAGES.map((item) => (
+                  {languages.map((item) => (
                     <option key={item.code} value={item.code}>{item.name}</option>
                   ))}
                 </select>
@@ -230,7 +231,7 @@ export function Layout() {
                     onChange={(event) => setTargetLanguage(event.target.value)}
                     className="min-h-[44px] w-full rounded-xl border-2 border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 text-sm font-bold text-[var(--cr-text-primary)]"
                   >
-                    {AVAILABLE_LANGUAGES.map((item) => (
+                    {languages.map((item) => (
                       <option key={item.code} value={item.code}>{item.name}</option>
                     ))}
                   </select>
