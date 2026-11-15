@@ -2,9 +2,9 @@ name: CI - Contextual Reader
 
 on:
   push:
-    branches: [ main, sprint0/integration ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, sprint0/integration ]
+    branches: [ main ]
 
 jobs:
   backend-test:
