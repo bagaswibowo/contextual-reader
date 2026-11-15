@@ -131,11 +131,12 @@ class TranslationViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def dictionary(self, request):
-        """Return the full word card: source entry plus the mother-tongue layer."""
+        """Return the full word card: source entry plus two meaning layers."""
         word = (request.query_params.get('word') or '').strip()
         lang = (request.query_params.get('lang') or '').strip()
         context = (request.query_params.get('context') or '').strip()
         mother_lang = (request.query_params.get('mother_lang') or 'id').strip() or 'id'
+        target_lang = (request.query_params.get('target_lang') or '').strip()
 
         if not word or not lang:
             return self._bad_request('word and lang parameters are required')
@@ -145,13 +146,17 @@ class TranslationViewSet(viewsets.ViewSet):
             return self._bad_request('lang must be at most 10 characters')
         if len(mother_lang) > 10:
             return self._bad_request('mother_lang must be at most 10 characters')
+        if len(target_lang) > 10:
+            return self._bad_request('target_lang must be at most 10 characters')
         if len(context) > MAX_CONTEXT_CHARS:
             return self._bad_request(f'context must be at most {MAX_CONTEXT_CHARS} characters')
         if not WORD_PATTERN.match(word):
             return self._bad_request('word contains unsupported characters')
 
         try:
-            payload = lookup_dictionary(word, lang, context=context, mother_lang=mother_lang)
+            payload = lookup_dictionary(
+                word, lang, context=context, mother_lang=mother_lang, target_lang=target_lang
+            )
         except DictionaryNotFound as exc:
             return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
 

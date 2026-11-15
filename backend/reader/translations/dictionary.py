@@ -189,8 +189,14 @@ def serialize_entry(
     context: str = '',
     stale: bool = False,
     mother_lang: str = 'id',
+    target_lang: str = '',
 ) -> dict:
-    """Build the full word card: source-language entry plus mother-tongue layer."""
+    """Build the full word card: source entry plus two meaning layers.
+
+    ``mother_lang`` is the reader's configured mother tongue and ``target_lang``
+    the language currently picked in the reading panel. Both layers are present
+    in one response so switching the panel language costs no new lookup.
+    """
     from .enrichment import (
         build_alternative_meanings,
         build_examples,
@@ -208,6 +214,43 @@ def serialize_entry(
     pronunciation = enrichment.get('pronunciation') or {}
     translations = enrichment.get('translations') or []
     primary_meaning = enrichment.get('primary_meaning') or ''
+
+    try:
+        target_layer = (
+            fetch_word_enrichment(entry.word, entry.lang, target_lang)
+            if target_lang and target_lang not in {mother_lang, entry.lang}
+            else {}
+        )
+    except Exception:
+        target_layer = {}
+    target_translations = target_layer.get('translations') or []
+    target_primary = target_layer.get('primary_meaning') or ''
+
+    try:
+        target_definitions = (
+            translate_definitions(
+                senses,
+                entry.lang,
+                target_lang,
+                part_of_speech=entry.part_of_speech,
+                contextual_meaning=target_primary,
+            )
+            if target_layer
+            else []
+        )
+    except Exception:
+        target_definitions = []
+
+    try:
+        target_alternatives = (
+            build_alternative_meanings(
+                target_translations, senses, entry.lang, target_lang, target_primary
+            )
+            if target_layer
+            else []
+        )
+    except Exception:
+        target_alternatives = []
 
     source_examples = []
     if context and entry.word.lower() in context.lower():
@@ -336,20 +379,39 @@ def serialize_entry(
         'fonetik': pronunciation_block['fonetik'],
         'suku_kata': pronunciation_block['suku_kata'],
         'definisi_bahasa_pilihan': translated_definitions,
+        # Second meaning layer: the language picked in the reading panel. Empty
+        # when it equals the mother tongue or the book language, because then
+        # the existing fields already carry it.
+        'bahasa_pilihan': target_lang or '',
+        'arti_bahasa_pilihan': target_primary,
+        'arti_lain_bahasa_pilihan': target_alternatives,
+        'terjemahan_lain_bahasa_pilihan': [
+            item.get('target_word', '')
+            for item in target_translations
+            if item.get('target_word')
+        ],
+        'definisi_bahasa_pilihan_lain': target_definitions,
     }
 
 
-def lookup(word: str, lang: str, context: str = '', mother_lang: str = 'id') -> dict:
+def lookup(
+    word: str,
+    lang: str,
+    context: str = '',
+    mother_lang: str = 'id',
+    target_lang: str = '',
+) -> dict:
     """Return a dictionary payload, using the DB cache when it is still fresh."""
     word = _clean_text(word)
     lang = normalize_lang(lang)
     mother_lang = normalize_lang(mother_lang) or 'id'
+    target_lang = normalize_lang(target_lang) if target_lang else ''
     word_lower = word.lower()
     now = timezone.now()
 
     entry = DictionaryEntry.objects.filter(word_lower=word_lower, lang=lang).first()
     if entry and entry.fetched_at >= now - DICTIONARY_CACHE_TTL:
-        return serialize_entry(entry, context=context, mother_lang=mother_lang)
+        return serialize_entry(entry, context=context, mother_lang=mother_lang, target_lang=target_lang)
 
     try:
         data = _fetch_free_dictionary(word, lang)
@@ -359,7 +421,7 @@ def lookup(word: str, lang: str, context: str = '', mother_lang: str = 'id') -> 
         except DictionaryProviderError as exc:
             if entry:
                 # Serving stale data is better than failing the reading flow.
-                return serialize_entry(entry, context=context, stale=True, mother_lang=mother_lang)
+                return serialize_entry(entry, context=context, stale=True, mother_lang=mother_lang, target_lang=target_lang)
             raise DictionaryNotFound(f'No dictionary entry found for "{word}" ({lang})') from exc
 
     defaults = {
@@ -377,4 +439,4 @@ def lookup(word: str, lang: str, context: str = '', mother_lang: str = 'id') -> 
         lang=lang,
         defaults=defaults,
     )
-    return serialize_entry(entry, context=context, mother_lang=mother_lang)
+    return serialize_entry(entry, context=context, mother_lang=mother_lang, target_lang=target_lang)

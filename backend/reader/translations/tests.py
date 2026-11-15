@@ -891,3 +891,108 @@ class TtsSpeedTest(TestCase):
 
         called_url = mock_get.call_args[0][0]
         self.assertNotIn('ttsspeed', called_url)
+
+
+class SecondLanguageLayerTest(TestCase):
+    """The card carries meanings in the mother tongue and the panel language."""
+
+    WORD_PAYLOAD = [
+        [['ulet', 'resilient', None, None, 10], [None, None, None, 'rəˈzilēənt']],
+        [['adjective', ['elastis', 'tabah'], [['elastis', ['elastic'], None, 0.04]]]],
+        'en',
+    ]
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _google_side_effect(self):
+        def fake_get(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            if (params or {}).get('dt') == 't':
+                response.json.return_value = [[['ulet', 'resilient', None, None, 10]]]
+                return response
+            if (params or {}).get('tl') == 'es':
+                response.json.return_value = [
+                    [['resistente', 'resilient', None, None, 10]],
+                    [['adjective', ['resistente', 'flexible'], []]],
+                    'en',
+                ]
+                return response
+            response.json.return_value = self.WORD_PAYLOAD
+            return response
+
+        return fake_get
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_card_has_second_meaning_layer(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup('resilient', 'en', mother_lang='id', target_lang='es')
+
+        self.assertEqual(payload['bahasa_pilihan'], 'es')
+        self.assertEqual(payload['arti_bahasa_pilihan'], 'resistente')
+        self.assertIn('flexible', payload['terjemahan_lain_bahasa_pilihan'])
+        self.assertTrue(payload['definisi_bahasa_pilihan_lain'])
+        self.assertIn('sesuai_konteks', payload['definisi_bahasa_pilihan_lain'][0])
+        # The mother-tongue layer is untouched.
+        self.assertEqual(payload['arti_konteks'], 'ulet')
+        self.assertIn('elastis', payload['terjemahan_lain'])
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_panel_language_equal_to_mother_tongue_is_empty(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup('resilient', 'en', mother_lang='id', target_lang='id')
+
+        self.assertEqual(payload['bahasa_pilihan'], 'id')
+        self.assertEqual(payload['arti_bahasa_pilihan'], '')
+        self.assertEqual(payload['terjemahan_lain_bahasa_pilihan'], [])
+        self.assertEqual(payload['definisi_bahasa_pilihan_lain'], [])
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_endpoint_accepts_target_lang(self, free, google_get):
+        from rest_framework.test import APIClient
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        client = APIClient()
+        response = client.get(
+            '/api/translations/dictionary/',
+            {'word': 'resilient', 'lang': 'en', 'mother_lang': 'id', 'target_lang': 'es'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['bahasa_pilihan'], 'es')
+        self.assertTrue(payload['arti_bahasa_pilihan'])
