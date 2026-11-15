@@ -24,3 +24,6 @@ yarn-error.log*
 *.token
 *.key
 contextual-reader.tar.gz
+
+# Local worktree links
+frontend/node_modules
