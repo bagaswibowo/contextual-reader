@@ -24,7 +24,7 @@ import requests
 from django.utils import timezone
 
 from .models import DictionaryEntry
-from .provider import REQUEST_HEADERS, normalize_lang
+from .provider import REQUEST_HEADERS, is_latin_script, normalize_lang
 from .services import GoogleTranslateClient
 
 DICTIONARY_CACHE_TTL = timedelta(days=7)
@@ -173,7 +173,8 @@ def _fetch_google_fallback(word: str, lang: str) -> dict:
         'part_of_speech': '',
         'senses': [{'meaning': meaning, 'examples': [], 'synonyms': []}],
         'synonyms': _dedupe(synonyms)[:MAX_SYNONYMS],
-        'phonetic_ipa': _clean_text(data.get('ipa'))[:100],
+        # Google's reading field is a romanization for non-Latin scripts, not IPA.
+        'phonetic_ipa': _clean_text(data.get('ipa'))[:100] if is_latin_script(lang) else '',
         'source': 'google-translate',
     }
 
@@ -216,6 +217,9 @@ def serialize_entry(
         examples = []
 
     phonetic_ipa = entry.phonetic_ipa or pronunciation.get('ipa') or ''
+    if not is_latin_script(entry.lang):
+        # A romanization is not IPA; the header must not print it as one.
+        phonetic_ipa = ''
     guide = pronunciation.get('guide') or ''
 
     other_meanings = []

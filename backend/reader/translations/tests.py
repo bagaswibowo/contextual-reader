@@ -395,6 +395,7 @@ class DictionaryEnrichmentTest(TestCase):
 
         self.assertEqual(payload['pronunciation']['romanization'], 'Hon')
         self.assertEqual(payload['pronunciation']['guide'], 'Hon')
+        self.assertEqual(payload['phonetic_ipa'], '')
         self.assertEqual(payload['mother_meaning'], 'buku')
 
 
