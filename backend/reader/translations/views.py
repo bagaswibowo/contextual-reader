@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from reader.books.models import Sentence
 from reader.core.security import LLMUrlError, validate_llm_base_url
 from .dictionary import DictionaryNotFound, lookup as lookup_dictionary
+from .interlinear import build_interlinear
+from .languages import language_catalogue, tts_voice
 from .language_detection import detect_language
 from .models import WordTranslation, SentenceTranslation
 from .serializers import WordTranslationSerializer, SentenceTranslationSerializer
@@ -167,20 +169,47 @@ class TranslationViewSet(viewsets.ViewSet):
         return Response(detect_language(text))
 
     @action(detail=False, methods=['get'])
+    def languages(self, request):
+        """Return the selectable languages so the UI never hard-codes a list."""
+        return Response({'languages': language_catalogue()})
+
+    @action(detail=False, methods=['post'])
+    def interlinear(self, request):
+        """Full translation, per-word alignment and grammar shape for one sentence."""
+        text = request.data.get('text')
+        source_lang = (request.data.get('source_lang') or '').strip()
+        target_lang = (request.data.get('target_lang') or 'id').strip() or 'id'
+
+        if not isinstance(text, str) or not text.strip():
+            return self._bad_request('text is required')
+        if len(text) > MAX_CONTEXT_CHARS:
+            return self._bad_request(f'text must be at most {MAX_CONTEXT_CHARS} characters')
+        if len(source_lang) > 10 or len(target_lang) > 10:
+            return self._bad_request('language codes must be at most 10 characters')
+
+        return Response(build_interlinear(text, source_lang, target_lang))
+
+    @action(detail=False, methods=['get'])
     def tts(self, request):
         """High-Quality Natural Neural Audio TTS Proxy Endpoint"""
         text = request.query_params.get('text', '').strip()
         lang = request.query_params.get('lang', 'en').strip().lower()
+        speed = (request.query_params.get('speed') or 'normal').strip().lower()
         if not text:
             return self._bad_request('text parameter is required')
 
         clean_text = text[:300]
-        if lang in ['zh', 'zh-cn']:
-            lang = 'zh-CN'
-        elif lang == 'zh-tw':
-            lang = 'zh-TW'
+        voice = tts_voice(lang)
+        # Google's TTS only exposes one slow mode; the reader's 0.5x control
+        # uses it, and the frontend can also lower playbackRate for finer steps.
+        slow = speed in {'slow', '0.5', '0.25', '0.24'}
 
-        url = f"https://translate.google.com/translate_tts?ie=UTF-8&tl={lang}&client=tw-ob&q={requests.utils.quote(clean_text)}"
+        url = (
+            "https://translate.google.com/translate_tts?ie=UTF-8"
+            f"&tl={voice}&client=tw-ob&q={requests.utils.quote(clean_text)}"
+        )
+        if slow:
+            url += "&ttsspeed=0.24"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         }

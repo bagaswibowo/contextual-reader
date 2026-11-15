@@ -438,3 +438,105 @@ def translate_sentence(text: str, source_lang: str, mother_lang: str) -> Dict:
     cache.set(cache_key, result, timeout=ENRICHMENT_CACHE_TTL)
     return result
 
+
+
+def translate_definitions(
+    senses: List[Dict],
+    source_lang: str,
+    mother_lang: str,
+    part_of_speech: str = '',
+    contextual_meaning: str = '',
+) -> List[Dict]:
+    """Definitions of the word in the reader's chosen language.
+
+    Each sense keeps its own example sentence, translated as well, and the
+    sense that matches the contextual meaning is flagged so the UI can mark it.
+    """
+    if not senses:
+        return []
+
+    cache_key = _cache_key(
+        'dict_definitions',
+        normalize_lang(source_lang),
+        normalize_lang(mother_lang),
+        part_of_speech or '',
+        contextual_meaning or '',
+        *[str(sense.get('meaning') or '') for sense in senses],
+    )
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    def build(sense: Dict) -> Dict:
+        definition = str(sense.get('meaning') or '').strip()
+        if not definition:
+            return {}
+        translated = _translate_text(definition, source_lang, mother_lang) or definition
+        example = next(
+            (text for text in (sense.get('examples') or []) if isinstance(text, str) and text.strip()),
+            '',
+        )
+        example_pair = None
+        if example:
+            example_pair = {
+                'source_text': example,
+                'target_text': _translate_text(example, source_lang, mother_lang),
+            }
+        return {
+            'makna': translated,
+            'kelas_kata': part_of_speech or '',
+            'contoh': example_pair,
+            'sesuai_konteks': False,
+        }
+
+    with ThreadPoolExecutor(max_workers=max(1, len(senses))) as executor:
+        result = [item for item in executor.map(build, senses) if item]
+
+    # Senses arrive ranked by context overlap, so the first one is the sense
+    # the sentence uses. Marking it is a ranking fact, not a guess.
+    if result:
+        result[0]['sesuai_konteks'] = True
+
+    cache.set(cache_key, result, timeout=ENRICHMENT_CACHE_TTL)
+    return result
+
+
+def build_alternative_meanings(
+    translations: List[Dict],
+    senses: List[Dict],
+    source_lang: str,
+    mother_lang: str,
+    primary_meaning: str = '',
+) -> List[Dict]:
+    """Other meanings of the word in the chosen language.
+
+    An example is attached only when the dictionary sense at the same position
+    carries one. Nothing is invented: a meaning without a real example keeps
+    ``contoh`` empty.
+    """
+    if not translations:
+        return []
+
+    examples = [
+        next(
+            (text for text in (sense.get('examples') or []) if isinstance(text, str) and text.strip()),
+            '',
+        )
+        for sense in senses
+    ]
+
+    result = []
+    for index, item in enumerate(translations):
+        value = str(item.get('target_word') or '').strip()
+        if not value or value.lower() == (primary_meaning or '').strip().lower():
+            continue
+        example = examples[index] if index < len(examples) else ''
+        result.append({
+            'makna': value,
+            'kelas_kata': item.get('pos') or '',
+            'contoh': {
+                'source_text': example,
+                'target_text': _translate_text(example, source_lang, mother_lang),
+            } if example else None,
+        })
+    return result

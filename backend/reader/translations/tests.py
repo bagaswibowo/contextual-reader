@@ -648,3 +648,246 @@ class WordTtsEndpointTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'audio/mpeg')
         self.assertIn('max-age', response['Cache-Control'])
+
+
+class PronunciationTest(TestCase):
+    def test_syllables_follow_vowel_nuclei(self):
+        from reader.translations.pronunciation import syllabify
+
+        self.assertEqual(syllabify('memory'), ['me', 'mo', 'ry'])
+        self.assertEqual(syllabify('believe'), ['be', 'lieve'])
+        self.assertEqual(syllabify('water'), ['wa', 'ter'])
+
+    def test_one_letter_tail_joins_previous_syllable(self):
+        from reader.translations.pronunciation import syllabify
+
+        self.assertEqual(syllabify('honey'), ['ho', 'ney'])
+
+    def test_pronunciation_block_keeps_stress_case(self):
+        from reader.translations.pronunciation import build_pronunciation
+
+        block = build_pronunciation('rəˈzilēənt', 'reZILient', '', 'en')
+
+        self.assertEqual(block['ipa'], 'rəˈzilēənt')
+        self.assertEqual(block['fonetik'], 're-ZIL-ient')
+        self.assertEqual(block['suku_kata'], ['re', 'zil', 'ient'])
+
+    def test_non_latin_uses_romanization_for_syllables(self):
+        from reader.translations.pronunciation import build_pronunciation
+
+        block = build_pronunciation('', '', 'kitab', 'ar')
+
+        self.assertEqual(block['ipa'], '')
+        self.assertEqual(block['fonetik'], 'ki-tab')
+
+
+class LanguageCatalogueTest(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+
+    def test_catalogue_lists_indonesian_first(self):
+        response = self.client.get('/api/translations/languages/')
+
+        self.assertEqual(response.status_code, 200)
+        languages = response.json()['languages']
+        self.assertEqual(languages[0]['code'], 'id')
+        self.assertTrue(any(item['code'] == 'en' for item in languages))
+        self.assertTrue(all('tts' in item for item in languages))
+
+    def test_tts_voice_maps_mandarin(self):
+        from reader.translations.languages import tts_voice
+
+        self.assertEqual(tts_voice('zh'), 'zh-CN')
+        self.assertEqual(tts_voice('id'), 'id')
+
+
+class InterlinearEndpointTest(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+
+        cache.clear()
+        self.client = APIClient()
+
+    def test_missing_text_returns_400(self):
+        response = self.client.post('/api/translations/interlinear/', {}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_words_carry_target_and_alternatives(self, translate_query, sentence):
+        sentence.return_value = {
+            'source_text': 'She reads books.',
+            'target_text': 'Dia membaca buku.',
+        }
+
+        def fake_query(params):
+            word = params.get('q')
+            return [
+                [[{'She': 'Dia', 'reads': 'membaca', 'books.': 'buku.'}.get(word, word), word, None, None, 10]],
+                [['verb', ['membaca', 'membaca keras'], []]],
+            ]
+
+        translate_query.side_effect = fake_query
+
+        response = self.client.post(
+            '/api/translations/interlinear/',
+            {'text': 'She reads books.', 'source_lang': 'en', 'target_lang': 'id'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['target_text'], 'Dia membaca buku.')
+        self.assertEqual(len(payload['words']), 3)
+        self.assertEqual(payload['words'][0]['target'], 'Dia')
+        self.assertEqual(payload['words'][1]['target'], 'membaca')
+        self.assertIn('membaca keras', payload['words'][1]['alternatives'])
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_structure_labels_subject_and_predicate(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'She reads books.', 'target_text': 'Dia membaca buku.'}
+        translate_query.return_value = [[['x', 'x', None, None, 10]], []]
+
+        response = self.client.post(
+            '/api/translations/interlinear/',
+            {'text': 'She reads books.', 'source_lang': 'en', 'target_lang': 'id'},
+            format='json',
+        )
+
+        structure = response.json()['structure']
+        labels = [segment['label'] for segment in structure['source']]
+        self.assertEqual(labels[0], 'Subjek')
+        self.assertIn('Predikat', labels)
+        self.assertEqual(structure['pattern'].split('-')[0], 'S')
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_grammar_reports_tense(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'She reads books.', 'target_text': 'Dia membaca buku.'}
+        translate_query.return_value = [[['x', 'x', None, None, 10]], []]
+
+        response = self.client.post(
+            '/api/translations/interlinear/',
+            {'text': 'She reads books.', 'source_lang': 'en', 'target_lang': 'id'},
+            format='json',
+        )
+
+        grammar = response.json()['grammar']
+        self.assertIn('Tense', grammar['tense'])
+        self.assertTrue(grammar['note'])
+
+
+class WordCardContractTest(TestCase):
+    """The word card exposes the fixed field names the UI renders."""
+
+    WORD_PAYLOAD = [
+        [['ulet', 'resilient', None, None, 10], [None, None, None, 'rəˈzilēənt']],
+        [['adjective', ['elastis', 'tabah'], [['elastis', ['elastic'], None, 0.04]]]],
+        'en',
+    ]
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _google_side_effect(self):
+        def fake_get(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            if (params or {}).get('dt') == 't':
+                response.json.return_value = [[['ulet', 'resilient', None, None, 10]]]
+            else:
+                response.json.return_value = self.WORD_PAYLOAD
+            return response
+
+        return fake_get
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_card_has_fixed_fields(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{
+                'meaning': 'returning quickly to shape',
+                'examples': ['She is resilient after every setback.'],
+                'synonyms': [],
+            }],
+            'synonyms': ['tough'],
+            'phonetic_ipa': '/rɪˈzɪliənt/',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup('resilient', 'en', mother_lang='id')
+
+        for field in (
+            'arti_konteks', 'definisi', 'arti_lain', 'sinonim',
+            'terjemahan_lain', 'ipa', 'fonetik', 'suku_kata',
+            'definisi_bahasa_pilihan',
+        ):
+            self.assertIn(field, payload)
+
+        self.assertEqual(payload['arti_konteks'], 'ulet')
+        self.assertEqual(payload['ipa'], '/rɪˈzɪliənt/')
+        self.assertTrue(payload['suku_kata'])
+        self.assertIn('elastis', payload['terjemahan_lain'])
+        self.assertEqual(payload['sinonim'], ['tough'])
+        self.assertTrue(payload['definisi_bahasa_pilihan'])
+        self.assertIn('sesuai_konteks', payload['definisi_bahasa_pilihan'][0])
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_alternative_meanings_skip_the_primary(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup('resilient', 'en', mother_lang='id')
+
+        meanings = [item['makna'] for item in payload['arti_lain']]
+        self.assertNotIn('ulet', meanings)
+        self.assertIn('elastis', meanings)
+        self.assertTrue(all('contoh' in item for item in payload['arti_lain']))
+
+
+class TtsSpeedTest(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+
+    @mock.patch('reader.translations.views.requests.get')
+    def test_slow_speed_requests_slow_voice(self, mock_get):
+        mock_get.return_value = mock.Mock(status_code=200, content=b'ID3' + b'0' * 200)
+
+        response = self.client.get(
+            '/api/translations/tts/',
+            {'text': 'memory', 'lang': 'en', 'speed': 'slow'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        called_url = mock_get.call_args[0][0]
+        self.assertIn('ttsspeed=0.24', called_url)
+
+    @mock.patch('reader.translations.views.requests.get')
+    def test_normal_speed_has_no_slow_flag(self, mock_get):
+        mock_get.return_value = mock.Mock(status_code=200, content=b'ID3' + b'0' * 200)
+
+        self.client.get('/api/translations/tts/', {'text': 'memory', 'lang': 'en'})
+
+        called_url = mock_get.call_args[0][0]
+        self.assertNotIn('ttsspeed', called_url)

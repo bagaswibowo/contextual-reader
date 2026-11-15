@@ -191,7 +191,14 @@ def serialize_entry(
     mother_lang: str = 'id',
 ) -> dict:
     """Build the full word card: source-language entry plus mother-tongue layer."""
-    from .enrichment import build_examples, fetch_word_enrichment, translate_sentence
+    from .enrichment import (
+        build_alternative_meanings,
+        build_examples,
+        fetch_word_enrichment,
+        translate_definitions,
+        translate_sentence,
+    )
+    from .pronunciation import build_pronunciation
 
     senses = _rank_by_context(list(entry.senses or []), context)
     try:
@@ -245,6 +252,31 @@ def serialize_entry(
         pos = item.get('pos') or ''
         other_meanings.append(f'{pos}: {value}' if pos else value)
 
+    try:
+        alternative_meanings = build_alternative_meanings(
+            translations, senses, entry.lang, mother_lang, primary_meaning
+        )
+    except Exception:
+        alternative_meanings = []
+
+    try:
+        translated_definitions = translate_definitions(
+            senses,
+            entry.lang,
+            mother_lang,
+            part_of_speech=entry.part_of_speech,
+            contextual_meaning=primary_meaning,
+        )
+    except Exception:
+        translated_definitions = []
+
+    pronunciation_block = build_pronunciation(
+        phonetic_ipa,
+        guide,
+        pronunciation.get('romanization') or '',
+        entry.lang,
+    )
+
     definitions = [
         {
             'pos': entry.part_of_speech,
@@ -265,6 +297,8 @@ def serialize_entry(
             'ipa': phonetic_ipa,
             'guide': guide,
             'romanization': pronunciation.get('romanization') or '',
+            'fonetik': pronunciation_block['fonetik'],
+            'suku_kata': pronunciation_block['suku_kata'],
         },
         'audio_url': entry.audio_url or build_audio_url(entry.word, entry.lang),
         'confidence': _confidence_for(entry.source, stale),
@@ -288,6 +322,20 @@ def serialize_entry(
         'synonyms': list(entry.synonyms or []),
         'source': entry.source,
         'fetched_at': entry.fetched_at,
+        # Fixed fields the word card renders; names are part of the contract.
+        'arti_konteks': primary_meaning,
+        'definisi': definitions[0]['definition'] if definitions else '',
+        'arti_lain': alternative_meanings,
+        'sinonim': list(entry.synonyms or []),
+        'terjemahan_lain': [
+            item.get('target_word', '')
+            for item in translations
+            if item.get('target_word')
+        ],
+        'ipa': phonetic_ipa,
+        'fonetik': pronunciation_block['fonetik'],
+        'suku_kata': pronunciation_block['suku_kata'],
+        'definisi_bahasa_pilihan': translated_definitions,
     }
 
 
