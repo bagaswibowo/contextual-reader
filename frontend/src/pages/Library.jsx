@@ -176,6 +176,7 @@ export function Library() {
   const chapterCount = bookList.reduce((sum, b) => sum + (b.total_chapters || 0), 0)
   const wordCount = bookList.reduce((sum, b) => sum + (b.total_words || 0), 0)
   const nextBook = bookList.find(b => b.status === 'ready' || b.status === 'completed')
+
   const hasBooks = bookList.length > 0
 
   const getStatusBadge = (status) => {
@@ -264,8 +265,8 @@ export function Library() {
 
         {/* Real library counters, derived from the loaded book list */}
         <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-3">
-          <div className="stat-tile">
-            <BookOpen className="h-5 w-5 shrink-0" style={{ color: 'var(--cr-text-accent)' }} aria-hidden="true" />
+          <div className="stat-tile justify-center sm:justify-start">
+            <BookOpen className="hidden h-5 w-5 shrink-0 sm:block" style={{ color: 'var(--cr-text-accent)' }} aria-hidden="true" />
             <div className="min-w-0">
               <span className="block font-heading text-lg font-extrabold leading-none tabular-nums sm:text-xl" style={{ color: 'var(--cr-text-primary)' }}>
                 {bookList.length}
@@ -273,8 +274,8 @@ export function Library() {
               <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--cr-text-secondary)' }}>buku</span>
             </div>
           </div>
-          <div className="stat-tile">
-            <FileText className="h-5 w-5 shrink-0" style={{ color: 'var(--cr-blue-text)' }} aria-hidden="true" />
+          <div className="stat-tile justify-center sm:justify-start">
+            <FileText className="hidden h-5 w-5 shrink-0 sm:block" style={{ color: 'var(--cr-blue-text)' }} aria-hidden="true" />
             <div className="min-w-0">
               <span className="block font-heading text-lg font-extrabold leading-none tabular-nums sm:text-xl" style={{ color: 'var(--cr-text-primary)' }}>
                 {chapterCount}
@@ -282,11 +283,12 @@ export function Library() {
               <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--cr-text-secondary)' }}>bab</span>
             </div>
           </div>
-          <div className="stat-tile">
-            <Type className="h-5 w-5 shrink-0" style={{ color: 'var(--cr-yellow-text)' }} aria-hidden="true" />
+          <div className="stat-tile justify-center sm:justify-start">
+            <Type className="hidden h-5 w-5 shrink-0 sm:block" style={{ color: 'var(--cr-yellow-text)' }} aria-hidden="true" />
             <div className="min-w-0">
               <span className="block truncate font-heading text-lg font-extrabold leading-none tabular-nums sm:text-xl" style={{ color: 'var(--cr-text-primary)' }}>
-                {wordCount.toLocaleString('id-ID')}
+                <span className="sm:hidden">{wordCount}</span>
+                <span className="hidden sm:inline">{wordCount.toLocaleString('id-ID')}</span>
               </span>
               <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--cr-text-secondary)' }}>kata</span>
             </div>
