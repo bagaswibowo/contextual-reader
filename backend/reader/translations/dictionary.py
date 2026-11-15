@@ -7,6 +7,11 @@ so every worker would call the upstream provider again.
 Providers, in order:
 1. Free Dictionary API (definitions, examples, synonyms, IPA for supported languages).
 2. Google Translate via ``GoogleTranslateClient`` (translation-only fallback).
+
+The source-language entry is then enriched once per (word, lang, mother_lang)
+with the mother-tongue meanings, a readable pronunciation guide, and bilingual
+example sentences. That enrichment is cached in ``LocMemCache`` because it is
+derived data: losing it only costs one extra upstream call.
 """
 
 from __future__ import annotations
@@ -19,16 +24,11 @@ import requests
 from django.utils import timezone
 
 from .models import DictionaryEntry
+from .provider import REQUEST_HEADERS, normalize_lang
 from .services import GoogleTranslateClient
 
 DICTIONARY_CACHE_TTL = timedelta(days=7)
 FREE_DICTIONARY_URL = 'https://api.dictionaryapi.dev/api/v2/entries/{lang}/{word}'
-REQUEST_HEADERS = {
-    'User-Agent': (
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-        '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    )
-}
 MAX_SENSES = 8
 MAX_SYNONYMS = 12
 
@@ -39,18 +39,6 @@ class DictionaryProviderError(RuntimeError):
 
 class DictionaryNotFound(DictionaryProviderError):
     """Raised when the word is neither cached nor available from a provider."""
-
-
-def normalize_lang(lang: str) -> str:
-    value = (lang or '').strip().lower().replace('_', '-')
-    aliases = {
-        'zh-cn': 'zh',
-        'zh-tw': 'zh',
-        'zh-hans': 'zh',
-        'zh-hant': 'zh',
-        'in': 'id',
-    }
-    return aliases.get(value, value)
 
 
 def build_audio_url(word: str, lang: str) -> str:
@@ -195,31 +183,105 @@ def _confidence_for(source: str, stale: bool) -> float:
     return round(max(0.2, base - (0.2 if stale else 0.0)), 2)
 
 
-def serialize_entry(entry: DictionaryEntry, context: str = '', stale: bool = False) -> dict:
+def serialize_entry(
+    entry: DictionaryEntry,
+    context: str = '',
+    stale: bool = False,
+    mother_lang: str = 'id',
+) -> dict:
+    """Build the full word card: source-language entry plus mother-tongue layer."""
+    from .enrichment import build_examples, fetch_word_enrichment
+
+    senses = _rank_by_context(list(entry.senses or []), context)
+    try:
+        enrichment = fetch_word_enrichment(entry.word, entry.lang, mother_lang)
+    except Exception:
+        enrichment = {}
+    pronunciation = enrichment.get('pronunciation') or {}
+    translations = enrichment.get('translations') or []
+    primary_meaning = enrichment.get('primary_meaning') or ''
+
+    source_examples = []
+    if context and entry.word.lower() in context.lower():
+        source_examples.append(context)
+    source_examples.extend(
+        example
+        for sense in senses
+        for example in (sense.get('examples') or [])
+        if isinstance(example, str) and example.strip()
+    )
+    try:
+        examples = build_examples(source_examples, entry.word, entry.lang, mother_lang)
+    except Exception:
+        examples = []
+
+    phonetic_ipa = entry.phonetic_ipa or pronunciation.get('ipa') or ''
+    guide = pronunciation.get('guide') or ''
+
+    other_meanings = []
+    for item in translations:
+        value = item.get('target_word') or ''
+        if not value:
+            continue
+        pos = item.get('pos') or ''
+        other_meanings.append(f'{pos}: {value}' if pos else value)
+
+    definitions = [
+        {
+            'pos': entry.part_of_speech,
+            'definition': sense.get('meaning', ''),
+            'example_phrase': (sense.get('examples') or [''])[0],
+            'synonyms': sense.get('synonyms') or [],
+        }
+        for sense in senses
+    ]
+
     return {
         'word': entry.word,
         'lang': entry.lang,
+        'mother_lang': enrichment.get('mother_lang') or mother_lang,
         'part_of_speech': entry.part_of_speech,
-        'phonetic_ipa': entry.phonetic_ipa,
+        'phonetic_ipa': phonetic_ipa,
+        'pronunciation': {
+            'ipa': phonetic_ipa,
+            'guide': guide,
+            'romanization': pronunciation.get('romanization') or '',
+        },
         'audio_url': entry.audio_url or build_audio_url(entry.word, entry.lang),
         'confidence': _confidence_for(entry.source, stale),
-        'senses': _rank_by_context(list(entry.senses or []), context),
+        'contextual_meaning': primary_meaning,
+        'mother_meaning': primary_meaning,
+        'other_meanings': other_meanings,
+        'translations_table': [
+            {
+                'target_word': item.get('target_word', ''),
+                'pos': item.get('pos', ''),
+                # Ordinal rank for display, not a corpus frequency.
+                'frequency': 3 if index == 0 else 2,
+                'back_translations': item.get('back_translations', []),
+            }
+            for index, item in enumerate(translations)
+        ],
+        'definitions': definitions,
+        'senses': senses,
+        'examples': examples,
         'synonyms': list(entry.synonyms or []),
         'source': entry.source,
         'fetched_at': entry.fetched_at,
     }
 
 
-def lookup(word: str, lang: str, context: str = '') -> dict:
+def lookup(word: str, lang: str, context: str = '', mother_lang: str = 'id') -> dict:
     """Return a dictionary payload, using the DB cache when it is still fresh."""
     word = _clean_text(word)
     lang = normalize_lang(lang)
+    mother_lang = normalize_lang(mother_lang) or 'id'
     word_lower = word.lower()
     now = timezone.now()
 
     entry = DictionaryEntry.objects.filter(word_lower=word_lower, lang=lang).first()
     if entry and entry.fetched_at >= now - DICTIONARY_CACHE_TTL:
-        return serialize_entry(entry, context=context)
+        return serialize_entry(entry, context=context, mother_lang=mother_lang)
 
     try:
         data = _fetch_free_dictionary(word, lang)
@@ -229,7 +291,7 @@ def lookup(word: str, lang: str, context: str = '') -> dict:
         except DictionaryProviderError as exc:
             if entry:
                 # Serving stale data is better than failing the reading flow.
-                return serialize_entry(entry, context=context, stale=True)
+                return serialize_entry(entry, context=context, stale=True, mother_lang=mother_lang)
             raise DictionaryNotFound(f'No dictionary entry found for "{word}" ({lang})') from exc
 
     defaults = {
@@ -247,4 +309,4 @@ def lookup(word: str, lang: str, context: str = '') -> dict:
         lang=lang,
         defaults=defaults,
     )
-    return serialize_entry(entry, context=context)
+    return serialize_entry(entry, context=context, mother_lang=mother_lang)

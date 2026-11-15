@@ -149,15 +149,21 @@ class DictionaryLookupTest(TestCase):
         self.assertIn('/api/translations/tts/', payload['audio_url'])
         self.assertEqual(DictionaryEntry.objects.count(), 1)
 
-    @mock.patch('reader.translations.dictionary.requests.get')
-    def test_cache_hit_skips_provider(self, mock_get):
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_cache_hit_skips_provider(self, free):
         from reader.translations.dictionary import lookup
 
-        mock_get.return_value = fake_response(self.FREE_ENTRY)
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'long-established', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '/trəˈdɪʃənəl/',
+            'source': 'free-dictionary',
+        }
         lookup('traditional', 'en')
         lookup('traditional', 'en')
 
-        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(free.call_count, 1)
 
     @mock.patch('reader.translations.dictionary.requests.get')
     def test_stale_entry_is_refreshed(self, mock_get):
@@ -225,6 +231,173 @@ class DictionaryLookupTest(TestCase):
         self.assertLess(payload['confidence'], 0.95)
 
 
+class PronunciationGuideTest(TestCase):
+    def test_ipa_is_turned_into_a_readable_guide(self):
+        from reader.translations.enrichment import ipa_to_guide
+
+        guide = ipa_to_guide('rəˈzilēənt')
+
+        self.assertTrue(guide)
+        self.assertNotIn('ə', guide)
+        self.assertNotIn('ˈ', guide)
+        self.assertTrue(any(char.isupper() for char in guide))
+
+    def test_blank_ipa_returns_empty_guide(self):
+        from reader.translations.enrichment import ipa_to_guide
+
+        self.assertEqual(ipa_to_guide(''), '')
+        self.assertEqual(ipa_to_guide(None), '')
+
+
+class DictionaryEnrichmentTest(TestCase):
+    """The mother-tongue layer is added on top of the source-language entry."""
+
+    WORD_PAYLOAD = [
+        [['ulet', 'resilient', None, None, 10], [None, None, None, 'rəˈzilēənt']],
+        [['adjective', ['elastis', 'tabah', 'lenting'], [['elastis', ['elastic'], None, 0.04]]]],
+        'en',
+    ]
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _google_side_effect(self, payload=None):
+        payload = payload or self.WORD_PAYLOAD
+
+        def fake_get(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            if (params or {}).get('dt') == 't':
+                response.json.return_value = [[['ulet', 'resilient', None, None, 10]]]
+            else:
+                response.json.return_value = payload
+            return response
+
+        return fake_get
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_lookup_adds_mother_tongue_layer(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup('resilient', 'en', mother_lang='id')
+
+        self.assertEqual(payload['mother_meaning'], 'ulet')
+        self.assertEqual(payload['contextual_meaning'], 'ulet')
+        self.assertTrue(any('elastis' in item for item in payload['other_meanings']))
+        self.assertEqual(payload['translations_table'][0]['target_word'], 'ulet')
+        self.assertEqual(payload['translations_table'][0]['frequency'], 3)
+        self.assertTrue(payload['pronunciation']['guide'])
+        self.assertEqual(payload['phonetic_ipa'], 'rəˈzilēənt')
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_lookup_builds_bilingual_examples(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{
+                'meaning': 'returning quickly to shape',
+                'examples': ['She is resilient after every setback.'],
+                'synonyms': [],
+            }],
+            'synonyms': [],
+            'phonetic_ipa': '/rɪˈzɪliənt/',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup('resilient', 'en', mother_lang='id')
+
+        self.assertEqual(len(payload['examples']), 1)
+        self.assertEqual(payload['examples'][0]['source_text'], 'She is resilient after every setback.')
+        self.assertEqual(payload['examples'][0]['target_text'], 'ulet')
+        self.assertEqual(payload['examples'][0]['keyword'], 'resilient')
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_context_sentence_becomes_first_example(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '/rɪˈzɪliənt/',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup(
+            'resilient', 'en',
+            context='The team stayed resilient through the crisis.',
+            mother_lang='id',
+        )
+
+        self.assertEqual(
+            payload['examples'][0]['source_text'],
+            'The team stayed resilient through the crisis.',
+        )
+        self.assertEqual(payload['examples'][0]['target_text'], 'ulet')
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_enrichment_failure_keeps_source_entry(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '/rɪˈzɪliənt/',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = RuntimeError('upstream down')
+
+        payload = lookup('resilient', 'en', mother_lang='id')
+
+        self.assertEqual(payload['senses'][0]['meaning'], 'returning quickly to shape')
+        self.assertEqual(payload['mother_meaning'], '')
+        self.assertEqual(payload['examples'], [])
+        self.assertEqual(payload['phonetic_ipa'], '/rɪˈzɪliənt/')
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_non_latin_word_uses_romanization(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'noun',
+            'senses': [{'meaning': 'book', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect([
+            [['buku', '本', None, None, 11], [None, None, None, 'Hon']],
+            [['noun', ['buku'], [['buku', ['book'], None, 0.1]]]],
+            'ja',
+        ])
+
+        payload = lookup('本', 'ja', mother_lang='id')
+
+        self.assertEqual(payload['pronunciation']['romanization'], 'Hon')
+        self.assertEqual(payload['pronunciation']['guide'], 'Hon')
+        self.assertEqual(payload['mother_meaning'], 'buku')
+
+
 class DictionaryEndpointTest(TestCase):
     def setUp(self):
         from rest_framework.test import APIClient
@@ -269,6 +442,23 @@ class DictionaryEndpointTest(TestCase):
         for field in ('word', 'lang', 'part_of_speech', 'phonetic_ipa', 'audio_url',
                       'confidence', 'senses', 'synonyms', 'source', 'fetched_at'):
             self.assertIn(field, response.data)
+
+    @mock.patch('reader.translations.views.lookup_dictionary')
+    def test_mother_lang_is_forwarded(self, lookup):
+        lookup.return_value = {'word': 'resilient', 'lang': 'en', 'mother_lang': 'es'}
+        response = self.client.get(
+            '/api/translations/dictionary/',
+            {'word': 'resilient', 'lang': 'en', 'mother_lang': 'es'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(lookup.call_args.kwargs['mother_lang'], 'es')
+
+    def test_mother_lang_too_long_returns_400(self):
+        response = self.client.get(
+            '/api/translations/dictionary/',
+            {'word': 'resilient', 'lang': 'en', 'mother_lang': 'x' * 11},
+        )
+        self.assertEqual(response.status_code, 400)
 
     @mock.patch('reader.translations.views.lookup_dictionary')
     def test_not_found_returns_404(self, lookup):
