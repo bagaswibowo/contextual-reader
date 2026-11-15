@@ -110,6 +110,7 @@ export function DictionaryDrawer({
   triggerRef = null,
   translationEngine = 'google',
   customConfig = {},
+  motherLang = 'id',
   grammarData = null,
   grammarLoading = false,
   grammarError = null,
@@ -242,7 +243,8 @@ export function DictionaryDrawer({
           wordToFetch,
           sourceLang,
           contextSentence,
-          { signal: abortCtrlRef.current.signal }
+          { signal: abortCtrlRef.current.signal },
+          motherLang
         )
 
         clearTimeout(slowTimerRef.current)
@@ -286,7 +288,7 @@ export function DictionaryDrawer({
         }
       }
     },
-    [word, sourceLang, targetLang, contextSentence, isOpen, bookId, bookTitle, chapterIndex, chapterTitle, sentenceId, isSaved]
+    [word, sourceLang, targetLang, contextSentence, isOpen, bookId, bookTitle, chapterIndex, chapterTitle, sentenceId, isSaved, motherLang]
   )
 
   useEffect(() => {

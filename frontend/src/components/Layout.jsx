@@ -63,7 +63,8 @@ export function Layout() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--cr-bg-page)' }}>
-      {/* Desktop rail */}
+      {/* Desktop rail: hidden while reading for an immersive page */}
+      {!isReader && (
       <aside
         className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r-2 px-4 py-6 lg:flex"
         style={{
@@ -141,6 +142,7 @@ export function Layout() {
           )}
         </div>
       </aside>
+      )}
 
       {/* Mobile top bar */}
       <header
@@ -220,7 +222,7 @@ export function Layout() {
         </div>
       )}
 
-      <div className="lg:pl-[248px]">
+      <div className={isReader ? '' : 'lg:pl-[248px]'}>
         <main
           className={`mx-auto w-full max-w-[1180px] px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:pb-16 ${
             isReader ? 'max-w-[1020px]' : ''

@@ -1,11 +1,9 @@
 import React, { useRef } from 'react'
-import { BookOpen, MessageSquare, Languages, Layers } from 'lucide-react'
+import { BookOpen, Languages } from 'lucide-react'
 
 const DEFAULT_TABS = [
-  { id: 'definition', label: 'Definisi', icon: BookOpen },
-  { id: 'examples', label: 'Contoh', icon: MessageSquare },
-  { id: 'translations', label: 'Terjemahan', icon: Languages },
-  { id: 'grammar', label: 'Tata Bahasa', icon: Layers },
+  { id: 'definition', label: 'Arti & Contoh', icon: BookOpen },
+  { id: 'translations', label: 'Definisi', icon: Languages },
 ]
 
 /**

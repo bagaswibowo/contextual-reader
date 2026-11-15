@@ -69,7 +69,10 @@ export function DefinitionTab({
   const allSynonyms = entry.synonyms || definitions.flatMap((d) => d.synonyms || []).filter(Boolean)
   const uniqueSynonyms = Array.from(new Set(allSynonyms))
 
-  const visibleExamples = (entry.examples || []).slice(0, 2)
+  const visibleExamples = (entry.examples || []).slice(0, 4)
+
+  const pronunciationGuide = entry.pronunciation?.guide || ''
+  const pronunciationIpa = entry.pronunciation?.ipa || entry.phonetic_ipa || ''
 
   const hasDetail = visibleDefs.length > 0 || uniqueSynonyms.length > 0 || visibleExamples.length > 0
 
@@ -95,6 +98,23 @@ export function DefinitionTab({
           <p className="mt-1.5 font-heading text-[26px] font-extrabold leading-[1.12] text-[var(--cr-text-primary)]">
             {activeMeaning}
           </p>
+
+          {/* Cara baca: Latin guide for beginners, IPA as the technical reference */}
+          {(pronunciationGuide || pronunciationIpa) && (
+            <p className="mt-2 flex flex-wrap items-center gap-2">
+              {pronunciationGuide && (
+                <span className="inline-flex items-center gap-1 rounded-xl bg-[var(--cr-bg-surface-elevated)] px-2.5 py-1 text-[13px] font-extrabold text-[var(--cr-text-accent)]">
+                  <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  {pronunciationGuide}
+                </span>
+              )}
+              {pronunciationIpa && (
+                <span className="font-mono text-[12px] text-[var(--cr-text-secondary)]">
+                  {pronunciationIpa.startsWith('/') ? pronunciationIpa : `/${pronunciationIpa}/`}
+                </span>
+              )}
+            </p>
+          )}
 
           {contextSentence && (
             <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[12px] italic leading-relaxed text-[var(--cr-text-secondary)] line-clamp-2">
@@ -193,21 +213,24 @@ export function DefinitionTab({
             </section>
           )}
 
-          {/* B5 */}
+          {/* B5 — everyday examples, up to 4, each with the mother-tongue line */}
           {visibleExamples.length > 0 && (
             <section aria-labelledby="block-b5-title" className="p-4">
               <BlockLabel icon={MessageSquare} id="block-b5-title">
-                Contoh penggunaan
+                Contoh penggunaan sehari-hari
               </BlockLabel>
 
-              <div className="mt-2 space-y-3">
+              <div className="mt-2 space-y-2.5">
                 {visibleExamples.map((ex, idx) => {
                   const srcText = ex.source_text || ex.source || ex.en || ''
                   const tgtText = ex.target_text || ex.target || ex.id || ''
                   const kw = ex.keyword || word
 
                   return (
-                    <div key={idx} className="space-y-1">
+                    <div
+                      key={idx}
+                      className="space-y-1 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] p-3"
+                    >
                       <p className="text-[13px] font-medium leading-relaxed text-[var(--cr-text-primary)]">
                         {highlightKeyword(srcText, kw)}
                       </p>
@@ -221,7 +244,7 @@ export function DefinitionTab({
                           type="button"
                           onClick={() => onPlayAudio(srcText, sourceLang)}
                           aria-label={`Dengarkan contoh kalimat: ${srcText}`}
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold text-[var(--cr-text-secondary)] transition-colors hover:bg-[var(--cr-bg-surface)] hover:text-[var(--cr-text-primary)]"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold text-[var(--cr-text-secondary)] transition-colors hover:bg-[var(--cr-bg-surface-elevated)] hover:text-[var(--cr-text-primary)]"
                         >
                           <Volume2 className="h-4 w-4" />
                           <span>Dengarkan</span>

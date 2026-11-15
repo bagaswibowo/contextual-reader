@@ -279,7 +279,8 @@ export function Reader() {
       const cleanedPhrase = selectedText.replace(/^[^\w]+|[^\w]+$/g, '').replace(/\s+/g, ' ')
       if (cleanedPhrase.length >= 2) {
         if (event && event.stopPropagation) event.stopPropagation()
-        handleWordClick(event, sentenceId, cleanedPhrase, 0)
+        const sentText = chapter?.sentences?.find(s => s.id === sentenceId)?.text || cleanedPhrase
+        openDictionaryDrawer(cleanedPhrase, sentenceId, sentText, 'definition')
       }
     }
   }
@@ -965,22 +966,26 @@ export function Reader() {
                     }
                     const word = token.content
                     const wIdx = token.wIdx
-                    const isSelected = activeWordPopup && activeWordPopup.sentenceId === sent.id && activeWordPopup.wIdx === wIdx
+                    const isSelected = isDrawerOpen && drawerSentenceId === sent.id && drawerWord === word
                     return (
                       <span key={`tok-${tIdx}`} className="relative inline-block">
                         <button
-                          onClick={(e) => handleWordClick(e, sent.id, word, wIdx)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const sentText = sent.text || word
+                            openDictionaryDrawer(word, sent.id, sentText, 'definition')
+                          }}
                           data-selected-word={isSelected ? "true" : undefined}
                           className={`word-clickable rounded transition-all ${
-                            isSelected 
-                              ? 'bg-duo-green/30 font-extrabold text-eel dark:text-dark-text ring-2 ring-duo-green shadow-sm px-1' 
+                            isSelected
+                              ? 'bg-duo-green/30 font-extrabold text-eel dark:text-dark-text ring-2 ring-duo-green shadow-sm px-1'
                               : 'hover:bg-duo-green/10 px-0.5'
                           }`}
                         >
                           {word}
                         </button>
                         {' '}
-                        {isSelected && (
+                        {false && (
                           <>
                             {/* Dimmed Backdrop */}
                             <div
@@ -1657,6 +1662,7 @@ export function Reader() {
         saving={savingVocab}
         translationEngine={translationEngine || 'google'}
         customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
+        motherLang={motherLanguage || 'id'}
         onFetchGrammar={() => {
           if (drawerSentenceId && drawerWord) {
             handleFetch3d(drawerSentenceId, drawerWord, drawerContext)

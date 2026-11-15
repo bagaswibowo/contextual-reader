@@ -116,9 +116,9 @@ export const translationsApi = {
       engine,
       ...customProviderFields(engine, customConfig)
     }),
-  dictionary: (word, lang = 'en', context = '', options = {}) =>
+  dictionary: (word, lang = 'en', context = '', options = {}, motherLang = 'id') =>
     api.get('/translations/dictionary/', {
-      params: { word, lang, context },
+      params: { word, lang, context, mother_lang: motherLang },
       ...options
     }),
   detect: (text, options = {}) =>
