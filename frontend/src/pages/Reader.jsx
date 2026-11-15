@@ -1090,10 +1090,12 @@ export function Reader() {
         initialTab={drawerInitialTab}
         onClose={() => setIsDrawerOpen(false)}
         onSaveWord={(w, ctx) => handleSaveVocabulary(w, ctx)}
+        onOpenWord={(nextWord) => openDictionaryDrawer(nextWord, drawerSentenceId, drawerContext, 'meaning')}
+        onLanguageChange={(code) => setTargetLanguage(code)}
         isSaved={drawerWord ? (savedWords.has(drawerWord.toLowerCase()) || false) : false}
         saving={savingVocab}
         translationEngine={translationEngine || 'google'}
-        motherLang={motherLanguage || 'id'}
+        motherLang={targetLanguage || 'id'}
         customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
       />
 
@@ -1106,6 +1108,11 @@ export function Reader() {
         translationEngine={translationEngine || 'google'}
         customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
         onPlayAudio={(text, lang, key) => speakText(text, lang, key)}
+        onOpenWord={(nextWord) => {
+          const current = sentencePanel
+          setSentencePanel(null)
+          openDictionaryDrawer(nextWord, current?.sentenceId, current?.text || '', 'meaning')
+        }}
         onClose={() => setSentencePanel(null)}
       />
 

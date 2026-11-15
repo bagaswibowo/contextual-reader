@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { BookOpen, Library, Brain, Settings, Sun, Moon, Menu, X } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
-import { useBookStore } from '../stores'
+import { useBookStore, useReaderStore } from '../stores'
+import { AVAILABLE_LANGUAGES } from '../constants/languages'
 
 const NAV_ITEMS = [
   { path: '/library', label: 'Perpustakaan', short: 'Buku', icon: Library },
@@ -35,6 +36,7 @@ export function Layout() {
   const menuRef = useRef(null)
   const menuButtonRef = useRef(null)
   const { currentBook, clearCurrentBook } = useBookStore()
+  const { targetLanguage, setTargetLanguage } = useReaderStore()
 
   const isReader = location.pathname.startsWith('/read')
 
@@ -108,6 +110,21 @@ export function Layout() {
             </nav>
 
             <div className="mt-auto space-y-3 pt-6">
+              <div>
+                <label htmlFor="global-language" className="eyebrow mb-1 block">
+                  Bahasa terjemahan
+                </label>
+                <select
+                  id="global-language"
+                  value={targetLanguage || 'id'}
+                  onChange={(event) => setTargetLanguage(event.target.value)}
+                  className="min-h-[44px] w-full rounded-xl border-2 border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 text-sm font-bold text-[var(--cr-text-primary)]"
+                >
+                  {AVAILABLE_LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>{item.name}</option>
+                  ))}
+                </select>
+              </div>
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -203,6 +220,21 @@ export function Layout() {
               }}
             >
               <nav aria-label="Navigasi seluler" className="flex flex-col gap-1">
+                <div className="mb-2">
+                  <label htmlFor="global-language-mobile" className="eyebrow mb-1 block">
+                    Bahasa terjemahan
+                  </label>
+                  <select
+                    id="global-language-mobile"
+                    value={targetLanguage || 'id'}
+                    onChange={(event) => setTargetLanguage(event.target.value)}
+                    className="min-h-[44px] w-full rounded-xl border-2 border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 text-sm font-bold text-[var(--cr-text-primary)]"
+                  >
+                    {AVAILABLE_LANGUAGES.map((item) => (
+                      <option key={item.code} value={item.code}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
                 {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
                   <NavLink
                     key={path}

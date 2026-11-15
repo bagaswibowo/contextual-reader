@@ -1,13 +1,14 @@
 import React, { useRef } from 'react'
-import { Volume2, BookOpen } from 'lucide-react'
+import { BookOpen, Volume2, Languages } from 'lucide-react'
 
 const TABS = [
-  { id: 'meaning', label: 'Arti & contoh', icon: Volume2 },
+  { id: 'meaning', label: 'Arti', icon: Languages },
+  { id: 'pronunciation', label: 'Pengucapan', icon: Volume2 },
   { id: 'definition', label: 'Definisi', icon: BookOpen },
 ]
 
 /**
- * Two-tab navigation for the word panel. Arrow keys, Home and End move the
+ * Three-tab navigation for the word panel. Arrow keys, Home and End move the
  * selection, following the WAI-ARIA tabs pattern.
  */
 export function DrawerTabsNav({ activeTab = 'meaning', onTabChange, className = '' }) {
@@ -45,7 +46,7 @@ export function DrawerTabsNav({ activeTab = 'meaning', onTabChange, className = 
       ref={tabListRef}
       role="tablist"
       aria-label="Isi wawasan kata"
-      className={`flex shrink-0 items-stretch gap-1 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-3 py-2 ${className}`}
+      className={`flex shrink-0 items-stretch gap-1 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 py-2 ${className}`}
     >
       {TABS.map((tab, idx) => {
         const Icon = tab.icon
@@ -60,13 +61,13 @@ export function DrawerTabsNav({ activeTab = 'meaning', onTabChange, className = 
             tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange && onTabChange(tab.id)}
             onKeyDown={(event) => handleKeyDown(event, idx)}
-            className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-[12px] font-extrabold transition-colors ${
+            className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-1.5 text-[11px] font-extrabold transition-colors ${
               isActive
                 ? 'bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
                 : 'text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
             }`}
           >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span className="whitespace-nowrap">{tab.label}</span>
           </button>
         )

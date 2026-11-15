@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Eye, Info, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
+import { Play, Square, Eye, Info, ChevronLeft, ChevronRight, Zap, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from './ErrorBoundary';
 import {
   PHONEME_TO_VISEME,
@@ -45,7 +45,10 @@ export function PronunciationWidget({
   lang = 'en',
   translatedWord = '',
   translatedLang = 'id',
-  translatedTransliteration = ''
+  translatedTransliteration = '',
+  speeds = [0.5, 0.7, 1.0],
+  speedLabels = {},
+  showReplay = false
 }) {
   if (!word) return null;
 
@@ -131,6 +134,15 @@ export function PronunciationWidget({
     changeActiveIndex(0);
   };
 
+  const playRef = useRef(null);
+  const handleReplay = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    stopPlayback();
+    window.setTimeout(() => {
+      if (playRef.current) playRef.current(e);
+    }, 40);
+  };
+
   const handleTogglePlay = (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
 
@@ -206,6 +218,8 @@ export function PronunciationWidget({
 
     stepNext();
   };
+
+  playRef.current = handleTogglePlay;
 
   const stepPhoneme = (direction) => {
     stopPlayback();
@@ -298,7 +312,7 @@ export function PronunciationWidget({
           <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
             {/* Speed Pill Selector */}
             <div className="flex items-center rounded-full bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border p-0.5 shadow-sm">
-              {[0.5, 0.7, 1.0].map((spd) => (
+              {speeds.map((spd) => (
                 <button
                   key={spd}
                   type="button"
@@ -320,10 +334,22 @@ export function PronunciationWidget({
                       : 'Kecepatan Normal (1.00x)'
                   }
                 >
-                  {spd === 0.7 ? '0.7x DHH' : `${spd}x`}
+                  {speedLabels[spd] || (spd === 0.7 ? '0.7x DHH' : `${spd}x`)}
                 </button>
               ))}
             </div>
+
+            {showReplay && (
+              <button
+                type="button"
+                onClick={handleReplay}
+                title="Putar ulang dari awal"
+                aria-label="Putar ulang audio dari awal"
+                className="w-9 h-9 rounded-full flex items-center justify-center border border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
 
             {/* Play/Stop Button */}
             <button

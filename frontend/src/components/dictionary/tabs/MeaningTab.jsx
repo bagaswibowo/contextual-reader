@@ -1,28 +1,6 @@
 import React from 'react'
-import { Volume2, Sparkles, Languages, MessageSquare } from 'lucide-react'
-import { PronunciationWidget } from '../../PronunciationWidget'
-
-const POS_LABELS = {
-  verb: 'kata kerja',
-  noun: 'kata benda',
-  adjective: 'kata sifat',
-  adverb: 'kata keterangan',
-  pronoun: 'kata ganti',
-  preposition: 'kata depan',
-  conjunction: 'kata sambung',
-  interjection: 'kata seru',
-  determiner: 'kata penentu',
-  numeral: 'kata bilangan',
-  article: 'kata sandang',
-  auxiliary: 'kata bantu',
-  'proper noun': 'nama diri',
-}
-
-export function posLabel(pos) {
-  if (!pos) return ''
-  const key = String(pos).toLowerCase().trim()
-  return POS_LABELS[key] || String(pos)
-}
+import { Sparkles, Languages, MessageSquare, Link2 } from 'lucide-react'
+import { posLabel } from './MeaningTabShared'
 
 function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
   return (
@@ -38,110 +16,166 @@ function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
 }
 
 /**
- * Meaning tab: the meaning in this sentence, the other meanings in the chosen
- * language, everyday examples, then pronunciation for the book language only.
- * One audio control, inside the pronunciation block.
+ * Arti tab: contextual meaning (green), a plain definition, the alternative
+ * meanings in grey with an example each, clickable synonyms, and the other
+ * translations ordered by frequency.
  */
 export function MeaningTab({
   word = '',
   entry = null,
-  sourceLang = 'en',
   contextSentence = '',
-  extraExamples = [],
+  onOpenWord,
   className = '',
 }) {
   if (!entry) return null
 
-  const ipa = entry.pronunciation?.ipa || entry.phonetic_ipa || ''
-  const romanization = entry.pronunciation?.romanization || ''
   const meaning = entry.mother_meaning || entry.contextual_meaning || ''
   const translations = Array.isArray(entry.translations_table) ? entry.translations_table : []
-  const otherMeanings = Array.isArray(entry.other_meanings) ? entry.other_meanings : []
+  const examples = Array.isArray(entry.examples) ? entry.examples : []
+  const synonyms = Array.isArray(entry.synonyms) ? entry.synonyms : []
 
   const primaryKey = String(meaning || '').toLowerCase().trim()
-  const rawSenses = translations.length > 0
-    ? translations.map((item) => ({ label: item.target_word, pos: item.pos }))
-    : otherMeanings.map((item) => {
-        const [pos, rest] = String(item).split(':')
-        return rest ? { label: rest.trim(), pos: pos.trim() } : { label: String(item), pos: '' }
-      })
-  const seenSense = new Set([primaryKey])
-  const senses = rawSenses.filter((item) => {
-    const key = String(item.label || '').toLowerCase().trim()
-    if (!key || seenSense.has(key)) return false
-    seenSense.add(key)
+  const seen = new Set([primaryKey])
+  const alternatives = translations.filter((item) => {
+    const key = String(item.target_word || '').toLowerCase().trim()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
     return true
   })
 
-  const seen = new Set()
-  const examples = []
-  const contextKey = String(contextSentence || '').replace(/\s+/g, ' ').trim().toLowerCase()
-  const addExample = (sourceText, targetText = '') => {
-    const clean = String(sourceText || '').trim()
-    const key = clean.replace(/\s+/g, ' ').toLowerCase()
-    if (!clean || seen.has(key) || (contextKey && key === contextKey)) return
-    seen.add(key)
-    examples.push({ source_text: clean, target_text: targetText })
-  }
-  ;(entry.examples || []).forEach((item) => addExample(item.source_text, item.target_text))
-  extraExamples.forEach((text) => addExample(text))
+  const sortedTranslations = [...translations].sort(
+    (a, b) => (b.frequency || 0) - (a.frequency || 0)
+  )
 
   return (
     <div className={`space-y-4 pb-2 ${className}`}>
-      {/* Meaning in this sentence */}
-      {meaning && (
-        <section
-          aria-labelledby="block-context-meaning"
-          className="rounded-2xl bg-[var(--cr-highlight-word-hover)] px-4 py-4"
-        >
-          <BlockLabel icon={Sparkles} tone="accent" id="block-context-meaning">
-            Arti di kalimat ini
+      <section className="rounded-2xl border border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] px-4 py-4">
+        <BlockLabel icon={Sparkles} tone="accent">
+          Arti di kalimat ini
+        </BlockLabel>
+        <p className="mt-1.5 font-heading text-[26px] font-extrabold leading-[1.12] text-[var(--cr-text-primary)]">
+          {meaning || word}
+        </p>
+        {entry.part_of_speech && (
+          <span className="mt-1 inline-block rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
+            {posLabel(entry.part_of_speech)}
+          </span>
+        )}
+        {contextSentence && (
+          <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[12px] italic leading-relaxed text-[var(--cr-text-secondary)] line-clamp-3">
+            &ldquo;{contextSentence}&rdquo;
+          </blockquote>
+        )}
+      </section>
+
+      {alternatives.length > 0 && (
+        <section aria-labelledby="block-definition" className="space-y-2">
+          <BlockLabel icon={Languages} id="block-definition">
+            Definisi sederhana
           </BlockLabel>
-          <p className="mt-1.5 font-heading text-[26px] font-extrabold leading-[1.12] text-[var(--cr-text-primary)]">
-            {meaning}
+          <p className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2.5 text-[13px] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
+            {posLabel(entry.part_of_speech) || 'Kata'} untuk “{word}”:{' '}
+            {alternatives.slice(0, 3).map((item) => item.target_word).join(', ')}.
           </p>
-          {contextSentence && (
-            <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[12px] italic leading-relaxed text-[var(--cr-text-secondary)] line-clamp-3">
-              &ldquo;{contextSentence}&rdquo;
-            </blockquote>
-          )}
         </section>
       )}
 
-      {/* Other meanings, in the chosen language */}
-      {senses.length > 0 && (
-        <section aria-labelledby="block-other-meanings" className="space-y-2">
-          <BlockLabel icon={Languages} id="block-other-meanings">
-            Makna lain
+      <section aria-labelledby="block-other-meanings" className="space-y-2">
+        <BlockLabel icon={Languages} id="block-other-meanings">
+          Arti lainnya
+        </BlockLabel>
+        {alternatives.length > 0 ? (
+          <ul className="space-y-2">
+            {alternatives.map((item, idx) => {
+              const example = examples.length > 0 ? examples[idx % examples.length] : null
+              return (
+                <li
+                  key={`${item.target_word}-${idx}`}
+                  className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-3 py-2.5"
+                >
+                  <div className="flex items-start gap-2">
+                    {item.pos && (
+                      <span className="mt-0.5 shrink-0 rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
+                        {posLabel(item.pos)}
+                      </span>
+                    )}
+                    <span className="text-[13px] font-bold leading-snug text-[var(--cr-text-primary)]">
+                      {item.target_word}
+                    </span>
+                  </div>
+                  {example?.source_text && (
+                    <p className="mt-1 text-[11px] leading-relaxed text-[var(--cr-text-secondary)]">
+                      “{example.source_text}”
+                      {example.target_text && <span className="mt-0.5 block italic">{example.target_text}</span>}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          <p className="rounded-xl border border-[var(--cr-border-subtle)] px-3 py-2 text-[12px] text-[var(--cr-text-secondary)]">
+            Tidak ada arti alternatif yang tercatat untuk kata ini.
+          </p>
+        )}
+      </section>
+
+      {synonyms.length > 0 && (
+        <section aria-labelledby="block-synonyms" className="space-y-2">
+          <BlockLabel icon={Link2} id="block-synonyms">
+            Sinonim
           </BlockLabel>
-          <ul className="space-y-1.5">
-            {senses.map((item, idx) => (
+          <div className="flex flex-wrap gap-1.5">
+            {synonyms.slice(0, 10).map((item, idx) => {
+              const text = typeof item === 'string' ? item : item?.word || ''
+              if (!text) return null
+              return (
+                <button
+                  key={`${text}-${idx}`}
+                  type="button"
+                  onClick={() => onOpenWord && onOpenWord(text)}
+                  className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 text-xs font-bold text-[var(--cr-text-primary)] hover:border-[var(--cr-text-accent)]"
+                >
+                  {text}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {sortedTranslations.length > 1 && (
+        <section aria-labelledby="block-translations" className="space-y-2">
+          <BlockLabel icon={Languages} id="block-translations">
+            Terjemahan lainnya
+          </BlockLabel>
+          <ol className="space-y-1.5">
+            {sortedTranslations.slice(0, 6).map((item, idx) => (
               <li
-                key={`${item.label}-${idx}`}
-                className="flex items-start gap-2 rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2"
+                key={`${item.target_word}-${idx}`}
+                className="flex items-center justify-between gap-2 rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2"
               >
+                <span className="text-[13px] font-semibold text-[var(--cr-text-primary)]">
+                  {idx + 1}. {item.target_word}
+                </span>
                 {item.pos && (
-                  <span className="mt-0.5 shrink-0 rounded bg-[var(--cr-bg-surface)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
+                  <span className="text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
                     {posLabel(item.pos)}
                   </span>
                 )}
-                <span className="text-[13px] font-semibold leading-snug text-[var(--cr-text-primary)]">
-                  {item.label}
-                </span>
               </li>
             ))}
-          </ul>
+          </ol>
         </section>
       )}
 
-      {/* Everyday examples from the dictionary and this chapter */}
-      <section aria-labelledby="block-examples" className="space-y-2">
-        <BlockLabel icon={MessageSquare} id="block-examples">
-          Contoh dalam keseharian
-        </BlockLabel>
-        {examples.length > 0 ? (
-          <div className="space-y-2.5">
-            {examples.slice(0, 5).map((example, idx) => (
+      {examples.length > 0 && (
+        <section aria-labelledby="block-examples" className="space-y-2">
+          <BlockLabel icon={MessageSquare} id="block-examples">
+            Contoh dalam keseharian
+          </BlockLabel>
+          <div className="space-y-2">
+            {examples.slice(0, 3).map((example, idx) => (
               <div
                 key={`example-${idx}`}
                 className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3"
@@ -157,45 +191,8 @@ export function MeaningTab({
               </div>
             ))}
           </div>
-        ) : (
-          <p className="rounded-xl border border-[var(--cr-border-subtle)] px-3 py-2.5 text-[12px] text-[var(--cr-text-secondary)]">
-            Belum ada contoh kalimat untuk kata ini. Kalimat yang kamu klik akan
-            muncul di sini.
-          </p>
-        )}
-      </section>
-
-      {/* Pronunciation, source language only */}
-      <section aria-labelledby="block-pronunciation" className="space-y-2">
-        <BlockLabel icon={Volume2} id="block-pronunciation">
-          Cara baca ({String(sourceLang || 'en').toUpperCase()})
-        </BlockLabel>
-
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2">
-          <span className="font-heading text-lg font-extrabold text-[var(--cr-text-primary)]">{word}</span>
-          {ipa ? (
-            <span className="rounded bg-[var(--cr-highlight-word-hover)] px-1.5 py-0.5 font-mono text-[12px] font-bold text-[var(--cr-text-accent)]">
-              /{ipa.replace(/^\/|\/$/g, '')}/
-            </span>
-          ) : (
-            <span className="font-mono text-[12px] text-[var(--cr-text-secondary)]">
-              IPA belum tersedia
-            </span>
-          )}
-          {romanization && (
-            <span className="font-mono text-[11px] text-[var(--cr-text-secondary)]">[{romanization}]</span>
-          )}
-        </div>
-
-        <PronunciationWidget
-          word={word}
-          ipa={ipa}
-          transliteration={romanization}
-          showVisemeGuide={true}
-          compact={true}
-          lang={sourceLang}
-        />
-      </section>
+        </section>
+      )}
     </div>
   )
 }

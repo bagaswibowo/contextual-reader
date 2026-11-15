@@ -5,7 +5,9 @@ import { DrawerTabsNav } from './DrawerTabsNav'
 import { DrawerActionBar } from './DrawerActionBar'
 import { DrawerSkeleton } from './widgets/DrawerSkeleton'
 import { MeaningTab } from './tabs/MeaningTab'
+import { PronunciationTab } from './tabs/PronunciationTab'
 import { DefinitionTab } from './tabs/DefinitionTab'
+import { AVAILABLE_LANGUAGES } from '../../constants/languages'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 
 const HISTORY_STORAGE_KEY = 'cr_lookup_history_v1'
@@ -105,6 +107,8 @@ export function DictionaryDrawer({
   initialTab = 'meaning',
   onClose,
   onSaveWord,
+  onOpenWord,
+  onLanguageChange,
   isSaved = false,
   saving = false,
   triggerRef = null,
@@ -304,7 +308,7 @@ export function DictionaryDrawer({
       clearTimeout(timeoutTimerRef.current)
       setStatus('idle')
     }
-  }, [isOpen, word])
+  }, [isOpen, word, motherLang])
 
   // Handle drawer close
   const handleClose = () => {
@@ -442,6 +446,38 @@ export function DictionaryDrawer({
           onClose={handleClose}
         />
 
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-4 py-2">
+          <label htmlFor="drawer-language" className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+            Bahasa terjemahan
+          </label>
+          <select
+            id="drawer-language"
+            value={motherLang}
+            onChange={(event) => onLanguageChange && onLanguageChange(event.target.value)}
+            className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 text-xs font-extrabold text-[var(--cr-text-primary)]"
+          >
+            {AVAILABLE_LANGUAGES.map((item) => (
+              <option key={item.code} value={item.code}>{item.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {entry?.sentence_translation?.source_text && status === 'success' && (
+          <section className="shrink-0 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-4 py-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+              Kalimat ini
+            </p>
+            <p className="mt-1 line-clamp-2 text-[12px] italic leading-relaxed text-[var(--cr-text-secondary)]">
+              “{entry.sentence_translation.source_text}”
+            </p>
+            {entry.sentence_translation.target_text && (
+              <p className="mt-1 line-clamp-3 text-[13px] font-bold leading-relaxed text-[var(--cr-text-primary)]">
+                {entry.sentence_translation.target_text}
+              </p>
+            )}
+          </section>
+        )}
+
         {/* Target Language Changed Banner (AC-BB-07) */}
         {langChangeNotice && (
           <div className="px-4 py-2 bg-[var(--cr-highlight-sentence)] border-b border-[var(--cr-border-subtle)] flex items-center justify-between text-xs font-semibold">
@@ -569,9 +605,16 @@ export function DictionaryDrawer({
                 <MeaningTab
                   word={entry?.word || word}
                   entry={entry}
-                  sourceLang={sourceLang}
                   contextSentence={contextSentence}
-                  extraExamples={extraExamples}
+                  onOpenWord={onOpenWord}
+                />
+              )}
+
+              {activeTab === 'pronunciation' && (
+                <PronunciationTab
+                  word={entry?.word || word}
+                  entry={entry}
+                  audioUrl={entry?.audio_url || ''}
                 />
               )}
 
