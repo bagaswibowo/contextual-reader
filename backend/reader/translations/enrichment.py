@@ -512,15 +512,15 @@ def fetch_tatoeba_examples(
         else rf'(?<!\w){re.escape(base)}(?!\w)',
         re.IGNORECASE,
     )
-    examples = []
+    candidates = []
+    seen = set()
     for row in rows:
         if not isinstance(row, dict):
             continue
         sentence = ' '.join(str(row.get('text') or '').split())
-        if not sentence or not pattern.search(sentence):
+        if not sentence or not pattern.search(sentence) or sentence in seen:
             continue
-        if sentence in {item['source_text'] for item in examples}:
-            continue
+        seen.add(sentence)
         translation = ''
         for group in row.get('translations') or []:
             for option in group if isinstance(group, list) else []:
@@ -531,16 +531,32 @@ def fetch_tatoeba_examples(
                     break
             if translation:
                 break
-        if not translation:
-            translation = _translate_text(sentence, source, target)
-        examples.append({
-            'source_text': sentence,
-            'target_text': translation,
+        candidates.append({'source_text': sentence, 'target_text': translation})
+        if len(candidates) >= max(limit * 2, 6):
+            break
+
+    # Rows without a corpus translation are translated in parallel: one call
+    # each, so a batch of ten would otherwise stall the card for seconds.
+    missing = [item for item in candidates if not item['target_text']]
+    if missing:
+        with ThreadPoolExecutor(max_workers=min(4, len(missing))) as executor:
+            translated = list(executor.map(
+                lambda item: _translate_text(item['source_text'], source, target),
+                missing,
+            ))
+        for item, text in zip(missing, translated):
+            item['target_text'] = text
+
+    examples = [
+        {
+            'source_text': item['source_text'],
+            'target_text': item['target_text'],
             'keyword': word,
             'origin': 'tatoeba',
-        })
-        if len(examples) >= limit:
-            break
+        }
+        for item in candidates
+        if item['target_text']
+    ][:limit]
 
     cache.set(cache_key, examples, timeout=TATOEBA_CACHE_TTL)
     return examples
