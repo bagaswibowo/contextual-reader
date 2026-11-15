@@ -36,20 +36,28 @@ export function Settings() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto w-full space-y-6 pb-16">
-      <div className="card-duo p-6 md:p-8 bg-white dark:bg-dark-card">
-        <h1 className="heading-1 text-2xl md:text-3xl flex items-center gap-3 mb-6">
-          <SettingsIcon className="w-8 h-8 text-duo-green" />
-          Pengaturan Aplikasi
-        </h1>
+    <div className="mx-auto w-full max-w-3xl space-y-6 pb-16">
+        <section className="hero-band cr-anim-rise" aria-labelledby="settings-title">
+          <div className="relative">
+            <p className="eyebrow">Preferensi</p>
+            <h1 id="settings-title" className="display-1 mt-3 max-w-[20ch]">
+              Atur cara kamu membaca.
+            </h1>
+            <p className="mt-4 max-w-[54ch] text-base font-semibold leading-relaxed" style={{ color: 'var(--cr-text-secondary)' }}>
+              Ukuran huruf, tema, bahasa target, dan mesin penerjemah berlaku untuk
+              semua buku di perangkat ini.
+            </p>
+          </div>
+        </section>
 
-        <div className="space-y-8">
-          {/* Section 1: Translation Engine & Target Language */}
-          <div className="space-y-4">
-            <h3 className="heading-3 text-lg flex items-center gap-2 border-b-2 border-gray-100 dark:border-dark-border pb-2">
-              <Globe className="w-5 h-5 text-duo-blue" />
-              Engine Penerjemah & Bahasa Target
-            </h3>
+        <div className="card-duo p-5 sm:p-8">
+          <div className="space-y-8">
+            {/* Section 1: Translation Engine & Target Language */}
+            <section className="space-y-4" aria-labelledby="settings-engine">
+              <h2 id="settings-engine" className="heading-3 flex items-center gap-2 border-b-2 pb-3" style={{ borderColor: 'var(--cr-border-subtle)' }}>
+                <Globe className="h-5 w-5" style={{ color: 'var(--cr-blue-text)' }} aria-hidden="true" />
+                Bahasa dan mesin penerjemah
+              </h2>
 
             {/* Default Target Language & Mother Tongue Language Dropdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -91,7 +99,7 @@ export function Settings() {
                 {/* Engine 1: Google Translate */}
                 <button
                   onClick={() => setTranslationEngine('google')}
-                  className={`cr-hover-lift p-4 rounded-duo border-2 text-left ${
+                  className={`p-4 rounded-duo border-2 text-left transition-all ${
                     translationEngine === 'google'
                       ? 'border-duo-green bg-duo-green/10 shadow-3d'
                       : 'border-gray-200 dark:border-dark-border'
@@ -102,7 +110,7 @@ export function Settings() {
                     {translationEngine === 'google' && <CheckCircle2 className="w-5 h-5 text-duo-green" />}
                   </div>
                   <span className="font-heading font-extrabold text-sm block">Google Translate</span>
-                  <span className="text-[11px] text-gray-500 block mt-1 leading-tight">
+                  <span className="text-[11px] text-[var(--cr-text-secondary)] block mt-1 leading-tight">
                     Gratis, respon instan, kamus kelas kata & transliterasi latin.
                   </span>
                 </button>
@@ -110,7 +118,7 @@ export function Settings() {
                 {/* Engine 2: OmniRoute Proxy */}
                 <button
                   onClick={() => setTranslationEngine('omni')}
-                  className={`cr-hover-lift p-4 rounded-duo border-2 text-left ${
+                  className={`p-4 rounded-duo border-2 text-left transition-all ${
                     translationEngine === 'omni'
                       ? 'border-duo-blue bg-duo-blue/10 shadow-3d-blue'
                       : 'border-gray-200 dark:border-dark-border'
@@ -121,7 +129,7 @@ export function Settings() {
                     {translationEngine === 'omni' && <CheckCircle2 className="w-5 h-5 text-duo-blue" />}
                   </div>
                   <span className="font-heading font-extrabold text-sm block">OmniRoute Proxy</span>
-                  <span className="text-[11px] text-gray-500 block mt-1 leading-tight">
+                  <span className="text-[11px] text-[var(--cr-text-secondary)] block mt-1 leading-tight">
                     Model auto/best-free via local OmniRoute Proxy server.
                   </span>
                 </button>
@@ -129,7 +137,7 @@ export function Settings() {
                 {/* Engine 3: Custom AI Provider */}
                 <button
                   onClick={() => setTranslationEngine('custom')}
-                  className={`cr-hover-lift p-4 rounded-duo border-2 text-left ${
+                  className={`p-4 rounded-duo border-2 text-left transition-all ${
                     translationEngine === 'custom'
                       ? 'border-duo-purple bg-duo-purple/10 shadow-3d'
                       : 'border-gray-200 dark:border-dark-border'
@@ -140,7 +148,7 @@ export function Settings() {
                     {translationEngine === 'custom' && <CheckCircle2 className="w-5 h-5 text-duo-purple" />}
                   </div>
                   <span className="font-heading font-extrabold text-sm block">Custom AI Provider</span>
-                  <span className="text-[11px] text-gray-500 block mt-1 leading-tight">
+                  <span className="text-[11px] text-[var(--cr-text-secondary)] block mt-1 leading-tight">
                     Gunakan API Key OpenAI, OpenRouter, Groq, atau LLM kustom Anda.
                   </span>
                 </button>
@@ -206,20 +214,20 @@ export function Settings() {
                 </div>
               </div>
             )}
-          </div>
+          </section>
 
           {/* Section 2: Reader Display Settings */}
-          <div className="space-y-4">
-            <h3 className="heading-3 text-lg flex items-center gap-2 border-b-2 border-gray-100 dark:border-dark-border pb-2">
-              <Sliders className="w-5 h-5 text-duo-green" />
-              Tampilan Pembaca
-            </h3>
+          <section className="space-y-4" aria-labelledby="settings-display">
+            <h2 id="settings-display" className="heading-3 flex items-center gap-2 border-b-2 pb-3" style={{ borderColor: 'var(--cr-border-subtle)' }}>
+              <Sliders className="h-5 w-5" style={{ color: 'var(--cr-text-accent)' }} aria-hidden="true" />
+              Tampilan pembaca
+            </h2>
 
             {/* Font Size */}
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-bold text-sm block">Ukuran Font Teks:</span>
-                <span className="text-xs text-gray-500">Sesuaikan kenyamanan membaca</span>
+                <span className="text-xs text-[var(--cr-text-secondary)]">Sesuaikan kenyamanan membaca</span>
               </div>
               <div className="flex items-center gap-2 bg-gray-100 dark:bg-dark-border rounded-duo p-1">
                 <button
@@ -244,7 +252,7 @@ export function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-bold text-sm block">Jenis Tipografi:</span>
-                <span className="text-xs text-gray-500">Gaya font novel vs sans-serif</span>
+                <span className="text-xs text-[var(--cr-text-secondary)]">Gaya font novel vs sans-serif</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -270,7 +278,7 @@ export function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-bold text-sm block">Tema Pembaca:</span>
-                <span className="text-xs text-gray-500">Mode warna canvas bacaan</span>
+                <span className="text-xs text-[var(--cr-text-secondary)]">Mode warna canvas bacaan</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -298,7 +306,7 @@ export function Settings() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-dark-border">
               <div>
                 <span className="font-bold text-sm block">Gaya Penjelasan Kata:</span>
-                <span className="text-xs text-gray-500">Panel bawah ala aplikasi mobile atau tooltip melayang</span>
+                <span className="text-xs text-[var(--cr-text-secondary)]">Panel bawah ala aplikasi mobile atau tooltip melayang</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -329,31 +337,42 @@ export function Settings() {
                 </button>
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Section 3: Server Health Status */}
-          <div className="space-y-4 pt-4 border-t-2 border-gray-100 dark:border-dark-border">
-            <div className="flex items-center justify-between">
+          <section className="space-y-4 border-t-2 pt-6" aria-labelledby="settings-server" style={{ borderColor: 'var(--cr-border-subtle)' }}>
+            <h2 id="settings-server" className="heading-3 flex items-center gap-2">
+              <Cpu className="h-5 w-5" style={{ color: 'var(--cr-blue-text)' }} aria-hidden="true" />
+              Status server
+            </h2>
+            <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
               <div>
-                <span className="font-bold text-sm block">Status Server Backend (sxz):</span>
-                <span className="text-xs text-gray-500">Cek konektivitas database & OmniRoute API</span>
+                <span className="block text-sm font-bold">Koneksi backend</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--cr-text-secondary)' }}>
+                  Periksa database dan layanan penerjemah.
+                </span>
               </div>
               <button
+                type="button"
                 onClick={checkHealth}
                 disabled={checkingHealth}
-                className="btn-secondary py-2 px-4 text-xs font-bold"
+                className="btn-secondary px-4 py-2 text-sm"
               >
-                {checkingHealth ? 'Memeriksa...' : 'Cek Status'}
+                {checkingHealth ? 'Memeriksa...' : 'Cek status'}
               </button>
             </div>
 
             {healthStatus && (
-              <div className="p-4 rounded-duo bg-gray-100 dark:bg-dark-border/40 text-xs font-mono space-y-1">
-                <div>Status: <span className="font-bold text-duo-green">{healthStatus.status}</span></div>
+              <div
+                className="space-y-1 rounded-xl border p-4 font-mono text-xs"
+                style={{ borderColor: 'var(--cr-border-subtle)', backgroundColor: 'var(--cr-bg-surface)' }}
+                role="status"
+              >
+                <div>Status: <span className="font-bold" style={{ color: 'var(--cr-text-accent)' }}>{healthStatus.status}</span></div>
                 {healthStatus.database && <div>Database: {healthStatus.database}</div>}
               </div>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </div>

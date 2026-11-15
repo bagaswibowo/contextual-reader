@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Brain, BookOpen, Volume2, RotateCcw, CheckCircle2, 
-  XCircle, HelpCircle, Sparkles, Flame, Search, Filter, Trash2, History 
+  XCircle, HelpCircle, Flame, Search, Filter, Trash2, History 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { vocabularyApi, booksApi } from '../utils/api'
@@ -147,90 +147,111 @@ export function Vocabulary() {
   })
 
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-16">
-      {/* Header Banner */}
-      <div className="card-duo p-6 md:p-8 bg-gradient-to-r from-duo-green/10 via-duo-blue/10 to-duo-yellow/10 border-2 border-duo-green flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="space-y-2 text-center md:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-duo-green text-white font-extrabold text-xs shadow-3d">
-            <Brain className="w-4 h-4" />
-            <span>Spaced Repetition System</span>
-          </div>
-          <h1 className="heading-1 text-2xl md:text-3xl">Daftar Kosakata & Review</h1>
-          <p className="text-sm font-semibold text-gray-600 dark:text-dark-muted max-w-xl">
-            Simpan kata baru saat membaca dan kuasai dengan flashcard cerdas berstandar Duolingo.
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-16">
+      {/* Header */}
+      <section className="hero-band cr-anim-rise" aria-labelledby="vocab-title">
+        <div className="relative">
+          <p className="eyebrow">Latihan kosakata</p>
+          <h1 id="vocab-title" className="display-1 mt-3 max-w-[18ch]">
+            Kata yang kamu simpan, jadi milikmu.
+          </h1>
+          <p className="mt-4 max-w-[52ch] text-base font-semibold leading-relaxed" style={{ color: 'var(--cr-text-secondary)' }}>
+            Setiap kata yang diketuk saat membaca masuk ke daftar ini.
+            Review berulang dengan jeda membantu kamu mengingatnya lebih lama.
           </p>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={startFlashcardSession}
+              className="btn-primary w-full sm:w-auto"
+            >
+              <Flame className="h-5 w-5" aria-hidden="true" />
+              Mulai review
+            </button>
+            <p className="font-heading text-base font-extrabold" style={{ color: 'var(--cr-text-accent)' }}>
+              {vocabList.length > 0
+                ? `${vocabList.length} kata tersimpan`
+                : 'Belum ada kata tersimpan'}
+            </p>
+          </div>
         </div>
+      </section>
 
-        <button
-          onClick={startFlashcardSession}
-          className="btn-primary flex items-center gap-2 px-6 py-3 text-base shadow-3d"
-        >
-          <Flame className="w-5 h-5 fill-current" />
-          <span>Mulai Flashcard Review</span>
-        </button>
-      </div>
-
-      {/* View Switcher Tabs */}
-      <div className="no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto border-b-2 border-gray-200 px-1 pb-2 dark:border-dark-border sm:gap-3">
-        <button
-          onClick={() => setActiveTab('list')}
-          className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-duo px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5 ${
-            activeTab === 'list'
-              ? 'bg-duo-green text-white shadow-3d'
-              : 'text-eel hover:bg-gray-100 dark:text-dark-text dark:hover:bg-dark-border'
-          }`}
-        >
-          Semua Kata ({vocabList.length})
-        </button>
-        <button
-          onClick={startFlashcardSession}
-          className={`min-h-[44px] shrink-0 whitespace-nowrap rounded-duo px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5 ${
-            activeTab === 'flashcards'
-              ? 'bg-duo-blue text-white shadow-3d-blue'
-              : 'text-eel hover:bg-gray-100 dark:text-dark-text dark:hover:bg-dark-border'
-          }`}
-        >
-          Sesi Review Flashcard
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-duo px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5 ${
-            activeTab === 'history'
-              ? 'bg-[var(--cr-text-accent)] text-[var(--cr-btn-primary-text)] shadow-3d'
-              : 'text-eel hover:bg-gray-100 dark:text-dark-text dark:hover:bg-dark-border'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>Riwayat</span>
-        </button>
+      {/* View switcher */}
+      <div className="no-scrollbar -mx-1 overflow-x-auto px-1">
+        <div className="segmented w-max" role="tablist" aria-label="Tampilan kosakata">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'list'}
+            aria-controls="vocab-panel"
+            onClick={() => setActiveTab('list')}
+            className="min-h-[44px] shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5"
+            style={activeTab === 'list'
+              ? { backgroundColor: 'var(--cr-bg-surface-elevated)', color: 'var(--cr-text-accent)', boxShadow: '0 2px 0 0 var(--cr-border-subtle)' }
+              : { color: 'var(--cr-text-secondary)' }}
+          >
+            Semua kata ({vocabList.length})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'flashcards'}
+            aria-controls="vocab-panel"
+            onClick={startFlashcardSession}
+            className="min-h-[44px] shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5"
+            style={activeTab === 'flashcards'
+              ? { backgroundColor: 'var(--cr-bg-surface-elevated)', color: 'var(--cr-blue-text)', boxShadow: '0 2px 0 0 var(--cr-border-subtle)' }
+              : { color: 'var(--cr-text-secondary)' }}
+          >
+            Flashcard
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'history'}
+            aria-controls="vocab-panel"
+            onClick={() => setActiveTab('history')}
+            className="flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2.5 font-ui text-sm font-extrabold transition-colors sm:px-5"
+            style={activeTab === 'history'
+              ? { backgroundColor: 'var(--cr-bg-surface-elevated)', color: 'var(--cr-text-accent)', boxShadow: '0 2px 0 0 var(--cr-border-subtle)' }
+              : { color: 'var(--cr-text-secondary)' }}
+          >
+            <History className="h-4 w-4" aria-hidden="true" />
+            Riwayat
+          </button>
+        </div>
       </div>
 
       {/* TAB 1: LIST VIEW */}
       {activeTab === 'list' && (
-        <div className="space-y-6">
+        <div id="vocab-panel" role="tabpanel" className="space-y-6">
           {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            {/* Search Input */}
-            <div className="relative w-full sm:w-80">
-              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--cr-text-secondary)' }} aria-hidden="true" />
+              <label htmlFor="vocab-search" className="sr-only">Cari kata atau arti</label>
               <input
-                type="text"
-                placeholder="Cari kata atau arti..."
+                id="vocab-search"
+                type="search"
+                placeholder="Cari kata atau arti"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="input-duo pl-11 py-2.5 text-sm"
+                className="input-duo pl-10"
               />
             </div>
 
-            {/* Book Filter Selector */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Filter className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 shrink-0" style={{ color: 'var(--cr-text-secondary)' }} aria-hidden="true" />
+              <label htmlFor="vocab-book-filter" className="sr-only">Filter berdasarkan buku</label>
               <select
+                id="vocab-book-filter"
                 value={selectedBook}
                 onChange={e => setSelectedBook(e.target.value)}
-                className="input-duo py-2.5 text-sm w-full sm:w-60"
+                className="input-duo w-full sm:w-60"
               >
-                <option value="">Semua Buku</option>
+                <option value="">Semua buku</option>
                 {books.map(b => (
                   <option key={b.id} value={b.id}>{b.title}</option>
                 ))}
@@ -238,161 +259,213 @@ export function Vocabulary() {
             </div>
           </div>
 
-          {/* Vocabulary Grid */}
+          {/* Vocabulary list */}
           {loading ? (
-            <div className="text-center py-12">
-              <div className="w-12 h-12 border-4 border-duo-green border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="font-bold text-gray-500">Memuat kosakata...</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2" aria-busy="true">
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="card-duo p-5">
+                  <div className="cr-skeleton h-6 w-1/3 rounded" />
+                  <div className="cr-skeleton mt-3 h-16 rounded-xl" />
+                  <div className="cr-skeleton mt-3 h-4 w-2/3 rounded" />
+                </div>
+              ))}
+              <p className="sr-only">Memuat kosakata</p>
             </div>
           ) : filteredVocabulary.length === 0 ? (
-            <div className="card-duo p-12 text-center max-w-md mx-auto my-8">
-              <Brain className="w-16 h-16 text-gray-300 dark:text-dark-border mx-auto mb-3" />
-              <h3 className="heading-3 mb-1">Belum ada kosakata</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Klik kata saat membaca buku untuk menyimpannya ke daftar pelajari.
+            <div className="card-duo mx-auto my-6 max-w-md p-10 text-center">
+              <div
+                className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-3xl border-2"
+                style={{ borderColor: 'var(--cr-border-subtle)', backgroundColor: 'var(--cr-bg-surface)' }}
+              >
+                <Brain className="h-8 w-8" style={{ color: 'var(--cr-text-secondary)' }} aria-hidden="true" />
+              </div>
+              <h3 className="heading-3 mb-2">
+                {searchQuery || selectedBook ? 'Tidak ada kata yang cocok' : 'Belum ada kosakata'}
+              </h3>
+              <p className="mb-6 text-sm font-semibold" style={{ color: 'var(--cr-text-secondary)' }}>
+                {searchQuery || selectedBook
+                  ? 'Coba kata kunci lain atau pilih semua buku.'
+                  : 'Ketuk kata saat membaca untuk menyimpannya ke daftar ini.'}
               </p>
+              {(searchQuery || selectedBook) ? (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(''); setSelectedBook('') }}
+                  className="btn-outline"
+                >
+                  Hapus filter
+                </button>
+              ) : (
+                <button type="button" onClick={() => navigate('/library')} className="btn-primary">
+                  <BookOpen className="h-5 w-5" aria-hidden="true" />
+                  Pilih buku
+                </button>
+              )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ul className="cr-stagger grid list-none grid-cols-1 gap-4 md:grid-cols-2">
               {filteredVocabulary.map(item => {
                 const trans = item.word_translation || {}
                 const sentence = item.sentence || {}
 
                 return (
-                  <div
-                    key={item.id}
-                    className="card-duo cr-hover-lift p-5 transition-all flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-heading font-extrabold text-xl text-eel dark:text-dark-text">
+                  <li key={item.id}>
+                    <article className="card-duo flex h-full flex-col justify-between p-5">
+                      <div>
+                        <div className="mb-3 flex items-start justify-between gap-2">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <h3 className="font-heading text-xl font-extrabold" style={{ color: 'var(--cr-text-primary)' }}>
                               {trans.word}
                             </h3>
                             {trans.ipa && (
-                              <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-dark-border px-2 py-0.5 rounded-full">
+                              <span
+                                className="rounded-lg border px-2 py-0.5 font-mono text-xs font-bold"
+                                style={{ borderColor: 'var(--cr-border-subtle)', color: 'var(--cr-text-secondary)' }}
+                              >
                                 /{trans.ipa}/
                               </span>
                             )}
                             <button
+                              type="button"
                               onClick={() => speakText(trans.word)}
-                              className="p-1 rounded-full text-duo-blue hover:bg-duo-blue/10"
+                              className="btn-ghost -ml-1 px-2"
+                              aria-label={`Dengarkan pelafalan ${trans.word}`}
                             >
-                              <Volume2 className="w-4 h-4" />
+                              <Volume2 className="h-4 w-4" style={{ color: 'var(--cr-blue-text)' }} aria-hidden="true" />
                             </button>
                           </div>
+
+                          <span className={
+                            item.status === 'mastered' ? 'badge-green' :
+                            item.status === 'known' ? 'badge-blue' : 'badge-yellow'
+                          }>
+                            {item.status === 'mastered' ? 'Mahir' :
+                             item.status === 'known' ? 'Paham' : 'Belajar'}
+                          </span>
                         </div>
 
-                        <span className={`badge-duo ${
-                          item.status === 'mastered' ? 'badge-green' :
-                          item.status === 'known' ? 'badge-blue' : 'badge-yellow'
-                        }`}>
-                          {item.status === 'mastered' ? 'Mahir' :
-                           item.status === 'known' ? 'Paham' : 'Belajar'}
-                        </span>
+                        <div
+                          className="mb-3 rounded-xl border p-3"
+                          style={{ borderColor: 'var(--cr-btn-primary-shadow)', backgroundColor: 'var(--cr-highlight-word-hover)' }}
+                        >
+                          <span className="eyebrow block" style={{ color: 'var(--cr-text-accent)' }}>
+                            Arti kontekstual
+                          </span>
+                          <p className="mt-1 font-heading text-base font-bold" style={{ color: 'var(--cr-text-primary)' }}>
+                            {trans.contextual_meaning}
+                          </p>
+                        </div>
+
+                        {sentence.text && (
+                          <p className="line-clamp-2 text-sm font-medium italic" style={{ color: 'var(--cr-text-secondary)' }}>
+                            “{sentence.text}”
+                          </p>
+                        )}
                       </div>
 
-                      {/* Contextual Meaning */}
-                      <div className="p-3 rounded-duo bg-duo-green/10 border border-duo-green/30 mb-3">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-duo-green block mb-0.5">
-                          Arti Kontekstual
-                        </span>
-                        <p className="font-heading font-bold text-base text-eel dark:text-dark-text">
-                          {trans.contextual_meaning}
-                        </p>
-                      </div>
-
-                      {/* Sentence Context */}
-                      {sentence.text && (
-                        <p className="text-xs italic text-gray-500 dark:text-dark-muted line-clamp-2">
-                          "{sentence.text}"
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-dark-border flex items-center justify-between text-xs text-gray-400">
-                      <span>Buku: {item.book?.title || 'Umum'} (Review: {item.review_count}x)</span>
-                      <button
-                        onClick={(e) => handleDeleteVocabulary(e, item.id)}
-                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
-                        title="Hapus kata"
+                      <div
+                        className="mt-4 flex items-center justify-between gap-2 border-t-2 pt-3 text-xs font-bold"
+                        style={{ borderColor: 'var(--cr-border-subtle)', color: 'var(--cr-text-secondary)' }}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
+                        <span className="truncate">
+                          {item.book?.title || 'Umum'} · {item.review_count || 0} review
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteVocabulary(e, item.id)}
+                          className="btn-ghost shrink-0 px-2"
+                          aria-label={`Hapus kata ${trans.word}`}
+                          title="Hapus kata"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </article>
+                  </li>
                 )
               })}
-            </div>
+            </ul>
           )}
         </div>
       )}
 
       {/* TAB 2: FLASHCARD REVIEW SESSION */}
       {activeTab === 'flashcards' && (
-        <div className="max-w-xl mx-auto w-full py-6">
+        <div className="mx-auto w-full max-w-xl py-2">
           {sessionFinished ? (
-            /* Session Completed Screen */
-            <div className="card-duo p-8 text-center bg-white dark:bg-dark-card animate-bounce-in">
-              <div className="w-20 h-20 bg-duo-green/20 text-duo-green rounded-3xl flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-10 h-10" />
+            <div className="card-duo cr-anim-rise p-8 text-center">
+              <div
+                className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-3xl border-2"
+                style={{ borderColor: 'var(--cr-btn-primary-shadow)', backgroundColor: 'var(--cr-highlight-word-hover)' }}
+              >
+                <CheckCircle2 className="h-10 w-10" style={{ color: 'var(--cr-text-accent)' }} aria-hidden="true" />
               </div>
-              <h2 className="heading-1 text-3xl mb-2">Sesi Review Selesai</h2>
-              <p className="text-gray-600 dark:text-dark-muted mb-6">
-                Hebat! Kamu telah mereview {sessionStats.reviewed} kata pada sesi ini.
+              <h2 className="heading-2 mb-2">Sesi review selesai</h2>
+              <p className="mb-6 text-sm font-semibold" style={{ color: 'var(--cr-text-secondary)' }}>
+                {sessionStats.reviewed > 0
+                  ? `${sessionStats.reviewed} kata direview pada sesi ini.`
+                  : 'Belum ada kata yang direview.'}
               </p>
 
-              <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto mb-8">
-                <div className="p-4 rounded-duo bg-duo-green/10 border-2 border-duo-green">
-                  <span className="font-heading font-extrabold text-3xl text-duo-green">
+              <div className="mx-auto mb-8 grid max-w-xs grid-cols-2 gap-3">
+                <div className="rounded-2xl border-2 p-4" style={{ borderColor: 'var(--cr-btn-primary-shadow)' }}>
+                  <span className="font-heading text-3xl font-extrabold" style={{ color: 'var(--cr-text-accent)' }}>
                     {sessionStats.correct}
                   </span>
-                  <span className="block text-xs font-bold text-gray-500 mt-1">Benar</span>
+                  <span className="mt-1 block text-xs font-bold" style={{ color: 'var(--cr-text-secondary)' }}>benar</span>
                 </div>
-                <div className="p-4 rounded-duo bg-duo-blue/10 border-2 border-duo-blue">
-                  <span className="font-heading font-extrabold text-3xl text-duo-blue">
+                <div className="rounded-2xl border-2 p-4" style={{ borderColor: 'var(--cr-blue-text)' }}>
+                  <span className="font-heading text-3xl font-extrabold" style={{ color: 'var(--cr-blue-text)' }}>
                     {Math.round((sessionStats.correct / (sessionStats.reviewed || 1)) * 100)}%
                   </span>
-                  <span className="block text-xs font-bold text-gray-500 mt-1">Akurasi</span>
+                  <span className="mt-1 block text-xs font-bold" style={{ color: 'var(--cr-text-secondary)' }}>akurasi</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <button onClick={() => setActiveTab('list')} className="btn-secondary flex-1">
-                  Kembali ke Daftar
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button type="button" onClick={() => setActiveTab('list')} className="btn-outline flex-1">
+                  Kembali ke daftar
                 </button>
-                <button onClick={startFlashcardSession} className="btn-primary flex-1">
-                  Latihan Lagi
+                <button type="button" onClick={startFlashcardSession} className="btn-primary flex-1">
+                  Latihan lagi
                 </button>
               </div>
             </div>
           ) : dueQueue.length === 0 ? (
-            <div className="card-duo p-12 text-center">
-              <CheckCircle2 className="w-16 h-16 text-duo-green mx-auto mb-3" />
-              <h3 className="heading-2 mb-2">Tidak ada kata yang perlu direview!</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Semua kosakata berada dalam jadwal aman. Tambahkan kata baru dari mode baca.
+            <div className="card-duo p-10 text-center">
+              <div
+                className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-3xl border-2"
+                style={{ borderColor: 'var(--cr-border-subtle)', backgroundColor: 'var(--cr-bg-surface)' }}
+              >
+                <CheckCircle2 className="h-8 w-8" style={{ color: 'var(--cr-text-accent)' }} aria-hidden="true" />
+              </div>
+              <h3 className="heading-3 mb-2">Tidak ada kata untuk direview</h3>
+              <p className="mb-6 text-sm font-semibold" style={{ color: 'var(--cr-text-secondary)' }}>
+                Semua kata masih dalam jadwal aman. Tambah kata baru dengan membacanya di mode baca.
               </p>
-              <button onClick={() => setActiveTab('list')} className="btn-primary">
-                Lihat Semua Kosakata
+              <button type="button" onClick={() => setActiveTab('list')} className="btn-primary">
+                Lihat semua kata
               </button>
             </div>
           ) : (
-            /* Active Flashcard */
-            <div className="space-y-6">
-              {/* Progress Header */}
-              <div className="flex items-center justify-between font-bold text-sm text-gray-500">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between gap-3 text-sm font-bold" style={{ color: 'var(--cr-text-secondary)' }}>
                 <span>Kartu {currentCardIndex + 1} dari {dueQueue.length}</span>
-                <div className="w-48 progress-duo">
-                  <div 
-                    className="progress-duo-fill" 
+                <div
+                  className="progress-duo w-40"
+                  role="progressbar"
+                  aria-valuemin={1}
+                  aria-valuemax={dueQueue.length}
+                  aria-valuenow={currentCardIndex + 1}
+                  aria-label="Progres sesi flashcard"
+                >
+                  <div
+                    className="progress-duo-fill"
                     style={{ width: `${((currentCardIndex + 1) / dueQueue.length) * 100}%` }}
                   />
                 </div>
               </div>
 
-              {/* 3D Interactive Card Flip */}
               {(() => {
                 const card = dueQueue[currentCardIndex]
                 const trans = card?.word_translation || {}
@@ -400,114 +473,116 @@ export function Vocabulary() {
 
                 return (
                   <div
-                    onClick={() => setIsFlipped(!isFlipped)}
                     role="button"
                     tabIndex={0}
-                    aria-pressed={isFlipped}
+                    aria-label={isFlipped ? 'Kartu arti. Tekan untuk kembali ke kata.' : 'Kartu kata. Tekan untuk melihat arti.'}
+                    onClick={() => setIsFlipped(!isFlipped)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
                         setIsFlipped(!isFlipped)
                       }
                     }}
-                    className="cr-flip-scene cursor-pointer select-none"
+                    className="card-duo cr-anim-rise relative flex min-h-[320px] cursor-pointer flex-col items-center justify-center p-8 text-center"
                   >
-                    <div className={`card-duo min-h-[320px] p-8 flex flex-col items-center justify-center text-center relative shadow-xl transition-colors ${isFlipped ? '' : 'cr-pop'}`}>
                     {!isFlipped ? (
-                      /* FRONT SIDE */
-                      <div className="space-y-4 animate-in">
-                        <span className="badge-blue text-xs uppercase tracking-wider">
-                          Ketuk untuk melihat arti
-                        </span>
+                      <div className="cr-anim-fade w-full max-w-md space-y-4">
+                        <span className="badge-blue">Ketuk untuk melihat arti</span>
 
-                        <h2 className="heading-1 text-4xl md:text-5xl text-eel dark:text-dark-text">
+                        <h2 className="font-heading text-4xl font-extrabold tracking-tight md:text-5xl" style={{ color: 'var(--cr-text-primary)' }}>
                           {trans.word}
                         </h2>
 
                         {trans.ipa && (
                           <div className="flex items-center justify-center gap-2">
-                            <span className="font-mono text-sm text-gray-500">/{trans.ipa}/</span>
+                            <span className="font-mono text-sm" style={{ color: 'var(--cr-text-secondary)' }}>/{trans.ipa}/</span>
                             <button
-                              onClick={(e) => { e.stopPropagation(); speakText(trans.word); }}
-                              className="p-1.5 rounded-full text-duo-blue hover:bg-duo-blue/10"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); speakText(trans.word) }}
+                              className="btn-ghost px-2"
+                              aria-label={`Dengarkan pelafalan ${trans.word}`}
                             >
-                              <Volume2 className="w-5 h-5" />
+                              <Volume2 className="h-5 w-5" style={{ color: 'var(--cr-blue-text)' }} aria-hidden="true" />
                             </button>
                           </div>
                         )}
 
                         {sentence.text && (
-                          <div className="mt-6 p-4 rounded-duo bg-gray-50 dark:bg-dark-border/40 text-sm italic text-gray-600 dark:text-dark-muted max-w-md">
-                            "{sentence.text}"
-                          </div>
+                          <p
+                            className="mt-6 rounded-xl border p-4 text-sm font-medium italic"
+                            style={{ borderColor: 'var(--cr-border-subtle)', backgroundColor: 'var(--cr-bg-surface)', color: 'var(--cr-text-secondary)' }}
+                          >
+                            “{sentence.text}”
+                          </p>
                         )}
                       </div>
                     ) : (
-                      /* BACK SIDE */
-                      <div className="space-y-4 animate-bounce-in w-full max-w-md">
-                        <span className="badge-green text-xs uppercase tracking-wider">
-                          Arti Kontekstual
-                        </span>
+                      <div className="cr-anim-fade w-full max-w-md space-y-4">
+                        <span className="badge-green">Arti kontekstual</span>
 
-                        <h2 className="heading-1 text-3xl text-duo-green">
+                        <h2 className="heading-1 text-3xl" style={{ color: 'var(--cr-text-accent)' }}>
                           {trans.contextual_meaning}
                         </h2>
 
                         {trans.other_meanings?.length > 0 && (
-                          <div className="p-3 rounded-duo bg-gray-100 dark:bg-dark-border/60 text-xs text-left">
-                            <span className="font-bold text-gray-500 block mb-1">Arti Lain:</span>
+                          <div
+                            className="rounded-xl border p-3 text-left text-xs font-semibold"
+                            style={{ borderColor: 'var(--cr-border-subtle)', backgroundColor: 'var(--cr-bg-surface)', color: 'var(--cr-text-secondary)' }}
+                          >
+                            <span className="eyebrow mb-1 block">Arti lain</span>
                             <p>{trans.other_meanings.join(', ')}</p>
                           </div>
                         )}
 
-                        {/* PANDUAN VISUAL ARTIKULASI BIBIR (TUNA RUNGU / DHH) */}
-                        <div className="pt-2 text-left w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="w-full pt-2 text-left" onClick={(e) => e.stopPropagation()}>
                           <PronunciationWidget
                             word={trans.word}
                             ipa={trans.ipa}
                             showVisemeGuide={true}
                             compact={true}
-                            lang={trans.target_lang || trans.source_lang || trans.lang || "en"}
+                            lang={trans.target_lang || trans.source_lang || trans.lang || 'en'}
                           />
                         </div>
                       </div>
                     )}
-                    </div>
                   </div>
                 )
               })()}
 
-              {/* Assessment Buttons (Duolingo 3D Press) */}
               {isFlipped ? (
-                <div className="grid grid-cols-3 gap-3 animate-in">
+                <div className="cr-anim-rise grid grid-cols-3 gap-2 sm:gap-3">
                   <button
+                    type="button"
                     onClick={() => handleReviewAnswer(1)}
-                    className="btn-danger flex flex-col items-center py-3 gap-1"
+                    className="btn-danger flex-col gap-1 py-3"
                   >
-                    <XCircle className="w-5 h-5" />
-                    <span className="text-xs">Lupa (1)</span>
+                    <XCircle className="h-5 w-5" aria-hidden="true" />
+                    <span className="text-xs">Lupa</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleReviewAnswer(3)}
-                    className="btn-warning flex flex-col items-center py-3 gap-1"
+                    className="btn-warning flex-col gap-1 py-3"
                   >
-                    <HelpCircle className="w-5 h-5" />
-                    <span className="text-xs">Ragu (3)</span>
+                    <HelpCircle className="h-5 w-5" aria-hidden="true" />
+                    <span className="text-xs">Ragu</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleReviewAnswer(5)}
-                    className="btn-primary flex flex-col items-center py-3 gap-1"
+                    className="btn-primary flex-col gap-1 py-3"
                   >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="text-xs">Ingat (5)</span>
+                    <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                    <span className="text-xs">Ingat</span>
                   </button>
                 </div>
               ) : (
                 <button
+                  type="button"
                   onClick={() => setIsFlipped(true)}
-                  className="btn-secondary w-full py-3 text-base"
+                  className="btn-secondary w-full"
                 >
-                  Tunjukkan Jawaban
+                  Tunjukkan jawaban
                 </button>
               )}
             </div>
@@ -517,11 +592,11 @@ export function Vocabulary() {
 
       {/* TAB 3: RIWAYAT PENCARIAN (F2) */}
       {activeTab === 'history' && (
-        <div className="space-y-4">
+        <div id="vocab-panel" role="tabpanel" className="space-y-4">
           <LookupHistoryTab
             onNavigateBook={(item) => {
               if (item.bookId) {
-                navigate(`/reader/${item.bookId}`)
+                navigate(`/read/${item.bookId}`)
               }
             }}
           />

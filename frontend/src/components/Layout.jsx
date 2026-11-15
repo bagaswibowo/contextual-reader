@@ -1,165 +1,261 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { BookOpen, Library, Brain, Settings, Menu, X, Sun, Moon, ChevronDown } from 'lucide-react'
+import { BookOpen, Library, Brain, Settings, Sun, Moon, Menu, X } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import { useBookStore } from '../stores'
+
+const NAV_ITEMS = [
+  { path: '/library', label: 'Perpustakaan', short: 'Buku', icon: Library },
+  { path: '/vocabulary', label: 'Kosakata', short: 'Kosakata', icon: Brain },
+  { path: '/settings', label: 'Pengaturan', short: 'Atur', icon: Settings },
+]
+
+function BrandMark() {
+  return (
+    <span
+      aria-hidden="true"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border-2"
+      style={{
+        backgroundColor: 'var(--cr-btn-primary-bg)',
+        borderColor: 'var(--cr-btn-primary-shadow)',
+        color: 'var(--cr-btn-primary-text)',
+        boxShadow: '0 3px 0 0 var(--cr-btn-primary-shadow)',
+      }}
+    >
+      <BookOpen className="h-5 w-5" strokeWidth={2.6} />
+    </span>
+  )
+}
 
 export function Layout() {
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+  const menuButtonRef = useRef(null)
   const { currentBook, clearCurrentBook } = useBookStore()
 
-  const navItems = [
-    { path: '/library', label: 'Perpustakaan', icon: Library },
-    { path: '/vocabulary', label: 'Kosakata', icon: Brain },
-    { path: '/settings', label: 'Pengaturan', icon: Settings },
-  ]
+  const isReader = location.pathname.startsWith('/read')
+
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false)
+        menuButtonRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [mobileMenuOpen])
+
+  const goHome = () => {
+    clearCurrentBook()
+    navigate('/library')
+  }
+
+  const nextThemeLabel = theme === 'dark' ? 'Mode terang' : 'Mode gelap'
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-dark-bg">
-      {/* Header */}
-      <header className="bg-white dark:bg-dark-card border-b-2 border-gray-200 dark:border-dark-border px-4 py-3 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Logo & Title */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="btn-ghost p-2 lg:hidden text-eel dark:text-dark-text"
-              aria-label="Menu Mobile"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-            
-            <div 
-              onClick={() => { clearCurrentBook(); navigate('/library'); }}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <div className="w-9 h-9 rounded-duo bg-duo-green flex items-center justify-center shadow-3d">
-                <BookOpen className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-heading font-extrabold text-lg leading-tight text-eel dark:text-dark-text">
-                  Contextual Reader
-                </h1>
-                <span className="badge-duo bg-duo-green/10 text-duo-green text-[10px] py-0.2 px-1">v1.0</span>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--cr-bg-page)' }}>
+      {/* Desktop rail */}
+      <aside
+        className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r-2 px-4 py-6 lg:flex"
+        style={{
+          backgroundColor: 'var(--cr-bg-surface-elevated)',
+          borderColor: 'var(--cr-border-subtle)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={goHome}
+          className="flex items-center gap-3 rounded-2xl px-1 py-1 text-left"
+        >
+          <BrandMark />
+          <span className="min-w-0">
+            <span className="block font-heading text-[17px] font-extrabold leading-tight" style={{ color: 'var(--cr-text-primary)' }}>
+              Contextual
+            </span>
+            <span className="block font-heading text-[17px] font-extrabold leading-tight" style={{ color: 'var(--cr-text-accent)' }}>
+              Reader
+            </span>
+          </span>
+        </button>
 
-          {/* Navigation Desktop */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {navItems.map(({ path, label, icon: Icon }) => (
+        <nav aria-label="Navigasi utama" className="mt-8 flex flex-col gap-1.5">
+          {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
+            <NavLink
+              key={path}
+              to={path}
+              onClick={() => clearCurrentBook()}
+              className={({ isActive }) => `rail-link ${isActive ? 'is-active' : ''}`}
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className="h-5 w-5 shrink-0" strokeWidth={isActive ? 2.6 : 2} aria-hidden="true" />
+                  <span>{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="mt-auto space-y-3 pt-6">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="rail-link w-full justify-start"
+            aria-label={`Ganti ke ${nextThemeLabel.toLowerCase()}`}
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-5 w-5 shrink-0" aria-hidden="true" />
+            ) : (
+              <Moon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            )}
+            <span>{nextThemeLabel}</span>
+          </button>
+
+          {currentBook && !isReader && (
+            <button
+              type="button"
+              onClick={() => navigate(`/read/${currentBook.id}`)}
+              className="w-full rounded-2xl border-2 px-3 py-2.5 text-left"
+              style={{
+                borderColor: 'var(--cr-border-subtle)',
+                backgroundColor: 'var(--cr-bg-surface)',
+              }}
+            >
+              <span className="eyebrow block">Lanjut baca</span>
+              <span
+                className="mt-0.5 block truncate text-sm font-extrabold"
+                style={{ color: 'var(--cr-text-primary)' }}
+              >
+                {currentBook.title}
+              </span>
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Mobile top bar */}
+      <header
+        className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b-2 px-4 py-3 lg:hidden"
+        style={{
+          backgroundColor: 'var(--cr-bg-surface-elevated)',
+          borderColor: 'var(--cr-border-subtle)',
+        }}
+      >
+        <button type="button" onClick={goHome} className="flex min-h-[48px] min-w-0 items-center gap-2.5 text-left">
+          <BrandMark />
+          <span className="min-w-0">
+            <span className="block truncate font-heading text-base font-extrabold leading-tight" style={{ color: 'var(--cr-text-primary)' }}>
+              Contextual Reader
+            </span>
+            <span className="eyebrow block">Baca, ketuk, paham</span>
+          </span>
+        </button>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="btn-ghost px-2"
+            aria-label={`Ganti ke ${nextThemeLabel.toLowerCase()}`}
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Moon className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            onClick={() => setMobileMenuOpen(open => !open)}
+            className="btn-ghost px-2"
+            aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+      </header>
+
+      {mobileMenuOpen && (
+        <div
+          id="mobile-menu"
+          ref={menuRef}
+          className="cr-anim-rise sticky top-[73px] z-30 border-b-2 px-4 py-3 lg:hidden"
+          style={{
+            backgroundColor: 'var(--cr-bg-surface-elevated)',
+            borderColor: 'var(--cr-border-subtle)',
+          }}
+        >
+          <nav aria-label="Navigasi seluler" className="flex flex-col gap-1">
+            {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
               <NavLink
                 key={path}
                 to={path}
-                className={({ isActive }) => `
-                  flex items-center gap-2 px-4 py-2 rounded-duo font-ui font-bold transition-all duration-200
-                  ${isActive
-                    ? 'bg-duo-green text-white shadow-3d'
-                    : 'text-eel dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-border'
-                  }
-                `}
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  clearCurrentBook()
+                }}
+                className={({ isActive }) => `rail-link ${isActive ? 'is-active' : ''}`}
               >
-                <Icon className="w-5 h-5" />
-                {label}
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>{label}</span>
               </NavLink>
             ))}
           </nav>
-
-          {/* Right side actions */}
-          <div className="flex items-center gap-2">
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="btn-ghost p-2 rounded-full text-eel dark:text-dark-text"
-              aria-label={theme === 'light' ? 'Mode gelap' : 'Mode terang'}
-            >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5 text-duo-yellow" />}
-            </button>
-
-            {/* User Menu */}
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="btn-ghost px-3 py-1.5 text-xs sm:text-sm gap-1"
-              >
-                <span className="font-bold">Pengguna</span>
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-              {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 card-duo shadow-xl z-50 animate-bounce-in bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border">
-                  <button
-                    onClick={() => { setUserMenuOpen(false); clearCurrentBook(); navigate('/library'); }}
-                    className="w-full px-4 py-2.5 text-left text-xs font-bold hover:bg-gray-100 dark:hover:bg-dark-border rounded-t-duo text-eel dark:text-dark-text"
-                  >
-                    Perpustakaan Buku
-                  </button>
-                  <hr className="border-gray-200 dark:border-dark-border mx-2" />
-                  <button
-                    onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}
-                    className="w-full px-4 py-2.5 text-left text-xs font-bold hover:bg-gray-100 dark:hover:bg-dark-border rounded-b-duo text-eel dark:text-dark-text"
-                  >
-                    Pengaturan App
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
+      )}
 
-        {/* Mobile Dropdown Nav Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden mt-3 pt-3 border-t-2 border-gray-200 dark:border-dark-border animate-in">
-            <nav className="flex flex-col gap-1.5">
-              {navItems.map(({ path, label, icon: Icon }) => (
-                <NavLink
-                  key={path}
-                  to={path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={({ isActive }) => `
-                    flex items-center gap-3 px-4 py-3 rounded-duo font-ui font-bold text-sm
-                    ${isActive
-                      ? 'bg-duo-green text-white shadow-3d'
-                      : 'text-eel dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-border'
-                    }
-                  `}
-                >
-                  <Icon className="w-5 h-5" />
-                  {label}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
-        )}
-      </header>
+      <div className="lg:pl-[248px]">
+        <main
+          className={`mx-auto w-full max-w-[1180px] px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:pb-16 ${
+            isReader ? 'max-w-[1020px]' : ''
+          }`}
+        >
+          <Outlet />
+        </main>
+      </div>
 
-      {/* Main Content */}
-      <main className={`flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 ${location.pathname.startsWith('/read') ? 'pb-6' : 'pb-24 lg:pb-6'}`}>
-        <Outlet />
-      </main>
-
-      {/* Mobile Bottom Navigation Bar (Hidden in Reader mode for immersive reading) */}
-      {!location.pathname.startsWith('/read') && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-dark-card/95 backdrop-blur-md border-t-2 border-gray-200 dark:border-dark-border py-2 px-4 flex items-center justify-around">
-          {navItems.map(({ path, label, icon: Icon }) => {
+      {/* Mobile bottom tabs, hidden while reading for an immersive page */}
+      {!isReader && (
+        <nav
+          aria-label="Navigasi bawah"
+          className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t-2 px-2 pb-[env(safe-area-inset-bottom)] pt-1 lg:hidden"
+          style={{
+            backgroundColor: 'var(--cr-bg-surface-elevated)',
+            borderColor: 'var(--cr-border-subtle)',
+          }}
+        >
+          {NAV_ITEMS.map(({ path, short, icon: Icon }) => {
             const active = location.pathname.startsWith(path)
             return (
               <NavLink
                 key={path}
                 to={path}
-                className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-all ${
-                  active ? 'text-duo-green scale-110' : 'text-gray-400 hover:text-eel dark:hover:text-white'
-                }`}
+                onClick={() => clearCurrentBook()}
+                className={`mobile-tab ${active ? 'is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
               >
-                <Icon className="w-5 h-5" />
-                <span>{label}</span>
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.6 : 2} aria-hidden="true" />
+                <span>{short}</span>
               </NavLink>
             )
           })}
-        </div>
+        </nav>
       )}
     </div>
   )

@@ -1,52 +1,85 @@
 /* ==========================================================================
-   Design Tokens - Contextual Reader (Sprint 0 / Sprint 1)
-   File target: src/styles/tokens.css (imported in globals.css)
+   Design Tokens - Contextual Reader
+   Playful learning palette, WCAG AA checked against the surface it sits on.
+   Bright green is decorative only; text-bearing green is the darker shade.
    ========================================================================== */
 
 :root {
-  /* LIGHT THEME (DEFAULT) - Duolingo-inspired accent */
+  /* LIGHT THEME (DEFAULT) */
   --cr-bg-page: #FFFFFF;
-  --cr-bg-surface: #F8FAFC;
+  --cr-bg-surface: #F7F9FA;
   --cr-bg-surface-elevated: #FFFFFF;
-  --cr-text-primary: #0F172A;
-  --cr-text-secondary: #475569;
-  /* AA-safe green: #58CC02 is decorative only, text accent uses darker shade */
-  --cr-text-accent: #3E8F02;
-  /* Danger text (measured 6.28:1 on --cr-bg-surface) */
+  --cr-text-primary: #1B2A32;
+  --cr-text-secondary: #52606D;
+  /* 5.14:1 on white */
+  --cr-text-accent: #357D02;
+  /* 6.28:1 on --cr-bg-surface */
   --cr-text-danger: #B42318;
 
-  --cr-btn-primary-bg: #58CC02;
-  --cr-btn-primary-hover: #61E002;
-  --cr-btn-primary-shadow: #46A302;
+  /* Primary CTA: white label on #3A8602 is 4.57:1 */
+  --cr-btn-primary-bg: #3A8602;
+  --cr-btn-primary-hover: #327602;
+  --cr-btn-primary-shadow: #276002;
   --cr-btn-primary-text: #FFFFFF;
-  /* White text on #58CC02 is 2.1:1; darken text target for AA on interactive labels */
-  --cr-btn-primary-text-aa: #14531E;
+  /* Light theme CTA face is dark green, so its label stays white */
+  --cr-btn-primary-text-aa: #FFFFFF;
+
+  --cr-blue-bright: #1CB0F6;
+  --cr-blue-text: #0B6E9E;
+  /* Solid fill for buttons that carry white labels (5.62:1) */
+  --cr-blue-solid: #0B6E9E;
+  --cr-blue-solid-shadow: #084A66;
+  --cr-yellow-bright: #FFC800;
+  --cr-yellow-text: #6B4E00;
+  --cr-purple-bright: #CE82FF;
 
   --cr-border-interactive: #64748B;
-  --cr-border-subtle: #E2E8F0;
-  --cr-ring-focus: #1CB0F6;
+  --cr-border-subtle: #E3E8EB;
+  --cr-ring-focus: #0B6E9E;
 
   --cr-highlight-sentence: rgba(254, 240, 138, 0.55);
   --cr-highlight-word-hover: rgba(88, 204, 2, 0.12);
   --cr-highlight-word-active: rgba(88, 204, 2, 0.28);
+
+  /* Book cover tints, one per format family. Ink stays readable on each. */
+  --cr-cover-1-bg: rgba(58, 134, 2, 0.12);
+  --cr-cover-1-border: rgba(58, 134, 2, 0.45);
+  --cr-cover-1-ink: #2C6A01;
+  --cr-cover-2-bg: rgba(28, 176, 246, 0.14);
+  --cr-cover-2-border: rgba(11, 110, 158, 0.40);
+  --cr-cover-2-ink: #08506E;
+  --cr-cover-3-bg: rgba(255, 200, 0, 0.22);
+  --cr-cover-3-border: rgba(151, 118, 0, 0.45);
+  --cr-cover-3-ink: #5C4300;
+  --cr-cover-4-bg: rgba(139, 63, 175, 0.12);
+  --cr-cover-4-border: rgba(139, 63, 175, 0.40);
+  --cr-cover-4-ink: #6B2E8F;
 }
 
 html.sepia {
   /* SEPIA THEME */
   --cr-bg-page: #FBF3E4;
   --cr-bg-surface: #F4E8D1;
-  --cr-bg-surface-elevated: #F7EDE0;
+  --cr-bg-surface-elevated: #FDF7EC;
   --cr-text-primary: #2E1E11;
   --cr-text-secondary: #684F38;
   --cr-text-accent: #1E6328;
-  /* Danger text (measured 7.67:1 on --cr-bg-surface) */
+  /* 7.67:1 on --cr-bg-surface */
   --cr-text-danger: #8A1C12;
 
-  --cr-btn-primary-bg: #3E8F02;
-  --cr-btn-primary-hover: #357D02;
-  --cr-btn-primary-shadow: #2A6601;
+  --cr-btn-primary-bg: #2C6E02;
+  --cr-btn-primary-hover: #245C01;
+  --cr-btn-primary-shadow: #1B4601;
   --cr-btn-primary-text: #FFFFFF;
   --cr-btn-primary-text-aa: #FFFFFF;
+
+  --cr-blue-bright: #1CB0F6;
+  --cr-blue-text: #0A4F70;
+  --cr-blue-solid: #0A4F70;
+  --cr-blue-solid-shadow: #06384F;
+  --cr-yellow-bright: #FFC800;
+  --cr-yellow-text: #5C4300;
+  --cr-purple-bright: #A85CC4;
 
   --cr-border-interactive: #8C6D4F;
   --cr-border-subtle: #E5D5BF;
@@ -55,32 +88,66 @@ html.sepia {
   --cr-highlight-sentence: rgba(235, 213, 160, 0.70);
   --cr-highlight-word-hover: rgba(88, 204, 2, 0.16);
   --cr-highlight-word-active: rgba(88, 204, 2, 0.32);
+
+  --cr-cover-1-bg: rgba(58, 134, 2, 0.16);
+  --cr-cover-1-border: rgba(44, 110, 2, 0.45);
+  --cr-cover-1-ink: #1F5401;
+  --cr-cover-2-bg: rgba(28, 176, 246, 0.16);
+  --cr-cover-2-border: rgba(10, 79, 112, 0.40);
+  --cr-cover-2-ink: #0A4F70;
+  --cr-cover-3-bg: rgba(255, 200, 0, 0.24);
+  --cr-cover-3-border: rgba(140, 109, 79, 0.45);
+  --cr-cover-3-ink: #5C4300;
+  --cr-cover-4-bg: rgba(168, 92, 196, 0.16);
+  --cr-cover-4-border: rgba(107, 46, 143, 0.40);
+  --cr-cover-4-ink: #5E2478;
 }
 
 html.dark {
-  /* DARK THEME - Duolingo night palette */
-  /* Aligned with Tailwind dark.bg to prevent shade clash (H-2) */
+  /* DARK THEME */
   --cr-bg-page: #131F24;
   --cr-bg-surface: #1A242B;
-  --cr-bg-surface-elevated: #222E37;
-  --cr-text-primary: #F8FAFC;
-  --cr-text-secondary: #94A3B8;
+  --cr-bg-surface-elevated: #202F36;
+  --cr-text-primary: #F1F7FB;
+  --cr-text-secondary: #A9BEC9;
   /* Bright duo green reads well on dark surfaces */
   --cr-text-accent: #89E919;
-  /* Danger text (measured 8.31:1 on --cr-bg-surface) */
+  /* 8.31:1 on --cr-bg-surface */
   --cr-text-danger: #FCA5A5;
 
+  /* Bright fill with dark ink: 7.8:1 */
   --cr-btn-primary-bg: #58CC02;
-  --cr-btn-primary-hover: #61E002;
-  --cr-btn-primary-shadow: #134E1C;
-  --cr-btn-primary-text: #FFFFFF;
-  --cr-btn-primary-text-aa: #14531E;
+  --cr-btn-primary-hover: #6FE302;
+  --cr-btn-primary-shadow: #3E8F02;
+  --cr-btn-primary-text: #08240A;
+  --cr-btn-primary-text-aa: #08240A;
+
+  --cr-blue-bright: #1CB0F6;
+  --cr-blue-text: #7CD5FA;
+  --cr-blue-solid: #0E6C96;
+  --cr-blue-solid-shadow: #084A66;
+  --cr-yellow-bright: #FFC800;
+  --cr-yellow-text: #FFD84D;
+  --cr-purple-bright: #CE82FF;
 
   --cr-border-interactive: #64748B;
-  --cr-border-subtle: #2D3748;
+  --cr-border-subtle: #37464F;
   --cr-ring-focus: #38BDF8;
 
   --cr-highlight-sentence: rgba(30, 58, 95, 0.65);
   --cr-highlight-word-hover: rgba(137, 233, 25, 0.18);
   --cr-highlight-word-active: rgba(137, 233, 25, 0.34);
+
+  --cr-cover-1-bg: rgba(137, 233, 25, 0.16);
+  --cr-cover-1-border: rgba(137, 233, 25, 0.45);
+  --cr-cover-1-ink: #B9F58A;
+  --cr-cover-2-bg: rgba(28, 176, 246, 0.18);
+  --cr-cover-2-border: rgba(124, 213, 250, 0.45);
+  --cr-cover-2-ink: #A6E4FC;
+  --cr-cover-3-bg: rgba(255, 200, 0, 0.18);
+  --cr-cover-3-border: rgba(255, 216, 77, 0.45);
+  --cr-cover-3-ink: #FFE28A;
+  --cr-cover-4-bg: rgba(206, 130, 255, 0.18);
+  --cr-cover-4-border: rgba(206, 130, 255, 0.45);
+  --cr-cover-4-ink: #E7C2FF;
 }

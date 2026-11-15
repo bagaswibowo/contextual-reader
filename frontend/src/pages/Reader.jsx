@@ -647,7 +647,10 @@ export function Reader() {
   return (
     <div className="flex flex-col gap-6 pb-20">
       {/* Reading Toolbar - Mobile-First Responsive Design */}
-      <div className="card-duo p-2.5 sm:p-4 sticky top-14 sm:top-16 z-30 flex items-center justify-between gap-2 bg-white/95 dark:bg-dark-card/95 backdrop-blur-md">
+      <div
+        className="card-duo sticky top-[72px] z-30 flex items-center justify-between gap-2 p-2.5 lg:top-4 sm:p-3"
+        style={{ backgroundColor: 'var(--cr-bg-surface-elevated)' }}
+      >
         {/* Left: Back & TOC */}
         <div className="flex items-center gap-1.5 min-w-0">
           <button 
@@ -782,8 +785,8 @@ export function Reader() {
             {chapter?.title}
           </h1>
           {book && (
-            <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-dark-muted mt-1 truncate">
-              {book.title} — {book.author || 'Anonim'}
+            <p className="text-xs sm:text-sm font-semibold text-[var(--cr-text-secondary)] mt-1 truncate">
+              {book.title} · {book.author || 'Anonim'}
             </p>
           )}
         </div>
@@ -815,7 +818,7 @@ export function Reader() {
                         if (fig) fig.style.display = 'none';
                       }} 
                     />
-                    <figcaption className="text-xs font-semibold text-gray-500 dark:text-dark-muted mt-3 font-mono tracking-wide">{alt}</figcaption>
+                    <figcaption className="text-xs font-semibold text-[var(--cr-text-secondary)] mt-3 font-mono tracking-wide">{alt}</figcaption>
                   </figure>
                 );
               }
@@ -1036,7 +1039,7 @@ export function Reader() {
                                     {activeWordPopup.word}
                                   </h3>
                                   {activeWordPopup.data?.ipa && (
-                                    <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-dark-border px-2 py-0.5 rounded-full">
+                                    <span className="text-xs font-mono text-[var(--cr-text-secondary)] bg-[var(--cr-bg-surface)] px-2 py-0.5 rounded-full">
                                       /{activeWordPopup.data.ipa}/
                                     </span>
                                   )}
@@ -1071,7 +1074,7 @@ export function Reader() {
                             {activeWordPopup.loading ? (
                               <div className="flex items-center gap-2 py-3">
                                 <div className="w-4 h-4 border-2 border-duo-green border-t-transparent rounded-full animate-spin shrink-0" />
-                                <p className="text-xs font-bold text-gray-500">Mencari makna kontekstual...</p>
+                                <p className="text-xs font-bold text-[var(--cr-text-secondary)]">Mencari makna kontekstual...</p>
                               </div>
                             ) : activeWordPopup.error ? (
                               <p className="text-xs text-duo-red py-2 font-bold">{activeWordPopup.error}</p>
@@ -1131,7 +1134,7 @@ export function Reader() {
                                       openDictionaryDrawer(activeWordPopup.word, activeWordPopup.sentenceId, sentText, 'definition')
                                     }}
                                     className="cr-press min-h-[40px] flex-1 px-3 py-1.5 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1"
-                                    style={{ '--press-bg': '#1CB0F6', '--press-shadow': '#1598D9' }}
+                                    style={{ '--press-bg': 'var(--cr-blue-solid)', '--press-shadow': 'var(--cr-blue-solid-shadow)' }}
                                   >
                                     <span>Buka Kamus Lengkap</span>
                                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1171,7 +1174,7 @@ export function Reader() {
             ← Bab Sebelumnya
           </button>
           
-          <span className="font-heading font-bold text-sm text-gray-500">
+          <span className="font-heading font-bold text-sm text-[var(--cr-text-secondary)]">
             {chapterIndex + 1} / {toc.length}
           </span>
 
@@ -1474,7 +1477,7 @@ export function Reader() {
                       loadChapter(ch.index)
                       setShowTocModal(false)
                     }}
-                    title={`${ch.title} — Halaman ${ch.page_number || idx + 1} (${ch.word_count || 0} kata)`}
+                    title={`${ch.title} · Halaman ${ch.page_number || idx + 1} (${ch.word_count || 0} kata)`}
                     className={`w-full text-left py-2.5 px-3 rounded-lg transition-all flex items-baseline justify-between gap-3 group ${
                       needsTopSpacing ? 'mt-3.5 pt-3 border-t-0' : ''
                     } ${

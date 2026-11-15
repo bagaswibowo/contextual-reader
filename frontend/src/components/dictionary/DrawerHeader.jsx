@@ -71,7 +71,7 @@ export function DrawerHeader({
                 aria-label="Fonetik tidak tersedia"
                 className="font-mono text-[13px] text-[var(--cr-text-secondary)] opacity-60"
               >
-                —
+                ·
               </span>
             )}
             {displayTarget && (

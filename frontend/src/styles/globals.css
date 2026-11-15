@@ -5,28 +5,18 @@
 
 @layer base {
   :root {
-    --color-bg: #FFFFFF;
-    --color-text: #4B4B4B;
-    --color-text-muted: #6B6B6B;
-    --color-border: #E0E0E0;
-    --color-card: #FAFAFA;
+    --color-bg: var(--cr-bg-page);
+    --color-text: var(--cr-text-primary);
+    --color-text-muted: var(--cr-text-secondary);
+    --color-border: var(--cr-border-subtle);
+    --color-card: var(--cr-bg-surface-elevated);
   }
 
   html.dark {
-    --color-bg: #131F24;
-    --color-text: #E0E0E0;
-    --color-text-muted: #888888;
-    --color-border: #2D2D2D;
-    --color-card: #1A1A1A;
     color-scheme: dark;
   }
 
   html.sepia {
-    --color-bg: #FBF3E4;
-    --color-text: #433422;
-    --color-text-muted: #7F6C55;
-    --color-border: #E8D8C3;
-    --color-card: #F5E9D6;
     color-scheme: light;
   }
 
@@ -35,205 +25,481 @@
   }
 
   body {
-    @apply bg-white dark:bg-dark-bg text-eel dark:text-dark-text font-ui antialiased transition-colors duration-200;
+    @apply font-ui antialiased;
+    background-color: var(--cr-bg-page);
+    color: var(--cr-text-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
-
-  html.sepia body {
-    background-color: #FBF3E4;
-    color: #433422;
-  }
-
-  html.sepia header, 
-  html.sepia .card-duo, 
-  html.sepia .toolbar-duo {
-    background-color: #F5E9D6 !important;
-    border-color: #E8D8C3 !important;
-    color: #433422 !important;
-  }
-
-  html.sepia .reading-text {
-    color: #433422 !important;
   }
 
   html {
     scroll-behavior: smooth;
   }
 
-  /* Focus styles */
+  /* Every enabled control shows it can be used (R-39) */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  a[href],
+  summary,
+  select:not(:disabled),
+  label[for],
+  input[type='file']:not(:disabled) + label {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+
   *:focus-visible {
-    outline: 2px solid var(--cr-ring-focus);
+    outline: 3px solid var(--cr-ring-focus);
     outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
 @layer components {
-  /* Duolingo-style 3D buttons */
+  /* ====================================================================
+     Buttons: Duolingo 3D press, re-skinned with token colors
+     ==================================================================== */
   .btn-duo {
-    @apply font-ui font-extrabold rounded-duo px-6 py-3 transition-all duration-100
-           shadow-[0_4px_0_0] active:translate-y-[4px] active:shadow-none
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-duo px-6 py-3
+           font-ui text-base font-extrabold leading-none tracking-wide
+           transition-[transform,box-shadow,background-color] duration-100
            disabled:opacity-50 disabled:cursor-not-allowed;
+    min-height: 48px;
   }
 
   .btn-primary {
-    @apply btn-duo bg-duo-green text-white shadow-[0_4px_0_0_#46A302]
-           hover:bg-duo-green-light active:bg-duo-green-dark;
+    @apply btn-duo;
+    background-color: var(--cr-btn-primary-bg);
+    color: var(--cr-btn-primary-text);
+    box-shadow: 0 4px 0 0 var(--cr-btn-primary-shadow);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--cr-btn-primary-hover);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 var(--cr-btn-primary-shadow);
+  }
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-danger:disabled,
+  .btn-warning:disabled,
+  .btn-outline:disabled {
+    background-color: var(--cr-bg-surface);
+    color: var(--cr-text-secondary);
+    border-color: var(--cr-border-subtle);
+    box-shadow: 0 3px 0 0 var(--cr-border-subtle);
   }
 
   .btn-secondary {
-    @apply btn-duo bg-duo-blue text-white shadow-[0_4px_0_0_#1598D9]
-           hover:bg-blue-400 active:bg-blue-600;
+    @apply btn-duo;
+    background-color: var(--cr-blue-solid);
+    color: #FFFFFF;
+    box-shadow: 0 4px 0 0 var(--cr-blue-solid-shadow);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .btn-secondary:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 var(--cr-blue-solid-shadow);
   }
 
   .btn-danger {
-    @apply btn-duo bg-duo-red text-white shadow-[0_4px_0_0_#E03E3E]
-           hover:bg-red-500 active:bg-red-700;
+    @apply btn-duo;
+    background-color: #D63A3A;
+    color: #FFFFFF;
+    box-shadow: 0 4px 0 0 #A92C2C;
+  }
+  .btn-danger:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+  .btn-danger:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 #A92C2C;
   }
 
   .btn-warning {
-    @apply btn-duo bg-duo-yellow text-eel shadow-[0_4px_0_0_#E6B300]
-           hover:bg-yellow-400 active:bg-yellow-600;
+    @apply btn-duo;
+    background-color: var(--cr-yellow-bright);
+    color: var(--cr-yellow-text);
+    box-shadow: 0 4px 0 0 #C79E00;
+  }
+  .btn-warning:hover:not(:disabled) {
+    filter: brightness(1.03);
+  }
+  .btn-warning:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 #C79E00;
   }
 
   .btn-ghost {
-    @apply font-ui font-bold rounded-duo px-4 py-2 text-eel dark:text-dark-text
-           bg-transparent hover:bg-gray-100 dark:hover:bg-dark-border
-           active:scale-[0.98] transition-all duration-100;
+    @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-duo px-3 py-2
+           font-ui text-sm font-bold transition-colors duration-150;
+    color: var(--cr-text-primary);
+    background: transparent;
+  }
+  .btn-ghost:hover {
+    background-color: var(--cr-bg-surface);
+  }
+  .btn-ghost:active {
+    transform: scale(0.98);
   }
 
-  /* Card/Popup with thick border */
+  /* Outline button, Duolingo secondary style */
+  .btn-outline {
+    @apply btn-duo;
+    background-color: var(--cr-bg-surface-elevated);
+    color: var(--cr-text-primary);
+    border: 2px solid var(--cr-border-subtle);
+    box-shadow: 0 4px 0 0 var(--cr-border-subtle);
+  }
+  .btn-outline:hover:not(:disabled) {
+    border-color: var(--cr-border-interactive);
+    box-shadow: 0 4px 0 0 var(--cr-border-interactive);
+  }
+  .btn-outline:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 var(--cr-border-interactive);
+  }
+
+  /* ====================================================================
+     Surfaces
+     ==================================================================== */
   .card-duo {
-    @apply bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border
-           rounded-duo-lg shadow-lg;
+    @apply rounded-duo-lg border-2;
+    background-color: var(--cr-bg-surface-elevated);
+    border-color: var(--cr-border-subtle);
   }
 
   .popup-duo {
-    @apply card-duo animate-bounce-in z-50 max-w-sm w-full;
+    @apply card-duo z-50 w-full max-w-sm;
+    box-shadow: 0 12px 0 -6px var(--cr-border-subtle);
   }
 
-  /* Input fields */
   .input-duo {
-    @apply w-full px-4 py-3 rounded-duo border-2 border-gray-200 dark:border-dark-border
-           bg-white dark:bg-dark-card text-eel dark:text-dark-text
-           placeholder:text-gray-400 dark:placeholder:text-dark-muted
-           focus:border-duo-green focus:ring-2 focus:ring-duo-green/20
-           transition-all duration-200 font-ui;
+    @apply w-full min-h-[48px] rounded-duo border-2 px-4 py-3 font-ui text-base font-semibold
+           transition-[border-color,box-shadow] duration-150
+           placeholder:font-medium;
+    background-color: var(--cr-bg-surface-elevated);
+    border-color: var(--cr-border-subtle);
+    color: var(--cr-text-primary);
+  }
+  .input-duo::placeholder {
+    color: var(--cr-text-secondary);
+    opacity: 0.8;
+  }
+  .input-duo:focus {
+    border-color: var(--cr-text-accent);
+    box-shadow: 0 0 0 3px var(--cr-highlight-word-hover);
+    outline: none;
   }
 
-  /* Progress bar */
   .progress-duo {
-    @apply h-2 bg-gray-200 dark:bg-dark-border rounded-full overflow-hidden;
+    @apply h-3 overflow-hidden rounded-full;
+    background-color: var(--cr-border-subtle);
   }
 
   .progress-duo-fill {
-    @apply h-full bg-duo-green rounded-full transition-all duration-500 ease-out;
+    @apply relative h-full rounded-full transition-all duration-500 ease-out;
+    background-color: var(--cr-btn-primary-bg);
   }
 
-  /* Word highlight in reader */
+  .progress-duo-fill::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 8px;
+    right: 8px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.45);
+  }
+
+  /* ====================================================================
+     Reading surface
+     ==================================================================== */
   .word-clickable {
-    @apply underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-dark-border
-           cursor-pointer transition-all duration-150 rounded
-           hover:decoration-duo-green hover:decoration-2 hover:bg-duo-green/10;
+    @apply cursor-pointer rounded-sm underline decoration-dotted underline-offset-4 transition-all duration-150;
+    text-decoration-color: var(--cr-border-interactive);
   }
-
+  .word-clickable:hover {
+    background-color: var(--cr-highlight-word-hover);
+    text-decoration-color: var(--cr-text-accent);
+  }
   .word-clickable:focus-visible {
-    @apply bg-duo-green/10 rounded-sm px-0.5 -ml-0.5 mr-0.5;
+    background-color: var(--cr-highlight-word-hover);
+    outline: 2px solid var(--cr-ring-focus);
   }
 
-  /* Translate icon in margin */
   .translate-icon {
-    @apply w-5 h-5 opacity-30 hover:opacity-100 hover:text-duo-blue
-           transition-all duration-200 cursor-pointer
-           dark:text-dark-muted dark:hover:text-duo-blue;
+    @apply w-5 h-5 cursor-pointer transition-all duration-200;
+    color: var(--cr-text-secondary);
+    opacity: 0.45;
   }
-
+  .translate-icon:hover {
+    color: var(--cr-blue-text);
+    opacity: 1;
+  }
   .translate-icon:focus-visible {
-    @apply opacity-100 text-duo-blue ring-2 ring-duo-blue ring-offset-2 ring-offset-white dark:ring-offset-dark-bg rounded-full;
+    opacity: 1;
+    border-radius: 999px;
+    outline: 2px solid var(--cr-ring-focus);
+    outline-offset: 2px;
   }
 
-  /* Badge */
+  /* ====================================================================
+     Labels
+     ==================================================================== */
   .badge-duo {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold;
+    @apply inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5
+           text-[11px] font-extrabold uppercase tracking-wide;
+  }
+  .badge-green {
+    @apply badge-duo;
+    color: var(--cr-text-accent);
+    background-color: var(--cr-highlight-word-hover);
+    border-color: var(--cr-btn-primary-shadow);
+  }
+  .badge-blue {
+    @apply badge-duo;
+    color: var(--cr-blue-text);
+    background-color: rgba(28, 176, 246, 0.12);
+    border-color: var(--cr-blue-text);
+  }
+  .badge-yellow {
+    @apply badge-duo;
+    color: var(--cr-yellow-text);
+    background-color: rgba(255, 200, 0, 0.18);
+    border-color: var(--cr-yellow-text);
+  }
+  .badge-red {
+    @apply badge-duo;
+    color: var(--cr-text-danger);
+    background-color: rgba(252, 165, 165, 0.16);
+    border-color: var(--cr-text-danger);
+  }
+  .badge-purple {
+    @apply badge-duo;
+    color: #6B2E8F;
+    background-color: rgba(206, 130, 255, 0.16);
+    border-color: #6B2E8F;
+  }
+  html.dark .badge-purple {
+    color: #E3B8FF;
+    border-color: #E3B8FF;
   }
 
-  .badge-green { @apply badge-duo bg-duo-green/10 text-duo-green; }
-  .badge-blue { @apply badge-duo bg-duo-blue/10 text-duo-blue; }
-  .badge-yellow { @apply badge-duo bg-duo-yellow/10 text-yellow-700 dark:text-duo-yellow; }
-  .badge-red { @apply badge-duo bg-duo-red/10 text-duo-red; }
-  .badge-purple { @apply badge-duo bg-duo-purple/10 text-duo-purple; }
-
-  /* Toolbar */
   .toolbar-duo {
-    @apply bg-white dark:bg-dark-card border-b-2 border-gray-200 dark:border-dark-border
-           px-4 py-3 flex items-center justify-between gap-4;
+    @apply flex items-center justify-between gap-4 border-b-2 px-4 py-3;
+    background-color: var(--cr-bg-surface-elevated);
+    border-color: var(--cr-border-subtle);
   }
 
-  /* Pronunciation Widget Styles */
+  /* ====================================================================
+     App shell: left rail on desktop, bottom bar on mobile
+     ==================================================================== */
+  .rail-link {
+    @apply flex min-h-[52px] items-center gap-3 rounded-duo px-4 py-3
+           text-sm font-extrabold tracking-wide transition-colors duration-150;
+    color: var(--cr-text-secondary);
+    border: 2px solid transparent;
+  }
+  .rail-link:hover {
+    background-color: var(--cr-bg-surface);
+    color: var(--cr-text-primary);
+  }
+  .rail-link.is-active {
+    color: var(--cr-text-accent);
+    background-color: var(--cr-highlight-word-hover);
+    border-color: var(--cr-btn-primary-shadow);
+  }
+  html.dark .rail-link.is-active {
+    color: var(--cr-text-accent);
+    border-color: var(--cr-text-accent);
+    background-color: rgba(137, 233, 25, 0.1);
+  }
+
+  .mobile-tab {
+    @apply flex min-h-[56px] min-w-[64px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2
+           text-[11px] font-extrabold tracking-wide transition-colors;
+    color: var(--cr-text-secondary);
+  }
+  .mobile-tab.is-active {
+    color: var(--cr-text-accent);
+    background-color: var(--cr-highlight-word-hover);
+  }
+
+  /* ====================================================================
+     Page furniture
+     ==================================================================== */
+  .heading-1 {
+    @apply font-heading text-3xl font-extrabold leading-[1.05] tracking-tight md:text-4xl;
+    color: var(--cr-text-primary);
+  }
+
+  .heading-2 {
+    @apply font-heading text-2xl font-bold leading-tight tracking-tight md:text-3xl;
+    color: var(--cr-text-primary);
+  }
+
+  .heading-3 {
+    @apply font-heading text-xl font-bold leading-snug tracking-tight md:text-2xl;
+    color: var(--cr-text-primary);
+  }
+
+  .display-1 {
+    @apply font-heading text-[clamp(2.1rem,5vw,3.6rem)] font-extrabold leading-[0.98] tracking-[-0.02em];
+    color: var(--cr-text-primary);
+  }
+
+  .eyebrow {
+    @apply font-ui text-[11px] font-extrabold uppercase tracking-[0.16em];
+    color: var(--cr-text-secondary);
+  }
+
+  .reading-text {
+    @apply font-body text-lg;
+    line-height: 1.85;
+    color: var(--cr-text-primary);
+  }
+
+  .reading-text p {
+    @apply mb-[1.5em];
+  }
+
+  /* ====================================================================
+     Library hero
+     ==================================================================== */
+  .hero-band {
+    @apply relative overflow-hidden rounded-[28px] border-2 px-6 py-8 sm:px-10 sm:py-12;
+    background-color: var(--cr-bg-surface);
+    border-color: var(--cr-border-subtle);
+  }
+
+  /* Book cards */
+  .book-card {
+    @apply card-duo flex flex-col overflow-hidden transition-[transform,box-shadow,border-color] duration-200;
+  }
+  .book-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--cr-border-interactive);
+    box-shadow: 0 6px 0 -2px var(--cr-border-subtle);
+  }
+  .book-card:focus-within {
+    border-color: var(--cr-text-accent);
+  }
+
+  .book-cover {
+    @apply relative flex h-36 items-end overflow-hidden rounded-2xl border-2 p-3;
+    border-color: var(--cr-border-subtle);
+  }
+
+  .stat-tile {
+    @apply flex items-center gap-3 rounded-2xl border-2 px-3 py-2.5;
+    background-color: var(--cr-bg-surface-elevated);
+    border-color: var(--cr-border-subtle);
+    min-height: 56px;
+  }
+
+  .segmented {
+    @apply flex items-center gap-1 rounded-2xl p-1;
+    background-color: var(--cr-bg-surface);
+    border: 2px solid var(--cr-border-subtle);
+  }
+
+  /* ====================================================================
+     Pronunciation widget (unchanged behavior, tokenized colors)
+     ==================================================================== */
   .pronunciation-widget {
-    @apply overflow-hidden relative;
+    @apply relative overflow-hidden;
   }
 
   .pronunciation-label {
-    @apply block text-[10px] font-extrabold uppercase tracking-wider text-duo-blue mb-1;
+    @apply mb-1 block text-[10px] font-extrabold uppercase tracking-wider;
+    color: var(--cr-blue-text);
   }
 
   .pronunciation-word {
-    @apply font-heading font-extrabold text-lg sm:text-xl text-eel dark:text-dark-text leading-none;
+    @apply font-heading text-lg font-extrabold leading-none sm:text-xl;
+    color: var(--cr-text-primary);
   }
 
   .pronunciation-ipa {
-    @apply block text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5;
+    @apply mt-0.5 block font-mono text-xs;
+    color: var(--cr-text-secondary);
   }
 
   .pronunciation-guide {
-    @apply mt-1.5 text-[10px] sm:text-xs text-duo-blue font-bold leading-tight;
+    @apply mt-1.5 text-[10px] font-bold leading-tight sm:text-xs;
+    color: var(--cr-blue-text);
   }
 
   .pronunciation-guide span {
-    @apply block text-gray-500 dark:text-gray-400 mb-0.5;
+    @apply mb-0.5 block;
+    color: var(--cr-text-secondary);
   }
 
   .pronunciation-action {
-    @apply flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] sm:text-xs font-bold rounded-full border border-gray-200 dark:border-dark-border
-           bg-white dark:bg-dark-card shadow-sm transition-all duration-150;
+    @apply flex min-h-[44px] items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition-all duration-150 sm:text-xs;
+    background-color: var(--cr-bg-surface-elevated);
+    border-color: var(--cr-border-subtle);
+    color: var(--cr-text-primary);
   }
 
   .pronunciation-action.is-active {
-    @apply bg-duo-blue text-white border-duo-blue shadow-[0_2px_0_0_#1598D9];
+    color: #FFFFFF;
+    background-color: var(--cr-blue-text);
+    border-color: var(--cr-blue-text);
   }
 
   .pronunciation-play {
-    @apply w-9 h-9 rounded-full bg-duo-blue text-white flex items-center justify-center
-           shadow-[0_4px_0_0_#1598D9] active:translate-y-[4px] active:shadow-none transition-all duration-150;
+    @apply flex h-11 w-11 items-center justify-center rounded-full transition-all duration-150;
+    background-color: var(--cr-blue-solid);
+    color: #FFFFFF;
+    box-shadow: 0 4px 0 0 var(--cr-blue-solid-shadow);
+  }
+  .pronunciation-play:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 #084A66;
   }
 
   .pronunciation-stage {
-    @apply mt-3 w-full aspect-video sm:aspect-[2/1] rounded-xl border border-duo-blue/20 bg-gradient-to-br from-blue-50 to-white
-           dark:from-blue-900/20 dark:to-dark-card flex flex-col items-center justify-center gap-2 relative overflow-hidden
-           transition-all duration-300;
+    @apply relative mt-3 flex aspect-video w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border transition-all duration-300 sm:aspect-[2/1];
+    border-color: var(--cr-border-subtle);
+    background-color: var(--cr-bg-surface);
   }
 
   .pronunciation-stage.is-playing {
-    @apply border-duo-blue/40 ring-2 ring-duo-blue/20;
+    border-color: var(--cr-blue-text);
+    box-shadow: 0 0 0 2px rgba(28, 176, 246, 0.2);
   }
 
   .mouth-scene {
-    @apply w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800
-           flex items-center justify-center relative;
+    @apply relative flex h-16 w-16 items-center justify-center rounded-full border sm:h-20 sm:w-20;
+    background-color: rgba(28, 176, 246, 0.12);
+    border-color: rgba(28, 176, 246, 0.4);
   }
 
   .mouth {
-    @apply absolute bottom-4 sm:bottom-5 w-8 h-4 sm:w-10 sm:h-5 rounded-b-full bg-white dark:bg-gray-200 border-2 border-gray-800
-           overflow-hidden transition-all duration-100;
+    @apply absolute bottom-4 w-8 overflow-hidden rounded-b-full border-2 transition-all duration-100 sm:bottom-5 sm:h-5 sm:w-10;
+    background-color: #FFFFFF;
+    border-color: #1B2A32;
   }
 
   .pronunciation-stage.is-playing .mouth {
-    @apply h-8 sm:h-10 rounded-full;
+    @apply h-8 rounded-full sm:h-10;
   }
 
   .mouth-inner {
-    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-red-400 border border-red-500
-           scale-0 transition-transform duration-100;
+    @apply absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full border transition-transform duration-100 sm:h-5 sm:w-5;
+    background-color: #F87171;
+    border-color: #EF4444;
   }
 
   .pronunciation-stage.is-playing .mouth-inner {
@@ -241,7 +507,7 @@
   }
 
   .voice-wave {
-    @apply flex items-end gap-1 h-4 opacity-0 transition-opacity duration-200;
+    @apply flex h-4 items-end gap-1 opacity-0 transition-opacity duration-200;
   }
 
   .voice-wave.is-active {
@@ -249,7 +515,8 @@
   }
 
   .voice-wave span {
-    @apply w-1 bg-duo-blue rounded-full;
+    @apply w-1 rounded-full;
+    background-color: var(--cr-blue-text);
     animation: voiceWave 1.2s ease-in-out infinite;
   }
 
@@ -264,65 +531,27 @@
   }
 
   .stage-state {
-    @apply text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider;
-  }
-
-  /* Heading styles */
-  .heading-1 {
-    @apply font-heading font-extrabold text-3xl md:text-4xl text-eel dark:text-dark-text;
-  }
-
-  .heading-2 {
-    @apply font-heading font-bold text-2xl md:text-3xl text-eel dark:text-dark-text;
-  }
-
-  .heading-3 {
-    @apply font-heading font-semibold text-xl md:text-2xl text-eel dark:text-dark-text;
-  }
-
-  /* Body text for reading */
-  .reading-text {
-    @apply font-body text-lg leading-[1.8] text-eel dark:text-dark-text;
-  }
-
-  .reading-text p {
-    @apply mb-[1.5em];
+    @apply text-[10px] font-bold uppercase tracking-wider;
+    color: var(--cr-text-secondary);
   }
 }
 
 @layer utilities {
-  /* Text selection */
   ::selection {
-    @apply bg-duo-green/30 text-eel dark:text-dark-text;
+    background-color: var(--cr-highlight-word-active);
+    color: var(--cr-text-primary);
   }
 
-  /* Scrollbar */
   ::-webkit-scrollbar {
-    @apply w-2 h-2;
+    @apply h-2 w-2;
   }
   ::-webkit-scrollbar-track {
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-dark-border rounded-full;
+    @apply rounded-full;
+    background-color: var(--cr-border-interactive);
   }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-600;
-  }
-
-  /* Animation utilities */
-  .animate-in {
-    animation: animateIn 0.3s ease-out forwards;
-  }
-
-  @keyframes animateIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ====================================================================
-     Sprint 1 — drawer motion, scroll and surface utilities
-     ==================================================================== */
 
   .no-scrollbar {
     -ms-overflow-style: none;
@@ -337,13 +566,15 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* ====================================================================
+     Motion: entry, press, drawer. All stop under reduced motion.
+     ==================================================================== */
   .cr-anim-sheet {
     animation: crSheetUp 0.38s cubic-bezier(0.34, 1.4, 0.64, 1) both;
   }
   .cr-anim-drawer {
     animation: crDrawerIn 0.36s cubic-bezier(0.34, 1.4, 0.64, 1) both;
   }
-  /* One entry class, the surface decides the direction */
   .cr-drawer-enter {
     animation: crSheetUp 0.38s cubic-bezier(0.34, 1.4, 0.64, 1) both;
   }
@@ -359,6 +590,22 @@
     animation: crRise 0.3s cubic-bezier(0.34, 1.3, 0.64, 1) both;
   }
 
+  .animate-in {
+    animation: crRise 0.3s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+  }
+
+  .cr-stagger > * {
+    animation: crRise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .cr-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .cr-stagger > *:nth-child(2) { animation-delay: 0.06s; }
+  .cr-stagger > *:nth-child(3) { animation-delay: 0.1s; }
+  .cr-stagger > *:nth-child(4) { animation-delay: 0.14s; }
+  .cr-stagger > *:nth-child(5) { animation-delay: 0.18s; }
+  .cr-stagger > *:nth-child(6) { animation-delay: 0.22s; }
+  .cr-stagger > *:nth-child(7) { animation-delay: 0.26s; }
+  .cr-stagger > *:nth-child(8) { animation-delay: 0.3s; }
+
   @keyframes crSheetUp {
     from { transform: translateY(24px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
@@ -372,7 +619,7 @@
     to { opacity: 1; }
   }
   @keyframes crRise {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
@@ -391,11 +638,6 @@
     to { background-position: -120% 0; }
   }
 
-  /* ====================================================================
-     Duolingo-style drawer interaction helpers
-     ==================================================================== */
-
-  /* Pressable 3D surface driven by CSS vars so it works in all 3 themes */
   .cr-press {
     --press-bg: var(--cr-btn-primary-bg);
     --press-shadow: var(--cr-btn-primary-shadow);
@@ -414,7 +656,6 @@
     cursor: not-allowed;
   }
 
-  /* Secondary pressable: white card with 2px hard offset, Duolingo outline style */
   .cr-press-outline {
     --press-outline: var(--cr-border-subtle);
     background-color: var(--cr-bg-surface-elevated);
@@ -432,7 +673,6 @@
     border-color: var(--cr-border-interactive);
   }
 
-  /* Bouncy pop for chips/tabs on select */
   .cr-pop {
     transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
@@ -440,19 +680,17 @@
     transform: scale(0.94);
   }
 
-  /* Duolingo streak flame + mascot bounce on hover */
   .cr-hover-lift {
     transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out;
   }
   .cr-hover-lift:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 0 -2px var(--cr-btn-primary-shadow), 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 0 -2px var(--cr-border-subtle);
   }
   .cr-hover-lift:active {
     transform: translateY(-1px);
   }
 
-  /* Flashcard 3D flip */
   .cr-flip-scene {
     perspective: 1200px;
   }
@@ -470,47 +708,22 @@
   .cr-flip-face-back {
     transform: rotateY(180deg);
   }
-
-  /* Progress bar with Duolingo shine stripe */
-  .progress-duo-fill::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.35) 50%,
-      transparent 100%
-    );
-    animation: crShine 2s ease-in-out infinite;
-  }
-  .progress-duo-fill {
-    position: relative;
-  }
-  @keyframes crShine {
-    0% { transform: translateX(-100%); }
-    60%, 100% { transform: translateX(100%); }
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cr-hover-lift:hover,
-  .cr-hover-lift:active,
-  .cr-flip-card,
-  .progress-duo-fill::after {
-    animation: none !important;
-    transition: none !important;
-    transform: none !important;
+  html {
+    scroll-behavior: auto;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  }
+  .cr-hover-lift:hover,
+  .cr-hover-lift:active,
+  .book-card:hover {
+    transform: none !important;
   }
 }
