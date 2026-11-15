@@ -590,6 +590,7 @@ export function DictionaryDrawer({
                   word={entry?.word || word}
                   entry={entry}
                   contextSentence={contextSentence}
+                  extraExamples={extraExamples}
                   onOpenWord={onOpenWord}
                 />
               )}
@@ -598,7 +599,9 @@ export function DictionaryDrawer({
                 <PronunciationTab
                   word={entry?.word || word}
                   entry={entry}
-                  audioUrl={entry?.audio_url || ''}
+                  sourceLang={sourceLang}
+                  targetLang={targetLang}
+                  targetWord={entry?.arti_bahasa_pilihan || entry?.mother_meaning || ''}
                 />
               )}
 

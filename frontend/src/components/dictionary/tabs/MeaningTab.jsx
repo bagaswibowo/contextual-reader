@@ -23,22 +23,20 @@ export function MeaningTab({
   word = '',
   entry = null,
   contextSentence = '',
+  extraExamples = [],
   onOpenWord,
   className = '',
 }) {
   if (!entry) return null
 
   const meaning = entry.arti_konteks || entry.mother_meaning || entry.contextual_meaning || ''
-  const simpleDefinition =
-    (Array.isArray(entry.definisi_bahasa_pilihan) && entry.definisi_bahasa_pilihan[0]?.makna) ||
-    entry.definisi ||
-    ''
   const alternativeMeanings = Array.isArray(entry.arti_lain) ? entry.arti_lain : []
   const synonyms = Array.isArray(entry.sinonim) ? entry.sinonim : entry.synonyms || []
   const otherTranslations = Array.isArray(entry.terjemahan_lain)
     ? entry.terjemahan_lain
     : (entry.translations_table || []).map((item) => item.target_word).filter(Boolean)
   const examples = Array.isArray(entry.examples) ? entry.examples : []
+  const bookExamples = Array.isArray(extraExamples) ? extraExamples.filter(Boolean) : []
   const targetMeaning = entry.arti_bahasa_pilihan || ''
   const targetAlternatives = Array.isArray(entry.arti_lain_bahasa_pilihan)
     ? entry.arti_lain_bahasa_pilihan
@@ -80,17 +78,6 @@ export function MeaningTab({
               </p>
             )}
           </div>
-        </section>
-      )}
-
-      {simpleDefinition && (
-        <section aria-labelledby="block-definition" className="space-y-2">
-          <BlockLabel icon={Languages} id="block-definition">
-            Definisi
-          </BlockLabel>
-          <p className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2.5 text-[0.92em] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
-            {simpleDefinition}
-          </p>
         </section>
       )}
 
@@ -176,12 +163,34 @@ export function MeaningTab({
         </section>
       )}
 
-      {examples.length > 0 && (
+      {(bookExamples.length > 0 || examples.length > 0) && (
         <section aria-labelledby="block-examples" className="space-y-2">
           <BlockLabel icon={MessageSquare} id="block-examples">
             Contoh dalam keseharian
           </BlockLabel>
           <div className="space-y-2">
+            {bookExamples.slice(0, 3).map((item, idx) => {
+              const text = typeof item === 'string' ? item : item.text
+              const translation = typeof item === 'string' ? '' : item.translation
+              return (
+                <div
+                  key={`book-${idx}`}
+                  className="rounded-xl border border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] p-3"
+                >
+                  <span className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-accent)]">
+                    Dari buku ini
+                  </span>
+                  <p className="mt-1 text-[0.92em] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
+                    {text}
+                  </p>
+                  {translation && (
+                    <p className="mt-0.5 text-[0.85em] italic leading-relaxed text-[var(--cr-text-secondary)]">
+                      {translation}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
             {examples.slice(0, 3).map((example, idx) => (
               <div
                 key={`example-${idx}`}

@@ -200,11 +200,26 @@ export function Reader() {
     const sentText = chapter?.sentences?.find(s => s.id === sentenceId)?.text || cleanedWord
     const escaped = cleanedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const pattern = new RegExp(`\\b${escaped}\\b`, 'i')
-    const extra = (chapter?.sentences || [])
+    const extraItems = (chapter?.sentences || [])
       .filter((item) => item.id !== sentenceId && pattern.test(item.text || ''))
       .slice(0, 3)
-      .map((item) => item.text)
-    setDrawerExtraExamples(extra)
+    setDrawerExtraExamples(extraItems)
+    const exampleConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
+    Promise.allSettled(
+      extraItems.map((item) =>
+        translationsApi.sentence(item.id, targetLanguage || 'id', translationEngine || 'google', exampleConfig)
+      )
+    ).then((results) => {
+      setDrawerExtraExamples(
+        extraItems.map((item, index) => ({
+          text: item.text,
+          translation:
+            results[index]?.status === 'fulfilled'
+              ? results[index].value?.data?.indonesian_text || ''
+              : '',
+        }))
+      )
+    })
     setSelectedWord({ sentenceId, wIdx })
     openDictionaryDrawer(cleanedWord, sentenceId, sentText, 'meaning')
   }
