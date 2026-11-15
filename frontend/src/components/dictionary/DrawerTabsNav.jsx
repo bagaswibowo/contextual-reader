@@ -61,7 +61,7 @@ export function DrawerTabsNav({ activeTab = 'meaning', onTabChange, className = 
             tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange && onTabChange(tab.id)}
             onKeyDown={(event) => handleKeyDown(event, idx)}
-            className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-1.5 text-[11px] font-extrabold transition-colors ${
+            className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-1.5 text-[0.72em] font-extrabold transition-colors ${
               isActive
                 ? 'bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
                 : 'text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'

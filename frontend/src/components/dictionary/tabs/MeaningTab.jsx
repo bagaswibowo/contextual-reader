@@ -5,7 +5,7 @@ import { posLabel } from './MeaningTabShared'
 function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
   return (
     <span
-      className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] ${
+      className={`flex items-center gap-1.5 text-[0.72em] font-extrabold uppercase tracking-[0.12em] ${
         tone === 'accent' ? 'text-[var(--cr-text-accent)]' : 'text-[var(--cr-text-secondary)]'
       }`}
     >
@@ -39,6 +39,10 @@ export function MeaningTab({
     ? entry.terjemahan_lain
     : (entry.translations_table || []).map((item) => item.target_word).filter(Boolean)
   const examples = Array.isArray(entry.examples) ? entry.examples : []
+  const targetMeaning = entry.arti_bahasa_pilihan || ''
+  const targetAlternatives = Array.isArray(entry.arti_lain_bahasa_pilihan)
+    ? entry.arti_lain_bahasa_pilihan
+    : []
 
   return (
     <div className={`space-y-4 pb-2 ${className}`}>
@@ -46,27 +50,45 @@ export function MeaningTab({
         <BlockLabel icon={Sparkles} tone="accent">
           Arti di kalimat ini
         </BlockLabel>
-        <p className="mt-1.5 font-heading text-[26px] font-extrabold leading-[1.12] text-[var(--cr-text-primary)]">
+        <p className="mt-1.5 font-heading text-[1.55em] font-extrabold leading-[1.12] text-[var(--cr-text-primary)]">
           {meaning || word}
         </p>
         {entry.part_of_speech && (
-          <span className="mt-1 inline-block rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
+          <span className="mt-1 inline-block rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[0.72em] font-bold uppercase text-[var(--cr-text-secondary)]">
             {posLabel(entry.part_of_speech)}
           </span>
         )}
         {contextSentence && (
-          <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[12px] italic leading-relaxed text-[var(--cr-text-secondary)] line-clamp-3">
+          <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[0.85em] italic leading-relaxed text-[var(--cr-text-secondary)] line-clamp-3">
             &ldquo;{contextSentence}&rdquo;
           </blockquote>
         )}
       </section>
+
+      {targetMeaning && (
+        <section aria-labelledby="block-target-meaning" className="space-y-2">
+          <BlockLabel icon={Languages} id="block-target-meaning" tone="accent">
+            Arti dalam bahasa yang dipelajari
+          </BlockLabel>
+          <div className="rounded-xl border border-[var(--cr-blue-text)] bg-[rgba(28,176,246,0.10)] px-3 py-2.5">
+            <p className="text-[0.92em] font-extrabold leading-relaxed text-[var(--cr-text-primary)]">
+              {targetMeaning}
+            </p>
+            {targetAlternatives.length > 1 && (
+              <p className="mt-1 text-[0.78em] font-semibold text-[var(--cr-text-secondary)]">
+                {targetAlternatives.map((item) => item.makna).filter(Boolean).join(' · ')}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {simpleDefinition && (
         <section aria-labelledby="block-definition" className="space-y-2">
           <BlockLabel icon={Languages} id="block-definition">
             Definisi
           </BlockLabel>
-          <p className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2.5 text-[13px] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
+          <p className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2.5 text-[0.92em] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
             {simpleDefinition}
           </p>
         </section>
@@ -85,16 +107,16 @@ export function MeaningTab({
               >
                 <div className="flex items-start gap-2">
                   {item.kelas_kata && (
-                    <span className="mt-0.5 shrink-0 rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
+                    <span className="mt-0.5 shrink-0 rounded bg-[var(--cr-bg-surface-elevated)] px-1.5 py-0.5 text-[0.72em] font-bold uppercase text-[var(--cr-text-secondary)]">
                       {posLabel(item.kelas_kata)}
                     </span>
                   )}
-                  <span className="text-[13px] font-bold leading-snug text-[var(--cr-text-primary)]">
+                  <span className="text-[0.92em] font-bold leading-snug text-[var(--cr-text-primary)]">
                     {item.makna}
                   </span>
                 </div>
                 {item.contoh && (
-                  <div className="mt-1 text-[11px] italic leading-relaxed text-[var(--cr-text-secondary)]">
+                  <div className="mt-1 text-[0.78em] italic leading-relaxed text-[var(--cr-text-secondary)]">
                     <p>“{typeof item.contoh === 'string' ? item.contoh : item.contoh.source_text}”</p>
                     {typeof item.contoh === 'object' && item.contoh.target_text && (
                       <p className="not-italic">{item.contoh.target_text}</p>
@@ -105,7 +127,7 @@ export function MeaningTab({
             ))}
           </ul>
         ) : (
-          <p className="rounded-xl border border-[var(--cr-border-subtle)] px-3 py-2 text-[12px] text-[var(--cr-text-secondary)]">
+          <p className="rounded-xl border border-[var(--cr-border-subtle)] px-3 py-2 text-[0.85em] text-[var(--cr-text-secondary)]">
             Tidak ada arti alternatif yang tercatat untuk kata ini.
           </p>
         )}
@@ -144,9 +166,9 @@ export function MeaningTab({
             {otherTranslations.slice(0, 8).map((text, idx) => (
               <li
                 key={`${text}-${idx}`}
-                className="flex items-center gap-2 rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2 text-[13px] font-semibold text-[var(--cr-text-primary)]"
+                className="flex items-center gap-2 rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-3 py-2 text-[0.92em] font-semibold text-[var(--cr-text-primary)]"
               >
-                <span className="text-[11px] font-bold text-[var(--cr-text-secondary)]">{idx + 1}</span>
+                <span className="text-[0.78em] font-bold text-[var(--cr-text-secondary)]">{idx + 1}</span>
                 {text}
               </li>
             ))}
@@ -165,11 +187,11 @@ export function MeaningTab({
                 key={`example-${idx}`}
                 className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3"
               >
-                <p className="text-[13px] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
+                <p className="text-[0.92em] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
                   {example.source_text}
                 </p>
                 {example.target_text && (
-                  <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--cr-text-secondary)]">
+                  <p className="mt-0.5 text-[0.85em] leading-relaxed text-[var(--cr-text-secondary)]">
                     {example.target_text}
                   </p>
                 )}

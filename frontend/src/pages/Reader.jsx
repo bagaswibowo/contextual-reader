@@ -32,7 +32,7 @@ function renderCachedKaTeX(formula, displayMode = false) {
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Globe, ArrowLeft, ChevronDown,
+  ArrowLeft, ChevronDown,
   BookOpen, Sun, Moon, Type,
   AlertTriangle, X, Play, Square,
   Target, PanelBottom, MessageSquare
@@ -44,7 +44,6 @@ import { ErrorBoundary } from '../components/ErrorBoundary'
 import { DictionaryDrawer } from '../components/dictionary/DictionaryDrawer'
 import { BookLanguageBadge } from '../components/language/BookLanguageBadge'
 import { TargetLanguagePopover } from '../components/language/TargetLanguagePopover'
-import { SentencePanel } from '../components/SentencePanel'
 
 // OCR/MinerU formula delimiter token and precompiled regexes
 const MINERU_MATH_DELIMITER = '72809'
@@ -82,7 +81,6 @@ export function Reader() {
   // Mobile settings modal state
   const [showMobileSettingsModal, setShowMobileSettingsModal] = useState(false)
   const [selectedWord, setSelectedWord] = useState(null) // { sentenceId, wIdx } highlight only
-  const [sentencePanel, setSentencePanel] = useState(null) // { sentenceId, text }
   const [showTocModal, setShowTocModal] = useState(false)
   const [savedWords, setSavedWords] = useState(new Set())
   const [savingVocab, setSavingVocab] = useState(false)
@@ -97,7 +95,6 @@ export function Reader() {
   const [isLangPopoverOpen, setIsLangPopoverOpen] = useState(false)
 
   const openDictionaryDrawer = (wordToOpen, sId, sentText, tab = 'meaning') => {
-    setSentencePanel(null)
     setDrawerWord(wordToOpen)
     setDrawerSentenceId(sId)
     setDrawerContext(sentText || '')
@@ -121,8 +118,7 @@ export function Reader() {
         setIsDrawerOpen(false)
         setIsLangPopoverOpen(false)
         setSelectedWord(null)
-        setSentencePanel(null)
-      }
+          }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -169,8 +165,7 @@ export function Reader() {
     try {
       setLoading(true)
       setSelectedWord(null)
-      setSentencePanel(null)
-      const res = await booksApi.chapter(bookId, index)
+        const res = await booksApi.chapter(bookId, index)
       setChapter(res.data)
       setChapterIndex(index)
       
@@ -247,12 +242,6 @@ export function Reader() {
   }
 
   // Handle sentence margin icon click -> full paragraph/sentence translation
-  const handleSentenceTranslate = (sentenceId, sentenceText) => {
-    setSelectedWord(null)
-    setIsDrawerOpen(false)
-    setSentencePanel({ sentenceId, text: sentenceText })
-  }
-
   // Save word to vocabulary list ("Pelajari")
   const handleSaveVocabulary = async (wordParam, contextSentenceParam) => {
     try {
@@ -494,24 +483,28 @@ export function Reader() {
   }
 
   return (
-    <div className={`flex flex-col gap-6 pb-20 transition-[padding] duration-200 ${isDrawerOpen || sentencePanel ? 'lg:pr-[392px]' : ''}`}>
+    <div
+      className={`flex flex-col gap-6 pb-20 transition-[padding] duration-200 ${isDrawerOpen ? 'lg:pr-[392px]' : ''}`}
+      style={{ '--cr-panel-font': `${Math.round(fontSize * 0.9)}px` }}
+    >
       {/* Reading Toolbar - Mobile-First Responsive Design */}
       <div
-        className="card-duo sticky top-2 z-30 flex items-center justify-between gap-2 p-2.5 sm:p-3 lg:top-4"
+        className="card-duo sticky top-2 z-30 flex items-center justify-between gap-2 p-2.5 lg:top-4 sm:p-3"
         style={{ backgroundColor: 'var(--cr-bg-surface-elevated)' }}
       >
         {/* Left: Back & TOC */}
         <div className="flex items-center gap-1.5 min-w-0">
-          <button 
+          <button
             onClick={() => navigate('/library')}
-            className="btn-ghost p-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm shrink-0"
+            className="btn-ghost shrink-0 px-2 text-xs sm:px-3 sm:py-2 sm:text-sm"
             title="Kembali ke Perpustakaan"
+            aria-label="Kembali ke Perpustakaan"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden md:inline">Perpustakaan</span>
+            <span className="hidden xl:inline">Perpustakaan</span>
           </button>
-          
-          <div className="h-5 w-[1px] bg-gray-200 dark:bg-dark-border shrink-0" />
+
+          <div className="h-5 w-px shrink-0 bg-[var(--cr-border-subtle)]" />
 
           {/* Chapter Selector Dropdown */}
           <button
@@ -519,7 +512,7 @@ export function Reader() {
             className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 rounded-duo hover:bg-gray-100 dark:hover:bg-dark-border font-ui font-bold text-xs sm:text-sm text-eel dark:text-dark-text min-w-0"
           >
             <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-duo-green shrink-0" />
-            <span className="max-w-[100px] sm:max-w-[200px] truncate">
+            <span className="max-w-[84px] truncate sm:max-w-[150px] lg:max-w-[220px]">
               {chapter?.title || `Bab ${chapterIndex + 1}`}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
@@ -836,14 +829,6 @@ export function Reader() {
                   })}
                 </p>
 
-                {/* Sentence Translate Margin Icon */}
-                <button
-                  onClick={() => handleSentenceTranslate(sent.id, sent.text)}
-                  className="translate-icon p-1.5 rounded-full hover:bg-duo-blue/10 text-duo-blue flex-shrink-0 mt-0.5 transition-colors"
-                  title="Terjemahkan kalimat utuh"
-                >
-                  <Globe className="w-4 h-4" />
-                </button>
               </div>
             </div>
           )
@@ -1095,25 +1080,8 @@ export function Reader() {
         isSaved={drawerWord ? (savedWords.has(drawerWord.toLowerCase()) || false) : false}
         saving={savingVocab}
         translationEngine={translationEngine || 'google'}
-        motherLang={targetLanguage || 'id'}
+        motherLang={motherLanguage || 'id'}
         customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
-      />
-
-      <SentencePanel
-        isOpen={Boolean(sentencePanel)}
-        sentenceId={sentencePanel?.sentenceId || null}
-        sentenceText={sentencePanel?.text || ''}
-        sourceLang={book?.language || 'en'}
-        targetLang={targetLanguage || 'id'}
-        translationEngine={translationEngine || 'google'}
-        customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
-        onPlayAudio={(text, lang, key) => speakText(text, lang, key)}
-        onOpenWord={(nextWord) => {
-          const current = sentencePanel
-          setSentencePanel(null)
-          openDictionaryDrawer(nextWord, current?.sentenceId, current?.text || '', 'meaning')
-        }}
-        onClose={() => setSentencePanel(null)}
       />
 
       {/* Target Language Popover (F3) */}

@@ -44,36 +44,36 @@ export function PronunciationTab({
   return (
     <div className={`space-y-4 pb-2 ${className}`}>
       <section className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+        <p className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
           Cara baca
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <span className="font-heading text-2xl font-extrabold text-[var(--cr-text-primary)]">{word}</span>
           {ipa ? (
-            <span className="rounded bg-[var(--cr-highlight-word-hover)] px-2 py-0.5 font-mono text-[13px] font-bold text-[var(--cr-text-accent)]">
+            <span className="rounded bg-[var(--cr-highlight-word-hover)] px-2 py-0.5 font-mono text-[0.92em] font-bold text-[var(--cr-text-accent)]">
               {ipa.startsWith('/') ? ipa : `/${ipa}/`}
             </span>
           ) : (
-            <span className="font-mono text-[12px] text-[var(--cr-text-secondary)]">IPA belum tersedia</span>
+            <span className="font-mono text-[0.85em] text-[var(--cr-text-secondary)]">IPA belum tersedia</span>
           )}
           {(entry?.fonetik || guide) && (
-            <span className="rounded bg-[var(--cr-bg-surface)] px-2 py-0.5 text-[13px] font-extrabold text-[var(--cr-text-primary)]">
+            <span className="rounded bg-[var(--cr-bg-surface)] px-2 py-0.5 text-[0.92em] font-extrabold text-[var(--cr-text-primary)]">
               {entry?.fonetik || guide}
             </span>
           )}
           {romanization && !guide && (
-            <span className="font-mono text-[12px] text-[var(--cr-text-secondary)]">[{romanization}]</span>
+            <span className="font-mono text-[0.85em] text-[var(--cr-text-secondary)]">[{romanization}]</span>
           )}
         </div>
         {(entry?.fonetik || guide) && (
-          <p className="mt-1.5 text-[11px] font-medium text-[var(--cr-text-secondary)]">
+          <p className="mt-1.5 text-[0.78em] font-medium text-[var(--cr-text-secondary)]">
             Ejaan baca:{' '}
             <span className="font-bold text-[var(--cr-text-primary)]">{entry?.fonetik || guide}</span>
             {' '}(huruf besar menandai suku kata yang ditekankan)
           </p>
         )}
         {audioUrl && (
-          <p className="mt-1 break-all text-[11px] text-[var(--cr-text-secondary)]">
+          <p className="mt-1 break-all text-[0.78em] text-[var(--cr-text-secondary)]">
             <Volume2 className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
             Audio tersedia di panduan di bawah, satu tombol putar.
           </p>
@@ -82,7 +82,7 @@ export function PronunciationTab({
 
       {syllables.length > 1 && (
         <section aria-labelledby="block-syllables" className="space-y-2">
-          <p id="block-syllables" className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+          <p id="block-syllables" className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
             Pemecahan suku kata (perkiraan)
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -91,7 +91,7 @@ export function PronunciationTab({
               return (
                 <span
                   key={`${part}-${idx}`}
-                  className={`rounded-lg border px-2 py-1 font-mono text-[13px] font-bold ${
+                  className={`rounded-lg border px-2 py-1 font-mono text-[0.92em] font-bold ${
                     stressed
                       ? 'border-[var(--cr-text-accent)] bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
                       : 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] text-[var(--cr-text-primary)]'
@@ -106,7 +106,7 @@ export function PronunciationTab({
       )}
 
       <section aria-labelledby="block-audio" className="space-y-2">
-        <p id="block-audio" className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+        <p id="block-audio" className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
           Audio dan gerak bibir
         </p>
         <PronunciationWidget

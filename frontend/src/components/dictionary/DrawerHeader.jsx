@@ -26,26 +26,26 @@ export function DrawerHeader({
         <div className="min-w-0 flex-1">
           <h2
             id="cr-drawer-word-title"
-            className="font-heading text-[24px] font-extrabold leading-[1.15] text-[var(--cr-text-primary)] break-words [overflow-wrap:anywhere] sm:text-[28px]"
+            className="font-heading text-[1.5em] font-extrabold leading-[1.15] text-[var(--cr-text-primary)] break-words [overflow-wrap:anywhere] sm:text-[1.7em]"
           >
             {displayWord}
           </h2>
 
           <div className="mt-1 flex flex-wrap items-baseline gap-2">
             {ipa ? (
-              <span className="rounded-md bg-[var(--cr-highlight-word-hover)] px-1.5 py-0.5 font-mono text-[13px] font-bold text-[var(--cr-text-secondary)]">
+              <span className="rounded-md bg-[var(--cr-highlight-word-hover)] px-1.5 py-0.5 font-mono text-[0.82em] font-bold text-[var(--cr-text-secondary)]">
                 {ipa.startsWith('/') ? ipa : `/${ipa}/`}
               </span>
             ) : (
               <span
                 aria-label="Fonetik tidak tersedia"
-                className="font-mono text-[13px] text-[var(--cr-text-secondary)] opacity-60"
+                className="font-mono text-[0.82em] text-[var(--cr-text-secondary)] opacity-60"
               >
                 ·
               </span>
             )}
             {displayTarget && (
-              <span className="truncate text-[13px] font-extrabold text-[var(--cr-text-accent)]">
+              <span className="truncate text-[0.82em] font-extrabold text-[var(--cr-text-accent)]">
                 {displayTarget}
               </span>
             )}

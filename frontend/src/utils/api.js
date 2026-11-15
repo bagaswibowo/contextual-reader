@@ -116,9 +116,9 @@ export const translationsApi = {
       engine,
       ...customProviderFields(engine, customConfig)
     }),
-  dictionary: (word, lang = 'en', context = '', options = {}, motherLang = 'id') =>
+  dictionary: (word, lang = 'en', context = '', options = {}, motherLang = 'id', targetLang = '') =>
     api.get('/translations/dictionary/', {
-      params: { word, lang, context, mother_lang: motherLang },
+      params: { word, lang, context, mother_lang: motherLang, ...(targetLang ? { target_lang: targetLang } : {}) },
       ...options
     }),
   interlinear: (text, sourceLang = 'en', targetLang = 'id') =>

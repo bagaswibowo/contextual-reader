@@ -252,7 +252,8 @@ export function DictionaryDrawer({
           sourceLang,
           contextSentence,
           { signal: abortCtrlRef.current.signal },
-          motherLang
+          motherLang,
+          targetLang
         )
 
         clearTimeout(slowTimerRef.current)
@@ -297,7 +298,7 @@ export function DictionaryDrawer({
         }
       }
     },
-    [word, sourceLang, targetLang, contextSentence, isOpen, bookId, bookTitle, chapterIndex, chapterTitle, sentenceId, isSaved, motherLang]
+    [word, sourceLang, targetLang, contextSentence, isOpen, bookId, bookTitle, chapterIndex, chapterTitle, sentenceId, isSaved, motherLang, targetLang]
   )
 
   useEffect(() => {
@@ -309,7 +310,7 @@ export function DictionaryDrawer({
       clearTimeout(timeoutTimerRef.current)
       setStatus('idle')
     }
-  }, [isOpen, word, motherLang])
+  }, [isOpen, word, motherLang, targetLang])
 
   // Handle drawer close
   const handleClose = () => {
@@ -399,6 +400,7 @@ export function DictionaryDrawer({
         role="dialog"
         tabIndex={-1}
         aria-modal={isNarrow ? 'true' : undefined}
+        style={{ fontSize: 'var(--cr-panel-font, 16px)' }}
         aria-labelledby="cr-drawer-word-title"
         className="cr-drawer-enter fixed inset-x-0 bottom-0 z-[61] flex h-[72dvh] max-h-[72dvh] flex-col rounded-t-3xl border-t border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-full md:w-[380px] md:rounded-none md:border-l md:border-t-0"
       >
@@ -459,22 +461,6 @@ export function DictionaryDrawer({
             ))}
           </select>
         </div>
-
-        {entry?.sentence_translation?.source_text && status === 'success' && (
-          <section className="shrink-0 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-4 py-3">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
-              Kalimat ini
-            </p>
-            <p className="mt-1 line-clamp-2 text-[12px] italic leading-relaxed text-[var(--cr-text-secondary)]">
-              “{entry.sentence_translation.source_text}”
-            </p>
-            {entry.sentence_translation.target_text && (
-              <p className="mt-1 line-clamp-3 text-[13px] font-bold leading-relaxed text-[var(--cr-text-primary)]">
-                {entry.sentence_translation.target_text}
-              </p>
-            )}
-          </section>
-        )}
 
         {/* Target Language Changed Banner (AC-BB-07) */}
         {langChangeNotice && (
@@ -621,6 +607,7 @@ export function DictionaryDrawer({
                   word={entry?.word || word}
                   entry={entry}
                   motherLang={motherLang}
+                  targetLang={targetLang}
                 />
               )}
             </div>
