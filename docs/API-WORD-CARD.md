@@ -41,6 +41,24 @@ contoh nyata. Backend tidak mengarang contoh.
 
 `pronunciation` juga memuat `fonetik` dan `suku_kata` supaya satu objek cukup.
 
+### Lapisan bahasa kedua
+
+Parameter opsional `target_lang` (bahasa yang dipilih di panel baca) menambah
+lapisan makna kedua tanpa panggilan lain:
+
+| Field | Isi |
+|---|---|
+| `bahasa_pilihan` | kode bahasa lapisan kedua |
+| `arti_bahasa_pilihan` | arti dalam bahasa panel |
+| `arti_lain_bahasa_pilihan` | arti alternatif bahasa panel |
+| `terjemahan_lain_bahasa_pilihan` | padanan lain bahasa panel |
+| `definisi_bahasa_pilihan_lain` | definisi per makna bahasa panel |
+
+Kosong bila `target_lang` sama dengan `mother_lang` atau `lang`, karena field
+yang sudah ada sudah memuat makna itu. Contoh: `word=principles&lang=en&
+mother_lang=id&target_lang=es` memberi `arti_konteks: "prinsip"` dan
+`arti_bahasa_pilihan: "principios"` dalam satu respons.
+
 ## 3. `POST /api/translations/interlinear/`
 
 Body: `{"text": "...", "source_lang": "en", "target_lang": "id"}`
