@@ -41,7 +41,7 @@ MAX_TRANSLATIONS = 8
 
 # Bump when the shape or the derivation of cached values changes, so entries
 # written by an older release are not served after a deploy.
-CACHE_VERSION = 'v2'
+CACHE_VERSION = 'v3'
 
 
 def _cache_key(prefix: str, *parts: str) -> str:
@@ -62,7 +62,7 @@ _IPA_SEQUENCES = [
 _IPA_SINGLE = {
     'ɪ': 'i', 'i': 'i', 'ɛ': 'e', 'e': 'e', 'æ': 'a', 'ʌ': 'a', 'ə': 'e',
     'ɑ': 'o', 'ɒ': 'o', 'ɔ': 'o', 'ʊ': 'u', 'u': 'u', 'y': 'i', 'ø': 'e',
-    'œ': 'e', 'ɐ': 'a', 'ɨ': 'i', 'ʉ': 'u', 'ɯ': 'u', 'j': 'y', 'r': 'r',
+    'œ': 'e', 'ɐ': 'a', 'ɨ': 'i', 'ʉ': 'u', 'ɯ': 'u', 'j': 'j', 'r': 'r',
     'ɹ': 'r', 'ɾ': 'r', 'ʤ': 'j', 'ʧ': 'c', 'x': 'kh', 'ɣ': 'g', 'c': 'k',
     # Google's reading field uses macrons and circumflexes for long vowels.
     'ā': 'ei', 'ē': 'i', 'ī': 'ai', 'ō': 'ou', 'ū': 'u',
