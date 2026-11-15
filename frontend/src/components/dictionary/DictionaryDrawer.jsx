@@ -441,9 +441,6 @@ export function DictionaryDrawer({
           word={entry?.word || word}
           ipa={entry?.phonetic_ipa || entry?.pronunciation?.ipa || ''}
           targetWord={targetWord}
-          saved={isSaved}
-          saving={saving}
-          onToggleSave={() => onSaveWord && onSaveWord(entry?.word || word, contextSentence)}
           onClose={handleClose}
         />
 
@@ -630,23 +627,12 @@ export function DictionaryDrawer({
           )}
         </div>
 
-        {/* Sticky Action Bar (Simpan Kata & Kalimat + 👍/👎 Umpan Balik) */}
+        {/* Sticky action bar: the single Pelajari control */}
         <DrawerActionBar
           word={entry?.word || word}
           saved={isSaved}
           saving={saving}
           onToggleSave={() => onSaveWord && onSaveWord(entry?.word || word, contextSentence)}
-          onFeedback={(type) => {
-            // Optional feedback tracking (AC-WI-16, H-3)
-            try {
-              translationsApi.feedback({
-                word: entry?.word || word,
-                source_lang: sourceLang,
-                target_lang: targetLang,
-                type,
-              }).catch(() => {})
-            } catch (e) {}
-          }}
         />
       </aside>
     </>

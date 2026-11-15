@@ -1,5 +1,5 @@
 import React from 'react'
-import { Bookmark, Check, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 /**
  * DrawerHeader
@@ -12,9 +12,6 @@ export function DrawerHeader({
   ipa = '',
   sourceWord = '',
   targetWord = '',
-  saved = false,
-  saving = false,
-  onToggleSave,
   onClose,
   className = '',
 }) {
@@ -65,35 +62,6 @@ export function DrawerHeader({
         </button>
       </div>
 
-      <div className="mt-2 flex items-center justify-end gap-2">
-        {onToggleSave && (
-          <button
-            type="button"
-            onClick={onToggleSave}
-            disabled={saving}
-            aria-pressed={saved}
-            aria-label={saved ? `Kata ${displayWord} tersimpan` : `Simpan kata ${displayWord}`}
-            title={saved ? 'Tersimpan di kosakata' : 'Simpan kata ke kosakata'}
-            className={`cr-pop min-h-[44px] min-w-[44px] shrink-0 rounded-2xl px-3.5 text-xs font-extrabold inline-flex select-none items-center justify-center gap-1.5 ${
-              saved
-                ? 'cr-press text-[var(--cr-btn-primary-text-aa)]'
-                : 'cr-press-outline text-[var(--cr-text-secondary)]'
-            }`}
-          >
-            {saved ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Tersimpan</span>
-              </>
-            ) : (
-              <>
-                <Bookmark className="w-4 h-4" />
-                <span>Simpan</span>
-              </>
-            )}
-          </button>
-        )}
-      </div>
     </div>
   )
 }
