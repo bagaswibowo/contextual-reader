@@ -136,6 +136,36 @@ def _translate_text(text: str, source_lang: str, mother_lang: str) -> str:
     ).strip()
 
 
+def _google_examples(payload) -> List[str]:
+    """Sentences from Google's example bank (``dt=ex``), if the payload has one.
+
+    The bank sits at the end of the payload as a list of rows, each row holding
+    the sentence at index 0 with the queried word wrapped in ``<b>`` tags. Only
+    blocks that carry those tags are treated as the bank.
+    """
+    examples: List[str] = []
+    for block in payload if isinstance(payload, list) else []:
+        if not isinstance(block, list) or not block:
+            continue
+        rows = [
+            item for item in block
+            if isinstance(item, list) and item and isinstance(item[0], list)
+        ]
+        if not rows:
+            continue
+        if not any(
+            isinstance(row[0], str) and '<b>' in row[0]
+            for row in (row for item in rows for row in item)
+        ):
+            continue
+        for item in rows:
+            for row in item:
+                if isinstance(row, list) and row and isinstance(row[0], str):
+                    examples.append(re.sub(r'</?b>', '', row[0]).strip())
+
+    return list(dict.fromkeys(text for text in examples if text))[:MAX_EXAMPLES]
+
+
 def fetch_word_enrichment(word: str, source_lang: str, mother_lang: str) -> Dict:
     """Mother-tongue meanings, pronunciation guide and alternatives for one word."""
     source = normalize_lang(source_lang) or 'auto'
@@ -150,7 +180,7 @@ def fetch_word_enrichment(word: str, source_lang: str, mother_lang: str) -> Dict
 
     payload = translate_query({
         'client': 'gtx', 'sl': source, 'tl': mother,
-        'dt': ['t', 'bd', 'rm'], 'q': word,
+        'dt': ['t', 'bd', 'rm', 'ex'], 'q': word,
     })
     if not is_translate_payload(payload):
         return _empty_enrichment(mother)
@@ -204,6 +234,8 @@ def fetch_word_enrichment(word: str, source_lang: str, mother_lang: str) -> Dict
     if not guide and romanization and romanization != word:
         guide = romanization
 
+    google_examples = _google_examples(payload)
+
     result = {
         'mother_lang': mother,
         'primary_meaning': primary,
@@ -213,6 +245,7 @@ def fetch_word_enrichment(word: str, source_lang: str, mother_lang: str) -> Dict
             'romanization': romanization,
         },
         'translations': translations,
+        'google_examples': google_examples,
     }
     cache.set(cache_key, result, timeout=ENRICHMENT_CACHE_TTL)
     return result
@@ -224,6 +257,7 @@ def _empty_enrichment(mother_lang: str) -> Dict:
         'primary_meaning': '',
         'pronunciation': {'ipa': '', 'guide': '', 'romanization': ''},
         'translations': [],
+        'google_examples': [],
     }
 
 

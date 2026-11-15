@@ -487,6 +487,26 @@ class EverydayExampleTest(TestCase):
         )
         self.assertEqual(result['source_text'], 'My parents divorced when I was four.')
 
+    def test_google_example_bank_is_used_before_writing_our_own(self):
+        from reader.translations import enrichment
+
+        payload = [
+            [['ulet', 'resilient', None, None, 10], [None, None, None, 'rəˈzilēənt']],
+            [['adjective', ['elastis'], []]],
+            'en', None, None, None, None, [], None, None, None, None, None,
+            [
+                [['a shoe with <b>resilient</b> cushioning', None, None, None, None, 'x'],
+                ['the fish are <b>resilient</b> to most infections', None, None, None, None, 'x']],
+            ],
+        ]
+        with mock.patch('reader.translations.enrichment.translate_query', return_value=payload):
+            from django.core.cache import cache
+            cache.clear()
+            result = enrichment.fetch_word_enrichment('resilient', 'en', 'id')
+
+        self.assertEqual(len(result['google_examples']), 2)
+        self.assertEqual(result['google_examples'][0], 'a shoe with resilient cushioning')
+
     def test_google_macron_reading_is_not_left_empty(self):
         from reader.translations.enrichment import ipa_to_guide
 

@@ -205,6 +205,7 @@ def serialize_entry(
     source_examples = []
     if context and entry.word.lower() in context.lower():
         source_examples.append(context)
+    source_examples.extend(enrichment.get('google_examples') or [])
     source_examples.extend(
         example
         for sense in senses
