@@ -12,7 +12,7 @@
   --cr-text-primary: #1B2A32;
   --cr-text-secondary: #52606D;
   /* 5.14:1 on white */
-  --cr-text-accent: #357D02;
+  --cr-text-accent: #2E6E02;
   /* 6.28:1 on --cr-bg-surface */
   --cr-text-danger: #B42318;
 
@@ -25,6 +25,7 @@
   --cr-btn-primary-text-aa: #FFFFFF;
 
   --cr-blue-bright: #1CB0F6;
+  --cr-blue-highlight: rgba(28, 176, 246, 0.12);
   --cr-blue-text: #0B6E9E;
   /* Solid fill for buttons that carry white labels (5.62:1) */
   --cr-blue-solid: #0B6E9E;
@@ -74,6 +75,7 @@ html.sepia {
   --cr-btn-primary-text-aa: #FFFFFF;
 
   --cr-blue-bright: #1CB0F6;
+  --cr-blue-highlight: rgba(28, 176, 246, 0.14);
   --cr-blue-text: #0A4F70;
   --cr-blue-solid: #0A4F70;
   --cr-blue-solid-shadow: #06384F;
@@ -123,6 +125,7 @@ html.dark {
   --cr-btn-primary-text-aa: #08240A;
 
   --cr-blue-bright: #1CB0F6;
+  --cr-blue-highlight: rgba(28, 176, 246, 0.18);
   --cr-blue-text: #7CD5FA;
   --cr-blue-solid: #0E6C96;
   --cr-blue-solid-shadow: #084A66;

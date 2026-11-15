@@ -224,14 +224,14 @@ export function PronunciationWidget({
         <div className="flex items-start justify-between gap-2 pb-2 border-b border-duo-blue/15">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-duo-blue flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5 text-duo-blue" />
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--cr-blue-text)] flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5 text-[var(--cr-blue-text)]" />
                 Panduan Artikulasi Bibir (DHH)
               </span>
               <span
                 className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
                   dhhInfo.badge === 'Full'
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                    ? 'bg-emerald-500/15 text-[var(--cr-text-accent)] border-[var(--cr-text-accent)]'
                     : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
                 }`}
                 title={dhhInfo.desc}
@@ -251,7 +251,7 @@ export function PronunciationWidget({
                   }}
                   className={`px-2 py-0.5 rounded-full transition-all ${
                     !isTrans
-                      ? 'bg-duo-blue text-white shadow-sm'
+                      ? 'bg-[var(--cr-blue-solid)] text-white shadow-sm'
                       : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
                   }`}
                   title="Tampilkan artikulasi kata bahasa asli"
@@ -267,7 +267,7 @@ export function PronunciationWidget({
                   }}
                   className={`px-2 py-0.5 rounded-full transition-all ${
                     isTrans
-                      ? 'bg-duo-blue text-white shadow-sm'
+                      ? 'bg-[var(--cr-blue-solid)] text-white shadow-sm'
                       : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
                   }`}
                   title="Tampilkan artikulasi kata hasil terjemahan"
@@ -282,12 +282,12 @@ export function PronunciationWidget({
                 {currentWord}
               </h3>
               {currentIpa && (
-                <span className="text-xs font-mono font-bold text-duo-blue bg-duo-blue/10 px-1.5 py-0.5 rounded">
+                <span className="text-xs font-mono font-bold text-[var(--cr-blue-text)] bg-[var(--cr-blue-highlight)] px-1.5 py-0.5 rounded">
                   /{currentIpa}/
                 </span>
               )}
               {currentTranslit && (
-                <span className="text-xs font-mono font-bold text-gray-500 dark:text-dark-muted bg-gray-100 dark:bg-dark-border px-1.5 py-0.5 rounded">
+                <span className="text-xs font-mono font-bold text-[var(--cr-text-secondary)] bg-[var(--cr-bg-surface)] dark:bg-dark-border px-1.5 py-0.5 rounded">
                   [{currentTranslit}]
                 </span>
               )}
@@ -309,7 +309,7 @@ export function PronunciationWidget({
                   }}
                   className={`text-[10px] font-extrabold px-2 py-1 rounded-full transition-all ${
                     playbackSpeed === spd
-                      ? 'bg-duo-blue text-white shadow-sm'
+                      ? 'bg-[var(--cr-blue-solid)] text-white shadow-sm'
                       : 'text-gray-600 dark:text-dark-muted hover:text-eel dark:hover:text-dark-text'
                   }`}
                   title={
@@ -333,7 +333,7 @@ export function PronunciationWidget({
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
                 isPlaying
                   ? 'bg-duo-yellow text-eel shadow-[0_3px_0_0_#D9A200] animate-pulse'
-                  : 'bg-duo-blue text-white shadow-[0_3px_0_0_#1598D9] hover:bg-duo-blue/90 active:translate-y-[2px] active:shadow-none'
+                  : 'bg-[var(--cr-blue-solid)] text-white shadow-[0_3px_0_0_var(--cr-blue-solid-shadow)] hover:opacity-95 active:translate-y-[2px] active:shadow-none'
               }`}
               title={isPlaying ? 'Berhenti' : 'Putar suara tersinkronisasi gerak bibir'}
             >
@@ -378,7 +378,7 @@ export function PronunciationWidget({
           {/* Articulation Guidance Text */}
           <div className="flex-1 min-w-0 space-y-1.5 text-left">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-heading font-extrabold text-duo-blue uppercase tracking-wider">
+              <span className="text-[11px] font-heading font-extrabold text-[var(--cr-blue-text)] uppercase tracking-wider">
                 Bentuk Bibir:
               </span>
               <span className="text-xs font-bold text-eel dark:text-dark-text bg-gray-100 dark:bg-dark-border px-2 py-0.5 rounded">
@@ -394,9 +394,9 @@ export function PronunciationWidget({
             <p className="text-xs sm:text-sm text-gray-700 dark:text-dark-text leading-relaxed font-medium">
               {guide.tip}
             </p>
-            <div className="pt-0.5 flex items-center justify-between text-[10px] text-gray-400 dark:text-dark-muted">
+            <div className="pt-0.5 flex items-center justify-between text-[10px] text-[var(--cr-text-secondary)]">
               <span className="flex items-center gap-1">
-                <Info className="w-3 h-3 shrink-0 text-duo-blue" />
+                <Info className="w-3 h-3 shrink-0 text-[var(--cr-blue-text)]" />
                 Klik fonem / tombol panah untuk observasi bertahap.
               </span>
             </div>
@@ -407,7 +407,7 @@ export function PronunciationWidget({
         {showVisemeGuide && phonemes.length > 0 && (
           <div className="mt-2.5 pt-2 border-t border-duo-blue/15">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-dark-muted">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--cr-text-secondary)]">
                 Urutan Fonem:
               </span>
 
@@ -422,7 +422,7 @@ export function PronunciationWidget({
                 >
                   <ChevronLeft className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
-                <span className="text-[10px] font-mono text-duo-blue font-bold px-1">
+                <span className="text-[10px] font-mono text-[var(--cr-blue-text)] font-bold px-1">
                   {activePhonemeIndex + 1} / {phonemes.length}
                 </span>
                 <button
@@ -446,9 +446,9 @@ export function PronunciationWidget({
 
                 let colorClass = 'bg-white dark:bg-dark-card border-gray-200 dark:border-dark-border text-gray-700 dark:text-dark-text';
                 if (isDifficult) {
-                  colorClass = 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30';
+                  colorClass = 'bg-[rgba(255,200,0,0.18)] text-[var(--cr-text-primary)] border-[var(--cr-yellow-text)]';
                 } else if (isVowel) {
-                  colorClass = 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30';
+                  colorClass = 'bg-[rgba(28,176,246,0.14)] text-[var(--cr-text-primary)] border-[var(--cr-blue-text)]';
                 }
 
                 return (
@@ -462,7 +462,7 @@ export function PronunciationWidget({
                     }}
                     className={`px-2.5 py-1 sm:px-2 sm:py-0.5 rounded-lg text-xs font-mono font-bold border transition-all touch-manipulation min-h-[34px] sm:min-h-0 flex items-center justify-center ${
                       isActive
-                        ? 'bg-duo-blue text-white border-duo-blue shadow-sm ring-2 ring-duo-blue/40 scale-105'
+                        ? 'bg-[var(--cr-blue-solid)] text-white border-[var(--cr-blue-solid)] shadow-sm ring-2 ring-[var(--cr-blue-solid)]/40 scale-105'
                         : `${colorClass} hover:border-duo-blue`
                     }`}
                     title={`Lihat bentuk mulut fonem /${item.symbol}/${isDifficult ? ' (Artikulasi Kompleks DHH)' : ''}`}

@@ -1,22 +1,16 @@
 import React, { useRef } from 'react'
-import { BookOpen, Languages } from 'lucide-react'
+import { Volume2, BookOpen } from 'lucide-react'
 
-const DEFAULT_TABS = [
-  { id: 'definition', label: 'Arti & Contoh', icon: BookOpen },
-  { id: 'translations', label: 'Definisi', icon: Languages },
+const TABS = [
+  { id: 'meaning', label: 'Arti & contoh', icon: Volume2 },
+  { id: 'definition', label: 'Definisi', icon: BookOpen },
 ]
 
 /**
- * DrawerTabsNav
- * Segmented tab bar using the WAI-ARIA tabs pattern (A11Y-15).
- * Active state = accent underline + primary text, no border soup.
+ * Two-tab navigation for the word panel. Arrow keys, Home and End move the
+ * selection, following the WAI-ARIA tabs pattern.
  */
-export function DrawerTabsNav({
-  activeTab = 'definition',
-  onTabChange,
-  tabs = DEFAULT_TABS,
-  className = '',
-}) {
+export function DrawerTabsNav({ activeTab = 'meaning', onTabChange, className = '' }) {
   const tabListRef = useRef(null)
 
   const focusTab = (index) => {
@@ -24,26 +18,25 @@ export function DrawerTabsNav({
     buttons?.[index]?.focus()
   }
 
-  const handleKeyDown = (e, index) => {
-    if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      const nextIndex = (index + 1) % tabs.length
-      onTabChange && onTabChange(tabs[nextIndex].id)
-      focusTab(nextIndex)
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      const prevIndex = (index - 1 + tabs.length) % tabs.length
-      onTabChange && onTabChange(tabs[prevIndex].id)
-      focusTab(prevIndex)
-    } else if (e.key === 'Home') {
-      e.preventDefault()
-      onTabChange && onTabChange(tabs[0].id)
+  const handleKeyDown = (event, index) => {
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      const next = (index + 1) % TABS.length
+      onTabChange && onTabChange(TABS[next].id)
+      focusTab(next)
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      const prev = (index - 1 + TABS.length) % TABS.length
+      onTabChange && onTabChange(TABS[prev].id)
+      focusTab(prev)
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      onTabChange && onTabChange(TABS[0].id)
       focusTab(0)
-    } else if (e.key === 'End') {
-      e.preventDefault()
-      const last = tabs.length - 1
-      onTabChange && onTabChange(tabs[last].id)
-      focusTab(last)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      onTabChange && onTabChange(TABS[TABS.length - 1].id)
+      focusTab(TABS.length - 1)
     }
   }
 
@@ -51,13 +44,12 @@ export function DrawerTabsNav({
     <div
       ref={tabListRef}
       role="tablist"
-      aria-label="Navigasi wawasan kata"
-      className={`flex shrink-0 items-stretch border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] no-scrollbar overflow-x-auto ${className}`}
+      aria-label="Isi wawasan kata"
+      className={`flex shrink-0 items-stretch gap-1 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-3 py-2 ${className}`}
     >
-      {tabs.map((tab, idx) => {
+      {TABS.map((tab, idx) => {
         const Icon = tab.icon
         const isActive = activeTab === tab.id
-
         return (
           <button
             key={tab.id}
@@ -67,27 +59,15 @@ export function DrawerTabsNav({
             aria-controls={`panel-${tab.id}`}
             tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange && onTabChange(tab.id)}
-            onKeyDown={(e) => handleKeyDown(e, idx)}
-            className={`cr-pop relative flex min-h-[48px] flex-1 shrink-0 items-center justify-center gap-1.5 rounded-2xl px-2.5 pb-2.5 pt-2 text-[12px] font-extrabold transition-colors ${
+            onKeyDown={(event) => handleKeyDown(event, idx)}
+            className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-[12px] font-extrabold transition-colors ${
               isActive
-                ? 'mx-1 my-2 bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
+                ? 'bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
                 : 'text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
             }`}
           >
-            {Icon && (
-              <Icon
-                className={`h-3.5 w-3.5 shrink-0 ${
-                  isActive ? 'text-[var(--cr-text-accent)]' : ''
-                }`}
-              />
-            )}
+            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="whitespace-nowrap">{tab.label}</span>
-            <span
-              aria-hidden="true"
-              className={`absolute inset-x-2 bottom-0 h-[3px] rounded-full transition-opacity ${
-                isActive ? 'bg-[var(--cr-text-accent)] opacity-100' : 'opacity-0'
-              }`}
-            />
           </button>
         )
       })}

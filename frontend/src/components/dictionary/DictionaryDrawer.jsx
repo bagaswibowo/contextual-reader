@@ -4,10 +4,8 @@ import { DrawerHeader } from './DrawerHeader'
 import { DrawerTabsNav } from './DrawerTabsNav'
 import { DrawerActionBar } from './DrawerActionBar'
 import { DrawerSkeleton } from './widgets/DrawerSkeleton'
+import { MeaningTab } from './tabs/MeaningTab'
 import { DefinitionTab } from './tabs/DefinitionTab'
-import { ExamplesTab } from './tabs/ExamplesTab'
-import { TranslationsTab } from './tabs/TranslationsTab'
-import { Grammar3dTab } from './tabs/Grammar3dTab'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 
 const HISTORY_STORAGE_KEY = 'cr_lookup_history_v1'
@@ -102,7 +100,8 @@ export function DictionaryDrawer({
   bookTitle = '',
   chapterIndex = 0,
   chapterTitle = '',
-  initialTab = 'definition',
+  motherLang = 'id',
+  initialTab = 'meaning',
   onClose,
   onSaveWord,
   isSaved = false,
@@ -110,20 +109,16 @@ export function DictionaryDrawer({
   triggerRef = null,
   translationEngine = 'google',
   customConfig = {},
-  motherLang = 'id',
-  grammarData = null,
-  grammarLoading = false,
-  grammarError = null,
-  onFetchGrammar,
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'definition')
+  const [activeTab, setActiveTab] = useState(initialTab || 'meaning')
   const [status, setStatus] = useState('idle') // 'idle' | 'loading' | 'slow' | 'timeout' | 'success' | 'empty' | 'error' | 'offline'
   const [entry, setEntry] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
-  const [selectedVariant, setSelectedVariant] = useState(null)
-  const [blockErrors, setBlockErrors] = useState({})
   const [playingAudioKey, setPlayingAudioKey] = useState(null)
   const [langChangeNotice, setLangChangeNotice] = useState(null)
+  const [isNarrow, setIsNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  )
 
   const drawerRef = useRef(null)
   const prevTargetLangRef = useRef(targetLang)
@@ -132,6 +127,14 @@ export function DictionaryDrawer({
   const timeoutTimerRef = useRef(null)
   const touchStartYRef = useRef(0)
   const audioObjRef = useRef(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const query = window.matchMedia('(max-width: 767px)')
+    const onChange = (event) => setIsNarrow(event.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
 
   // Focus trap and keyboard dismiss handling (A11Y-02, A11Y-03, A11Y-04)
   useEffect(() => {
@@ -144,7 +147,7 @@ export function DictionaryDrawer({
         return
       }
 
-      if (e.key === 'Tab') {
+      if (e.key === 'Tab' && isNarrow) {
         const drawerEl = drawerRef.current
         if (!drawerEl) return
 
@@ -185,7 +188,7 @@ export function DictionaryDrawer({
         } catch (e) {}
       }
     }
-  }, [isOpen])
+  }, [isOpen, isNarrow])
 
   // Track target language change while open (AC-BB-07)
   useEffect(() => {
@@ -224,8 +227,6 @@ export function DictionaryDrawer({
       setStatus('loading')
       setEntry(null)
       setErrorMsg(null)
-      setSelectedVariant(null)
-      setBlockErrors({})
       setLangChangeNotice(null)
 
       // Slow loading notice (> 3s)
@@ -256,6 +257,7 @@ export function DictionaryDrawer({
 
         // Record history locally
         const primaryMeaning =
+          data.mother_meaning ||
           data.contextual_meaning ||
           (data.senses && data.senses[0]?.meaning) ||
           data.word ||
@@ -371,15 +373,9 @@ export function DictionaryDrawer({
     })
   }
 
-  // Handle opening synonym or new word lookup directly inside drawer
-  const handleOpenWord = (newWord) => {
-    if (!newWord || newWord === word) return
-    fetchDictionaryData(newWord, targetLang)
-  }
-
   if (!isOpen) return null
 
-  const targetWord = selectedVariant?.target_word || entry?.contextual_meaning || ''
+  const targetWord = entry?.mother_meaning || entry?.contextual_meaning || ''
 
   return (
     <>
@@ -389,20 +385,14 @@ export function DictionaryDrawer({
         onClick={handleClose}
         aria-hidden="true"
       />
-      {/* Desktop click-away layer, no dimming so reading can continue */}
-      <div
-        className="fixed inset-0 z-[60] hidden md:block"
-        onClick={handleClose}
-        aria-hidden="true"
-      />
 
       {/* Drawer Container (Desktop 440px right drawer, Mobile bottom sheet 72vh) */}
       <aside
         ref={drawerRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal={isNarrow ? 'true' : undefined}
         aria-labelledby="cr-drawer-word-title"
-        className="cr-drawer-enter fixed inset-x-0 bottom-0 z-[61] flex h-[72dvh] max-h-[72dvh] flex-col rounded-t-3xl border-t border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-full md:w-[440px] md:rounded-none md:border-l md:border-t-0"
+        className="cr-drawer-enter fixed inset-x-0 bottom-0 z-[61] flex h-[72dvh] max-h-[72dvh] flex-col rounded-t-3xl border-t border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-full md:w-[380px] md:rounded-none md:border-l md:border-t-0"
       >
         {/* Mobile Drag Handle (Touch target 44px) */}
         <div
@@ -441,7 +431,7 @@ export function DictionaryDrawer({
         {/* Header (Word, IPA, Audio, Bookmark, Close) */}
         <DrawerHeader
           word={entry?.word || word}
-          ipa={entry?.phonetic_ipa || ''}
+          ipa={entry?.phonetic_ipa || entry?.pronunciation?.ipa || ''}
           sourceLang={sourceLang}
           targetLang={targetLang}
           targetWord={targetWord}
@@ -577,47 +567,22 @@ export function DictionaryDrawer({
               aria-labelledby={`tab-${activeTab}`}
               className="cr-anim-rise"
             >
+              {activeTab === 'meaning' && (
+                <MeaningTab
+                  word={entry?.word || word}
+                  entry={entry}
+                  sourceLang={sourceLang}
+                  targetLang={motherLang}
+                  contextSentence={contextSentence}
+                  onPlayAudio={(txt, lng) => handlePlayAudio(txt, lng, `audio_ex_${txt}`)}
+                />
+              )}
+
               {activeTab === 'definition' && (
                 <DefinitionTab
                   word={entry?.word || word}
                   entry={entry}
-                  selectedVariant={selectedVariant}
-                  contextSentence={contextSentence}
-                  sourceLang={sourceLang}
-                  onSelectVariant={(v) => setSelectedVariant(v)}
-                  onOpenWord={handleOpenWord}
-                  onPlayAudio={(txt, lng) => handlePlayAudio(txt, lng, `audio_ex_${txt}`)}
-                  blockErrors={blockErrors}
-                  onRetryBlock={(id) => fetchDictionaryData(word, targetLang)}
-                />
-              )}
-
-              {activeTab === 'examples' && (
-                <ExamplesTab
-                  examples={entry?.examples || []}
-                  word={entry?.word || word}
-                  sourceLang={sourceLang}
-                  targetLang={targetLang}
-                  onPlayAudio={(txt, lng) => handlePlayAudio(txt, lng, `audio_ex_${txt}`)}
-                />
-              )}
-
-              {activeTab === 'translations' && (
-                <TranslationsTab
-                  translations={entry?.translations_table || []}
-                  selected={selectedVariant?.target_word || entry?.contextual_meaning}
-                  onSelectVariant={(v) => setSelectedVariant(v)}
-                />
-              )}
-
-              {activeTab === 'grammar' && (
-                <Grammar3dTab
-                  grammarData={grammarData}
-                  loading={grammarLoading}
-                  error={grammarError}
-                  onRetry={onFetchGrammar}
-                  sentenceText={contextSentence}
-                  word={entry?.word || word}
+                  motherLang={motherLang}
                 />
               )}
             </div>

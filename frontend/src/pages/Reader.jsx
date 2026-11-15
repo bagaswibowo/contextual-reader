@@ -32,8 +32,8 @@ function renderCachedKaTeX(formula, displayMode = false) {
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
-  Globe, ArrowLeft, ArrowRight, ChevronDown, Volume2, Bookmark, 
-  Check, Plus, Sparkles, BookOpen, Sun, Moon, Type, 
+  Globe, ArrowLeft, ChevronDown, Volume2,
+  Sparkles, BookOpen, Sun, Moon, Type, 
   SlidersHorizontal, AlertTriangle, X, Play, Square,
   GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText,
   Layers, Target, Search, PanelBottom, MessageSquare
@@ -81,7 +81,7 @@ export function Reader() {
 
   // Mobile settings modal state
   const [showMobileSettingsModal, setShowMobileSettingsModal] = useState(false)
-  const [activeWordPopup, setActiveWordPopup] = useState(null) // { word, sentenceId, data, loading }
+  const [selectedWord, setSelectedWord] = useState(null) // { sentenceId, wIdx } highlight only
   const [activeSentencePopup, setActiveSentencePopup] = useState(null) // { sentenceId, text, translation, loading }
   const [showTocModal, setShowTocModal] = useState(false)
   const [savedWords, setSavedWords] = useState(new Set())
@@ -92,16 +92,15 @@ export function Reader() {
   const [drawerWord, setDrawerWord] = useState('')
   const [drawerContext, setDrawerContext] = useState('')
   const [drawerSentenceId, setDrawerSentenceId] = useState(null)
-  const [drawerInitialTab, setDrawerInitialTab] = useState('definition')
+  const [drawerInitialTab, setDrawerInitialTab] = useState('meaning')
   const [isLangPopoverOpen, setIsLangPopoverOpen] = useState(false)
 
-  const openDictionaryDrawer = (wordToOpen, sId, sentText, tab = 'definition') => {
+  const openDictionaryDrawer = (wordToOpen, sId, sentText, tab = 'meaning') => {
     setDrawerWord(wordToOpen)
     setDrawerSentenceId(sId)
     setDrawerContext(sentText || '')
     setDrawerInitialTab(tab)
     setIsDrawerOpen(true)
-    setActiveWordPopup(null)
   }
 
   // TTS State
@@ -119,7 +118,7 @@ export function Reader() {
         setShowTocModal(false)
         setIsDrawerOpen(false)
         setIsLangPopoverOpen(false)
-        setActiveWordPopup((prev) => (prev !== null ? null : prev))
+        setSelectedWord(null)
         setActiveSentencePopup((prev) => (prev !== null ? null : prev))
       }
     }
@@ -167,7 +166,7 @@ export function Reader() {
   const loadChapter = async (index) => {
     try {
       setLoading(true)
-      setActiveWordPopup(null)
+      setSelectedWord(null)
       setActiveSentencePopup(null)
       const res = await booksApi.chapter(bookId, index)
       setChapter(res.data)
@@ -196,78 +195,14 @@ export function Reader() {
     }
   }
 
-  // Reading.help 3D Assistance Fetcher (Lexical + Grammar + Comprehension Gist)
-  const handleFetch3d = async (sentenceId, word, sentenceText) => {
-    setActiveWordPopup(prev => ({ ...prev, explain3dLoading: true, explain3dError: null }))
-    try {
-      const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
-      const res = await translationsApi.explain3d(
-        sentenceText || word,
-        word,
-        userCefrLevel || 'B2',
-        targetLanguage || 'id',
-        sentenceId,
-        customConfig,
-        translationEngine || 'google'
-      )
-      setActiveWordPopup(prev => ({
-        ...prev,
-        explain3dLoading: false,
-        explain3dData: res.data
-      }))
-    } catch (e) {
-      setActiveWordPopup(prev => ({
-        ...prev,
-        explain3dLoading: false,
-        explain3dError: e.message || 'Gagal memuat analisis 3D'
-      }))
-    }
-  }
-
-  // Handle word or multi-word phrase click -> contextual translation
-  const handleWordClick = async (event, sentenceId, rawWord, wIdx, overrideLang) => {
-    // Clean punctuation from word or multi-word phrase while preserving spaces
+  // One click opens the full word panel on the right, no intermediate popup.
+  const handleWordClick = (event, sentenceId, rawWord, wIdx) => {
     const cleanedWord = rawWord.replace(/^[^\w]+|[^\w]+$/g, '').replace(/\s+/g, ' ')
     if (!cleanedWord || cleanedWord.length < 2) return
 
-    const langToUse = overrideLang || targetLanguage || 'id'
-
-    // Set initial loading popup state
-    setActiveWordPopup({
-      word: cleanedWord,
-      sentenceId,
-      wIdx,
-      lang: langToUse,
-      loading: true,
-      data: null
-    })
-
-    try {
-      const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
-      const res = await translationsApi.word(sentenceId, cleanedWord, langToUse, translationEngine || 'google', customConfig)
-      if (typeof res.data === 'string' && res.data.includes('<!doctype html>')) {
-        throw new Error('Terjadi kesalahan server internal. Silakan coba lagi.')
-      }
-      setActiveWordPopup(prev => ({
-        ...prev,
-        loading: false,
-        data: res.data
-      }))
-      
-      // Auto-prefetch 3D Assistance in background so tabs open instantly
-      const sentText = chapter?.sentences?.find(s => s.id === sentenceId)?.text || cleanedWord;
-      handleFetch3d(sentenceId, cleanedWord, sentText);
-    } catch (err) {
-      let errMsg = err.message || 'Gagal menerjemahkan kata/frasa'
-      if (typeof errMsg === 'string' && errMsg.includes('<!doctype html>')) {
-        errMsg = 'Terjadi kesalahan server internal (500). Silakan coba lagi.'
-      }
-      setActiveWordPopup(prev => ({
-        ...prev,
-        loading: false,
-        error: errMsg
-      }))
-    }
+    const sentText = chapter?.sentences?.find(s => s.id === sentenceId)?.text || cleanedWord
+    setSelectedWord({ sentenceId, wIdx })
+    openDictionaryDrawer(cleanedWord, sentenceId, sentText, 'meaning')
   }
 
   // Handle multi-word text selection (e.g. "interaction design" or "fringe to mainstream")
@@ -279,8 +214,7 @@ export function Reader() {
       const cleanedPhrase = selectedText.replace(/^[^\w]+|[^\w]+$/g, '').replace(/\s+/g, ' ')
       if (cleanedPhrase.length >= 2) {
         if (event && event.stopPropagation) event.stopPropagation()
-        const sentText = chapter?.sentences?.find(s => s.id === sentenceId)?.text || cleanedPhrase
-        openDictionaryDrawer(cleanedPhrase, sentenceId, sentText, 'definition')
+        handleWordClick(event, sentenceId, cleanedPhrase, 0)
       }
     }
   }
@@ -406,11 +340,11 @@ export function Reader() {
   const handleSaveVocabulary = async (wordParam, contextSentenceParam) => {
     try {
       setSavingVocab(true)
-      let transId = activeWordPopup?.data?.id
+      let transId = null
 
-      if (!transId) {
-        const sId = drawerSentenceId || activeWordPopup?.sentenceId
-        const w = wordParam || drawerWord || activeWordPopup?.word
+      {
+        const sId = drawerSentenceId
+        const w = wordParam || drawerWord
         if (sId && w) {
           const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
           const res = await translationsApi.word(sId, w, targetLanguage || 'id', translationEngine || 'google', customConfig)
@@ -420,7 +354,7 @@ export function Reader() {
 
       if (transId) {
         await vocabularyApi.add(transId)
-        const w = wordParam || drawerWord || activeWordPopup?.word
+        const w = wordParam || drawerWord
         setSavedWords(prev => {
           const next = new Set(prev)
           next.add(transId)
@@ -429,9 +363,6 @@ export function Reader() {
         })
       }
       setSavingVocab(false)
-      if (activeWordPopup) {
-        setActiveWordPopup(null)
-      }
     } catch (err) {
       setSavingVocab(false)
       console.error('Gagal menyimpan kosakata', err)
@@ -646,7 +577,7 @@ export function Reader() {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-20">
+    <div className={`flex flex-col gap-6 pb-20 transition-[padding] duration-200 ${isDrawerOpen ? 'lg:pr-[392px]' : ''}`}>
       {/* Reading Toolbar - Mobile-First Responsive Design */}
       <div
         className="card-duo sticky top-[72px] z-30 flex items-center justify-between gap-2 p-2.5 lg:top-4 sm:p-3"
@@ -966,15 +897,13 @@ export function Reader() {
                     }
                     const word = token.content
                     const wIdx = token.wIdx
-                    const isSelected = isDrawerOpen && drawerSentenceId === sent.id && drawerWord === word
+                    const isSelected = selectedWord && selectedWord.sentenceId === sent.id && selectedWord.wIdx === wIdx
                     return (
                       <span key={`tok-${tIdx}`} className="relative inline-block">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const sentText = sent.text || word
-                            openDictionaryDrawer(word, sent.id, sentText, 'definition')
-                          }}
+                          type="button"
+                          onClick={(e) => handleWordClick(e, sent.id, word, wIdx)}
+                          aria-label={`Buka arti kata ${word}`}
                           data-selected-word={isSelected ? "true" : undefined}
                           className={`word-clickable rounded transition-all ${
                             isSelected
@@ -985,171 +914,6 @@ export function Reader() {
                           {word}
                         </button>
                         {' '}
-                        {false && (
-                          <>
-                            {/* Dimmed Backdrop */}
-                            <div
-                              className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity ${isBottomSheet ? '' : 'sm:hidden'}`}
-                              onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
-                            />
-
-                            {/* Responsive Popup Container: Compact Tier 1 Popover (DESIGN §4.3, max 180px desktop / 220px mobile) */}
-                            <div className={
-                              isBottomSheet
-                                ? "cr-scroll-contain fixed inset-x-0 bottom-0 z-50 animate-slide-up w-full max-w-lg mx-auto max-h-[50dvh] overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] rounded-t-3xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 border-x-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
-                                : "cr-scroll-contain fixed inset-x-0 bottom-0 z-50 sm:absolute sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 animate-slide-up sm:animate-bounce-in w-full sm:w-[380px] sm:max-w-[96vw] max-h-[50dvh] sm:max-h-[180px] overflow-y-auto p-4 rounded-t-3xl sm:rounded-2xl card-duo shadow-2xl bg-white dark:bg-dark-card border-t-2 sm:border-2 border-gray-300 dark:border-dark-border text-left font-ui font-normal normal-case"
-                            }>
-                              {/* Grab Handle Container with Accessible Touch Target */}
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                aria-label="Tutup panel kata"
-                                className={`w-full py-1.5 -mt-2 mb-1 flex items-center justify-center cursor-pointer touch-manipulation select-none shrink-0 ${isBottomSheet ? 'flex' : 'sm:hidden'}`}
-                                onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setActiveWordPopup(null); } }}
-                                onTouchStart={(e) => {
-                                  if (e.touches.length === 1) {
-                                    touchStartYRef.current = e.touches[0].clientY;
-                                  }
-                                }}
-                                onTouchCancel={() => { touchStartYRef.current = 0; }}
-                                onTouchEnd={(e) => {
-                                  if (e.changedTouches.length === 1) {
-                                    const dy = e.changedTouches[0].clientY - touchStartYRef.current;
-                                    if (dy > 40) {
-                                      e.stopPropagation();
-                                      setActiveWordPopup(null);
-                                    }
-                                  }
-                                  touchStartYRef.current = 0;
-                                }}
-                                title="Tarik ke bawah atau klik untuk menutup"
-                              >
-                                <div className="w-10 h-1 bg-gray-300 dark:bg-dark-border rounded-full hover:bg-gray-400 transition-colors" />
-                              </div>
-
-                              {/* Tooltip Pointer Arrow (Tooltip Mode Desktop Only) */}
-                              {!isBottomSheet && (
-                                <>
-                                  <div className="hidden sm:block absolute -top-[9px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[8px] border-x-transparent border-b-[9px] border-b-gray-300 dark:border-b-dark-border" />
-                                  <div className="hidden sm:block absolute -top-[7px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[7px] border-x-transparent border-b-[7px] border-b-white dark:border-b-dark-card" />
-                                </>
-                              )}
-
-                            {/* Header & Word */}
-                            <div className="flex items-start justify-between gap-2 mb-3">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-heading font-extrabold text-2xl text-eel dark:text-dark-text">
-                                    {activeWordPopup.word}
-                                  </h3>
-                                  {activeWordPopup.data?.ipa && (
-                                    <span className="text-xs font-mono text-[var(--cr-text-secondary)] bg-[var(--cr-bg-surface)] px-2 py-0.5 rounded-full">
-                                      /{activeWordPopup.data.ipa}/
-                                    </span>
-                                  )}
-                                  {(() => {
-                                    const audioKey = `word_orig_${activeWordPopup.word}`
-                                    const isPlaying = playingAudioKey === audioKey
-                                    return (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.word, book?.language || 'en', audioKey); }}
-                                        className={`p-1 rounded-full transition-colors ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-blue hover:bg-duo-blue/10'}`}
-                                        title={isPlaying ? "Berhenti" : "Dengarkan pengucapan kata asli"}
-                                      >
-                                        {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
-                                      </button>
-                                    )
-                                  })()}
-                                </div>
-                                {activeWordPopup.data?.is_false_friend && (
-                                  <span className="badge-red mt-1 inline-flex items-center gap-1 text-[10px]">
-                                    <AlertTriangle className="w-3 h-3" /> False Friend!
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setActiveWordPopup(null); }}
-                                className="p-1 text-gray-400 hover:text-eel dark:hover:text-white"
-                              >
-                                <X className="w-5 h-5" />
-                              </button>
-                            </div>
-
-                            {activeWordPopup.loading ? (
-                              <div className="flex items-center gap-2 py-3">
-                                <div className="w-4 h-4 border-2 border-duo-green border-t-transparent rounded-full animate-spin shrink-0" />
-                                <p className="text-xs font-bold text-[var(--cr-text-secondary)]">Mencari makna kontekstual...</p>
-                              </div>
-                            ) : activeWordPopup.error ? (
-                              <p className="text-xs text-duo-red py-2 font-bold">{activeWordPopup.error}</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {/* Primary Contextual Meaning */}
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="font-heading font-extrabold text-lg text-eel dark:text-dark-text truncate">
-                                    {activeWordPopup.data?.contextual_meaning}
-                                  </p>
-                                  {activeWordPopup.data?.contextual_meaning && (() => {
-                                    const audioKey = `word_trans_${activeWordPopup.data?.contextual_meaning}`
-                                    const isPlaying = playingAudioKey === audioKey
-                                    return (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); speakText(activeWordPopup.data?.contextual_meaning, activeWordPopup.lang || targetLanguage || 'id', audioKey); }}
-                                        className={`p-1 rounded-full transition-colors shrink-0 ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-green hover:bg-duo-green/20'}`}
-                                        title={isPlaying ? "Berhenti" : "Dengarkan pengucapan terjemahan"}
-                                        aria-label={`Dengarkan terjemahan ${activeWordPopup.data?.contextual_meaning}`}
-                                      >
-                                        {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
-                                      </button>
-                                    )
-                                  })()}
-                                </div>
-
-                                {/* Action Buttons: Save Word & Buka Kamus Lengkap (Tier 2 Trigger) */}
-                                <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-dark-border mt-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleSaveVocabulary}
-                                    disabled={savingVocab || savedWords.has(activeWordPopup.data?.id)}
-                                    className={`cr-press min-h-[40px] px-3 py-1.5 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1.5 ${
-                                      savedWords.has(activeWordPopup.data?.id)
-                                        ? 'cr-press-outline text-[var(--cr-text-secondary)]'
-                                        : 'text-[var(--cr-btn-primary-text-aa)]'
-                                    }`}
-                                  >
-                                    {savedWords.has(activeWordPopup.data?.id) ? (
-                                      <>
-                                        <Check className="w-3.5 h-3.5 text-duo-green" />
-                                        <span>Tersimpan</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Bookmark className="w-3.5 h-3.5" />
-                                        <span>Simpan</span>
-                                      </>
-                                    )}
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word
-                                      openDictionaryDrawer(activeWordPopup.word, activeWordPopup.sentenceId, sentText, 'definition')
-                                    }}
-                                    className="cr-press min-h-[40px] flex-1 px-3 py-1.5 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1"
-                                    style={{ '--press-bg': 'var(--cr-blue-solid)', '--press-shadow': 'var(--cr-blue-solid-shadow)' }}
-                                  >
-                                    <span>Buka Kamus Lengkap</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          </>
-                        )}
                       </span>
                     )
                   })}
@@ -1661,13 +1425,8 @@ export function Reader() {
         isSaved={drawerWord ? (savedWords.has(drawerWord.toLowerCase()) || false) : false}
         saving={savingVocab}
         translationEngine={translationEngine || 'google'}
-        customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
         motherLang={motherLanguage || 'id'}
-        onFetchGrammar={() => {
-          if (drawerSentenceId && drawerWord) {
-            handleFetch3d(drawerSentenceId, drawerWord, drawerContext)
-          }
-        }}
+        customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
       />
 
       {/* Target Language Popover (F3) */}

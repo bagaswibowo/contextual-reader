@@ -1,286 +1,125 @@
 import React from 'react'
-import { Sparkles, BookOpen, Layers, MessageSquare, Volume2 } from 'lucide-react'
-import { SynonymBadgeCloud } from '../widgets/SynonymBadgeCloud'
-import { MeaningVariantRow } from '../widgets/MeaningVariantRow'
+import { BookOpen, Languages } from 'lucide-react'
 
-function BlockLabel({ icon: Icon, id, children, tone = 'muted' }) {
-  return (
-    <span
-      id={id}
-      className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] ${
-        tone === 'accent' ? 'text-[var(--cr-text-accent)]' : 'text-[var(--cr-text-secondary)]'
-      }`}
-    >
-      {Icon && <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
-      {children}
-    </span>
-  )
+const LANGUAGE_NAMES = {
+  id: 'Indonesia',
+  en: 'Inggris',
+  es: 'Spanyol',
+  fr: 'Prancis',
+  de: 'Jerman',
+  ja: 'Jepang',
+  ko: 'Korea',
+  zh: 'Mandarin',
+  ar: 'Arab',
+  ru: 'Rusia',
+}
+
+function languageName(code) {
+  return LANGUAGE_NAMES[(code || '').toLowerCase()] || (code || '').toUpperCase()
 }
 
 /**
- * DefinitionTab
- * B1–B5 word insight (AC-WI-01, AC-WI-02, AC-WI-12).
- * Visual hierarchy: one anchoring block (B1), then a single grouped surface for
- * details B3–B5 so the drawer does not read as five identical cards.
+ * Definition tab: the word explained in the reader's chosen mother tongue.
+ * Senses come from the dictionary enrichment grouped by part of speech.
  */
 export function DefinitionTab({
-  word = '',
   entry = null,
-  selectedVariant = null,
-  contextSentence = '',
-  sourceLang = 'en',
-  onSelectVariant,
-  onOpenWord,
-  onPlayAudio,
-  blockErrors = {},
-  onRetryBlock,
+  word = '',
+  motherLang = 'id',
   className = '',
 }) {
   if (!entry) return null
 
-  const activeMeaning =
-    selectedVariant?.target_word ||
-    selectedVariant?.meaning ||
-    entry.contextual_meaning ||
-    (entry.senses && entry.senses[0]?.meaning) ||
-    entry.translation ||
-    ''
+  const translations = Array.isArray(entry.translations_table) ? entry.translations_table : []
+  const motherMeaning = entry.mother_meaning || entry.contextual_meaning || ''
+  const otherMeanings = Array.isArray(entry.other_meanings) ? entry.other_meanings : []
 
-  const variants =
-    entry.translations_table ||
-    (entry.other_meanings && Array.isArray(entry.other_meanings)
-      ? entry.other_meanings.map((m) =>
-          typeof m === 'string' ? { target_word: m, frequency: 2 } : m
-        )
-      : [])
+  const grouped = new Map()
+  translations.forEach((item) => {
+    const pos = (item.pos || 'umum').toLowerCase()
+    if (!grouped.has(pos)) grouped.set(pos, [])
+    if (item.target_word) grouped.get(pos).push(item)
+  })
 
-  const definitions =
-    entry.definitions ||
-    (entry.senses
-      ? entry.senses.map((s) => ({
-          pos: entry.part_of_speech || '',
-          definition: s.meaning,
-          example_phrase: s.examples?.[0] || '',
-          synonyms: s.synonyms || [],
-        }))
-      : [])
-  const visibleDefs = definitions.slice(0, 2)
+  if (grouped.size === 0) {
+    otherMeanings.forEach((item) => {
+      const [maybePos, rest] = String(item).split(':')
+      const pos = rest ? maybePos.trim().toLowerCase() : 'umum'
+      const label = rest ? rest.trim() : String(item)
+      if (!grouped.has(pos)) grouped.set(pos, [])
+      grouped.get(pos).push({ target_word: label, back_translations: [] })
+    })
+  }
 
-  const allSynonyms = entry.synonyms || definitions.flatMap((d) => d.synonyms || []).filter(Boolean)
-  const uniqueSynonyms = Array.from(new Set(allSynonyms))
-
-  const visibleExamples = (entry.examples || []).slice(0, 4)
-
-  const pronunciationGuide = entry.pronunciation?.guide || ''
-  const pronunciationIpa = entry.pronunciation?.ipa || entry.phonetic_ipa || ''
-
-  const hasDetail = visibleDefs.length > 0 || uniqueSynonyms.length > 0 || visibleExamples.length > 0
+  const groups = Array.from(grouped.entries())
 
   return (
-    <div className={`space-y-3.5 pb-2 ${className}`}>
-      {/* B1 — anchoring meaning */}
-      {activeMeaning && (
-        <section
-          aria-labelledby="block-b1-title"
-          className="relative overflow-hidden rounded-2xl bg-[var(--cr-highlight-word-hover)] px-4 py-4"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <BlockLabel icon={Sparkles} id="block-b1-title" tone="accent">
-              Arti di kalimat ini
-            </BlockLabel>
-            {entry.confidence ? (
-              <span className="shrink-0 rounded-full border border-[var(--cr-text-accent)] px-2 py-0.5 text-[10px] font-bold text-[var(--cr-text-accent)]">
-                {Math.round(entry.confidence * 100)}% cocok
-              </span>
-            ) : null}
-          </div>
-
-          <p className="mt-1.5 font-heading text-[26px] font-extrabold leading-[1.12] text-[var(--cr-text-primary)]">
-            {activeMeaning}
+    <div className={`space-y-4 pb-2 ${className}`}>
+      <section className="flex items-start gap-3 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--cr-highlight-word-hover)]">
+          <Languages className="h-4 w-4 text-[var(--cr-text-accent)]" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+            Definisi dalam {languageName(motherLang)}
           </p>
+          <p className="mt-1 font-heading text-lg font-extrabold leading-tight text-[var(--cr-text-primary)]">
+            {motherMeaning || word}
+          </p>
+        </div>
+      </section>
 
-          {/* Cara baca: Latin guide for beginners, IPA as the technical reference */}
-          {(pronunciationGuide || pronunciationIpa) && (
-            <p className="mt-2 flex flex-wrap items-center gap-2">
-              {pronunciationGuide && (
-                <span className="inline-flex items-center gap-1 rounded-xl bg-[var(--cr-bg-surface-elevated)] px-2.5 py-1 text-[13px] font-extrabold text-[var(--cr-text-accent)]">
-                  <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {pronunciationGuide}
-                </span>
-              )}
-              {pronunciationIpa && (
-                <span className="font-mono text-[12px] text-[var(--cr-text-secondary)]">
-                  {pronunciationIpa.startsWith('/') ? pronunciationIpa : `/${pronunciationIpa}/`}
-                </span>
-              )}
-            </p>
-          )}
-
-          {contextSentence && (
-            <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[12px] italic leading-relaxed text-[var(--cr-text-secondary)] line-clamp-2">
-              &ldquo;{contextSentence}&rdquo;
-            </blockquote>
-          )}
-        </section>
-      )}
-
-      {/* B2 — meaning variants */}
-      {variants.length > 0 && (
-        <section aria-labelledby="block-b2-title" className="px-0.5">
-          <BlockLabel icon={Layers} id="block-b2-title">
-            Varian makna
-          </BlockLabel>
-          <div className="mt-2">
-            <MeaningVariantRow
-              variants={variants}
-              selected={activeMeaning}
-              onSelect={onSelectVariant}
-            />
-          </div>
-        </section>
-      )}
-
-      {/* B3–B5 — one grouped detail surface */}
-      {hasDetail && (
-        <div className="divide-y divide-[var(--cr-border-subtle)] overflow-hidden rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)]">
-          {/* B3 */}
-          <section aria-labelledby="block-b3-title" className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <BlockLabel icon={BookOpen} id="block-b3-title">
-                Definisi &amp; kelas kata
-              </BlockLabel>
-              {entry.part_of_speech && (
-                <span className="shrink-0 rounded bg-[var(--cr-bg-surface)] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-[var(--cr-text-secondary)]">
-                  {entry.part_of_speech}
-                </span>
-              )}
-            </div>
-
-            {blockErrors.definitions ? (
-              <div className="mt-2 space-y-1 text-[12px] text-[var(--cr-text-danger)]">
-                <p>Definisi belum dapat dimuat.</p>
-                {onRetryBlock && (
-                  <button
-                    type="button"
-                    onClick={() => onRetryBlock('definitions')}
-                    className="font-bold underline underline-offset-2"
-                  >
-                    Coba lagi
-                  </button>
-                )}
-              </div>
-            ) : visibleDefs.length > 0 ? (
-              <ol className="mt-2 space-y-2.5">
-                {visibleDefs.map((defItem, idx) => (
-                  <li key={idx} className="flex gap-2.5 text-[13px] leading-relaxed text-[var(--cr-text-primary)]">
-                    <span
-                      aria-hidden="true"
-                      className="mt-0.5 shrink-0 font-mono text-[10px] font-bold text-[var(--cr-text-secondary)]"
-                    >
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <span>{defItem.definition}</span>
-                      {defItem.example_phrase && (
-                        <p className="mt-0.5 text-[11px] italic text-[var(--cr-text-secondary)]">
-                          &ldquo;{defItem.example_phrase}&rdquo;
-                        </p>
-                      )}
-                    </div>
+      {groups.length > 0 ? (
+        <div className="space-y-3">
+          {groups.map(([pos, items]) => (
+            <section
+              key={pos}
+              className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4"
+            >
+              <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-[var(--cr-text-secondary)]">
+                {pos}
+              </p>
+              <ul className="mt-2 space-y-2">
+                {items.map((item, idx) => (
+                  <li key={`${item.target_word}-${idx}`} className="text-[13px] leading-relaxed text-[var(--cr-text-primary)]">
+                    <span className="font-semibold">{item.target_word}</span>
+                    {Array.isArray(item.back_translations) && item.back_translations.length > 0 && (
+                      <span className="mt-0.5 block text-[11px] text-[var(--cr-text-secondary)]">
+                        Padanan: {item.back_translations.join(', ')}
+                      </span>
+                    )}
                   </li>
                 ))}
-              </ol>
-            ) : (
-              <p className="mt-2 text-[12px] text-[var(--cr-text-secondary)]">
-                Definisi belum tersedia untuk kata ini.
-              </p>
-            )}
-          </section>
-
-          {/* B4 */}
-          {uniqueSynonyms.length > 0 && (
-            <section aria-labelledby="block-b4-title" className="p-4">
-              <BlockLabel icon={Sparkles} id="block-b4-title">
-                Sinonim
-              </BlockLabel>
-              <div className="mt-2">
-                <SynonymBadgeCloud
-                  synonyms={uniqueSynonyms}
-                  maxDisplay={6}
-                  onSelectWord={onOpenWord}
-                />
-              </div>
+              </ul>
             </section>
-          )}
-
-          {/* B5 — everyday examples, up to 4, each with the mother-tongue line */}
-          {visibleExamples.length > 0 && (
-            <section aria-labelledby="block-b5-title" className="p-4">
-              <BlockLabel icon={MessageSquare} id="block-b5-title">
-                Contoh penggunaan sehari-hari
-              </BlockLabel>
-
-              <div className="mt-2 space-y-2.5">
-                {visibleExamples.map((ex, idx) => {
-                  const srcText = ex.source_text || ex.source || ex.en || ''
-                  const tgtText = ex.target_text || ex.target || ex.id || ''
-                  const kw = ex.keyword || word
-
-                  return (
-                    <div
-                      key={idx}
-                      className="space-y-1 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] p-3"
-                    >
-                      <p className="text-[13px] font-medium leading-relaxed text-[var(--cr-text-primary)]">
-                        {highlightKeyword(srcText, kw)}
-                      </p>
-                      {tgtText && (
-                        <p className="text-[12px] leading-relaxed text-[var(--cr-text-secondary)]">
-                          {tgtText}
-                        </p>
-                      )}
-                      {onPlayAudio && srcText && (
-                        <button
-                          type="button"
-                          onClick={() => onPlayAudio(srcText, sourceLang)}
-                          aria-label={`Dengarkan contoh kalimat: ${srcText}`}
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold text-[var(--cr-text-secondary)] transition-colors hover:bg-[var(--cr-bg-surface-elevated)] hover:text-[var(--cr-text-primary)]"
-                        >
-                          <Volume2 className="h-4 w-4" />
-                          <span>Dengarkan</span>
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
+          ))}
         </div>
+      ) : (
+        <p className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4 text-[12px] text-[var(--cr-text-secondary)]">
+          Definisi dalam bahasa induk belum tersedia untuk kata ini.
+        </p>
       )}
+
+      <section className="rounded-2xl border border-[var(--cr-border-subtle)] p-4">
+        <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+          <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          Definisi asli ({languageName(entry.lang || 'en')})
+        </p>
+        <ol className="mt-2 space-y-2">
+          {(entry.definitions || entry.senses || []).slice(0, 4).map((item, idx) => (
+            <li key={`def-${idx}`} className="flex gap-2 text-[12px] leading-relaxed text-[var(--cr-text-secondary)]">
+              <span className="mt-0.5 shrink-0 font-mono text-[10px] font-bold">{idx + 1}</span>
+              <span>
+                {item.definition || item.meaning}
+                {item.example_phrase && (
+                  <span className="mt-0.5 block italic">&ldquo;{item.example_phrase}&rdquo;</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
-  )
-}
-
-function highlightKeyword(text, keyword) {
-  if (!text || !keyword) return text
-  const lowerText = text.toLowerCase()
-  const lowerKw = keyword.toLowerCase()
-  const matchIdx = lowerText.indexOf(lowerKw)
-  if (matchIdx === -1) return text
-
-  const before = text.slice(0, matchIdx)
-  const match = text.slice(matchIdx, matchIdx + keyword.length)
-  const after = text.slice(matchIdx + keyword.length)
-
-  return (
-    <>
-      {before}
-      <mark className="rounded-sm bg-[var(--cr-highlight-sentence)] px-1 font-bold text-[var(--cr-text-primary)]">
-        {match}
-      </mark>
-      {after}
-    </>
   )
 }
 
