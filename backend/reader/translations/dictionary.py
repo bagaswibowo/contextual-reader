@@ -267,9 +267,12 @@ def serialize_entry(
         target_pronunciation = build_pronunciation(
             target_reading.get('ipa') or '',
             target_reading.get('guide') or '',
-            target_reading.get('romanization') or '',
+            # Google has no reading for every language; fall back to the
+            # spelling so the tab still shows syllables, never a guess at IPA.
+            target_reading.get('romanization') or target_primary,
             target_lang,
         )
+        target_pronunciation['word'] = target_primary
         target_pronunciation['audio_url'] = build_audio_url(target_primary, target_lang)
 
     source_examples = []
