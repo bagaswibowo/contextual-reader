@@ -54,7 +54,7 @@ export function Grammar3dTab({
           <button
             type="button"
             onClick={onRetry}
-            className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)] hover:bg-[var(--cr-btn-primary-hover)] inline-flex items-center gap-1.5 transition-colors"
+            className="cr-press min-h-[44px] px-4 py-2 rounded-2xl text-xs font-extrabold text-[var(--cr-btn-primary-text-aa)] inline-flex items-center gap-1.5"
           >
             <Zap className="w-3.5 h-3.5" />
             <span>Analisis Tata Bahasa</span>

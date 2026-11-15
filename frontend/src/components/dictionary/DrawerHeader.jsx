@@ -56,14 +56,14 @@ export function DrawerHeader({
         <div className="min-w-0 flex-1">
           <h2
             id="cr-drawer-word-title"
-            className="font-heading text-[22px] font-extrabold leading-[1.15] text-[var(--cr-text-primary)] break-words [overflow-wrap:anywhere] sm:text-2xl"
+            className="font-heading text-[24px] font-extrabold leading-[1.15] text-[var(--cr-text-primary)] break-words [overflow-wrap:anywhere] sm:text-[28px]"
           >
             {displayWord}
           </h2>
 
-          <div className="mt-0.5 flex items-baseline gap-2">
+          <div className="mt-1 flex items-baseline gap-2">
             {ipa ? (
-              <span className="font-mono text-[13px] text-[var(--cr-text-secondary)]">
+              <span className="rounded-md bg-[var(--cr-highlight-word-hover)] px-1.5 py-0.5 font-mono text-[13px] font-bold text-[var(--cr-text-secondary)]">
                 {ipa.startsWith('/') ? ipa : `/${ipa}/`}
               </span>
             ) : (
@@ -75,7 +75,7 @@ export function DrawerHeader({
               </span>
             )}
             {displayTarget && (
-              <span className="truncate text-[13px] font-semibold text-[var(--cr-text-accent)]">
+              <span className="truncate text-[13px] font-extrabold text-[var(--cr-text-accent)]">
                 {displayTarget}
               </span>
             )}
@@ -127,10 +127,10 @@ export function DrawerHeader({
             aria-pressed={saved}
             aria-label={saved ? `Kata ${displayWord} tersimpan` : `Simpan kata ${displayWord}`}
             title={saved ? 'Tersimpan di kosakata' : 'Simpan kata ke kosakata'}
-            className={`min-h-[44px] min-w-[44px] shrink-0 rounded-xl border px-2.5 text-xs font-bold transition-colors inline-flex select-none items-center justify-center gap-1.5 sm:px-3.5 ${
+            className={`cr-pop min-h-[44px] min-w-[44px] shrink-0 rounded-2xl px-2.5 text-xs font-extrabold inline-flex select-none items-center justify-center gap-1.5 sm:px-3.5 ${
               saved
-                ? 'border-[var(--cr-btn-primary-bg)] bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)]'
-                : 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-secondary)] hover:border-[var(--cr-border-interactive)] hover:text-[var(--cr-text-primary)]'
+                ? 'cr-press text-[var(--cr-btn-primary-text-aa)]'
+                : 'cr-press-outline text-[var(--cr-text-secondary)]'
             }`}
           >
             {saved ? (

@@ -55,10 +55,10 @@ export function HistoryRow({
           type="button"
           onClick={() => onToggleSave && onToggleSave(item)}
           aria-label={saved ? `Hapus bintang kata ${word}` : `Beri bintang kata ${word}`}
-          className={`min-h-[44px] min-w-[44px] p-2 rounded-xl border transition-colors inline-flex items-center justify-center ${
+          className={`min-h-[44px] min-w-[44px] p-2 rounded-2xl transition-colors inline-flex items-center justify-center ${
             saved
-              ? 'bg-[var(--cr-btn-primary-bg)] border-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)]'
-              : 'bg-[var(--cr-bg-surface)] border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
+              ? 'cr-press text-[var(--cr-btn-primary-text-aa)]'
+              : 'cr-press-outline text-[var(--cr-text-secondary)]'
           }`}
         >
           {saved ? <Check className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}

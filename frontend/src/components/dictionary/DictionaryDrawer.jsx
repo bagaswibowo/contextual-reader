@@ -496,7 +496,7 @@ export function DictionaryDrawer({
                 <button
                   type="button"
                   onClick={() => fetchDictionaryData(word, targetLang)}
-                  className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)] inline-flex items-center gap-1.5"
+                  className="cr-press min-h-[44px] px-4 py-2 text-xs font-extrabold rounded-2xl text-[var(--cr-btn-primary-text-aa)] inline-flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Coba lagi</span>
@@ -520,7 +520,7 @@ export function DictionaryDrawer({
               <button
                 type="button"
                 onClick={() => fetchDictionaryData(word, targetLang)}
-                className="mt-2 min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-[var(--cr-border-interactive)] inline-flex items-center gap-1.5"
+                className="cr-press-outline cr-pop mt-2 min-h-[44px] px-4 py-2 text-xs font-extrabold rounded-2xl inline-flex items-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Coba lagi</span>
@@ -540,7 +540,7 @@ export function DictionaryDrawer({
               <button
                 type="button"
                 onClick={() => fetchDictionaryData(word, targetLang)}
-                className="mt-2 min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-[var(--cr-border-interactive)] inline-flex items-center gap-1.5"
+                className="cr-press-outline cr-pop mt-2 min-h-[44px] px-4 py-2 text-xs font-extrabold rounded-2xl inline-flex items-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Coba lagi</span>
@@ -558,7 +558,7 @@ export function DictionaryDrawer({
               <button
                 type="button"
                 onClick={() => fetchDictionaryData(word, targetLang)}
-                className="mt-2 min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)] inline-flex items-center gap-1.5"
+                className="cr-press mt-2 min-h-[44px] px-4 py-2 text-xs font-extrabold rounded-2xl text-[var(--cr-btn-primary-text-aa)] inline-flex items-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Coba lagi</span>

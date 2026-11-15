@@ -174,7 +174,7 @@ export function LookupHistoryTab({ onOpenWord, onNavigateBook }) {
             setIsStorageCorrupt(false)
             setHistoryItems([])
           }}
-          className="min-h-[44px] rounded-xl bg-[var(--cr-btn-primary-bg)] px-4 py-2 font-bold text-[var(--cr-btn-primary-text)]"
+          className="cr-press min-h-[44px] rounded-2xl px-4 py-2 font-extrabold text-[var(--cr-btn-primary-text-aa)]"
         >
           Reset Riwayat
         </button>

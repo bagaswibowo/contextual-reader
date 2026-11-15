@@ -94,7 +94,7 @@ export function ExamplesTab({
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-[var(--cr-border-interactive)] text-[var(--cr-text-primary)] hover:bg-[var(--cr-bg-surface-elevated)] transition-colors"
+            className="cr-press-outline cr-pop min-h-[44px] px-4 py-2 text-xs font-extrabold rounded-2xl text-[var(--cr-text-primary)] transition-colors"
           >
             Lihat semua ({examples.length})
           </button>

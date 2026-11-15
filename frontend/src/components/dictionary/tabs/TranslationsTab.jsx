@@ -61,10 +61,10 @@ export function TranslationsTab({
                 }
               }}
               aria-pressed={isSelected}
-              className={`p-3.5 rounded-2xl border transition-colors text-left cursor-pointer space-y-1.5 ${
+              className={`cr-pop p-3.5 rounded-2xl text-left cursor-pointer space-y-1.5 transition-colors ${
                 isSelected
-                  ? 'border-[var(--cr-text-accent)] bg-[var(--cr-highlight-word-hover)]'
-                  : 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] hover:border-[var(--cr-border-interactive)]'
+                  ? 'border-2 border-[var(--cr-text-accent)] bg-[var(--cr-highlight-word-hover)]'
+                  : 'cr-press-outline'
               }`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -106,7 +106,7 @@ export function TranslationsTab({
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-[var(--cr-border-interactive)] text-[var(--cr-text-primary)] hover:bg-[var(--cr-bg-surface-elevated)] transition-colors"
+            className="cr-press-outline cr-pop min-h-[44px] px-4 py-2 text-xs font-extrabold rounded-2xl text-[var(--cr-text-primary)] transition-colors"
           >
             Lihat semua ({sorted.length})
           </button>

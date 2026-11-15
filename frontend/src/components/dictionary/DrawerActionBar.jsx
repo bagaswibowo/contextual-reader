@@ -48,10 +48,10 @@ export function DrawerActionBar({
   }
 
   const feedbackButtonClass = (isActive) =>
-    `min-h-[44px] min-w-[44px] p-2 rounded-xl border transition-colors inline-flex items-center justify-center ${
+    `cr-pop min-h-[44px] min-w-[44px] p-2 rounded-2xl inline-flex items-center justify-center ${
       isActive
-        ? 'bg-[var(--cr-highlight-word-hover)] border-[var(--cr-text-accent)] text-[var(--cr-text-accent)]'
-        : 'bg-[var(--cr-bg-surface)] border-[var(--cr-border-subtle)] text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] hover:border-[var(--cr-border-interactive)]'
+        ? 'bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
+        : 'cr-press-outline text-[var(--cr-text-secondary)]'
     }`
 
   return (
@@ -71,10 +71,10 @@ export function DrawerActionBar({
                 ? `Kata ${word} tersimpan bersama kalimat`
                 : `Simpan kata ${word} dan kalimat sumber`
             }
-            className={`min-h-[44px] flex-1 px-3.5 py-2 rounded-xl text-[13px] font-extrabold flex items-center justify-center gap-2 transition-colors disabled:opacity-60 ${
+            className={`cr-press min-h-[44px] flex-1 px-3.5 py-2 rounded-2xl text-[13px] font-extrabold flex items-center justify-center gap-2 disabled:opacity-60 ${
               saved
-                ? 'bg-[var(--cr-bg-surface)] border border-[var(--cr-text-accent)] text-[var(--cr-text-accent)]'
-                : 'bg-[var(--cr-btn-primary-bg)] text-[var(--cr-btn-primary-text)] hover:bg-[var(--cr-btn-primary-hover)]'
+                ? 'cr-press-outline text-[var(--cr-text-accent)]'
+                : 'text-[var(--cr-btn-primary-text-aa)]'
             }`}
           >
             {saved ? (

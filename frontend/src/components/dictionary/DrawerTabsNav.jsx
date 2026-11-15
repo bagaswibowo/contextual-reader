@@ -70,9 +70,9 @@ export function DrawerTabsNav({
             tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange && onTabChange(tab.id)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
-            className={`relative flex min-h-[48px] flex-1 shrink-0 items-center justify-center gap-1.5 px-2.5 pb-2.5 pt-2 text-[12px] font-bold transition-colors ${
+            className={`cr-pop relative flex min-h-[48px] flex-1 shrink-0 items-center justify-center gap-1.5 rounded-2xl px-2.5 pb-2.5 pt-2 text-[12px] font-extrabold transition-colors ${
               isActive
-                ? 'text-[var(--cr-text-primary)]'
+                ? 'mx-1 my-2 bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
                 : 'text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
             }`}
           >
@@ -86,7 +86,7 @@ export function DrawerTabsNav({
             <span className="whitespace-nowrap">{tab.label}</span>
             <span
               aria-hidden="true"
-              className={`absolute inset-x-2 bottom-0 h-[2px] rounded-full transition-opacity ${
+              className={`absolute inset-x-2 bottom-0 h-[3px] rounded-full transition-opacity ${
                 isActive ? 'bg-[var(--cr-text-accent)] opacity-100' : 'opacity-0'
               }`}
             />

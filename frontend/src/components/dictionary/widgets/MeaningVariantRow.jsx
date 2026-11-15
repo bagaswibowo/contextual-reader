@@ -30,10 +30,10 @@ export function MeaningVariantRow({ variants = [], selected = '', onSelect, clas
               type="button"
               onClick={() => onSelect && onSelect(v)}
               aria-pressed={isSelected}
-              className={`inline-flex min-h-[44px] select-none items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-bold transition-colors ${
+              className={`cr-pop inline-flex min-h-[44px] select-none items-center gap-2 rounded-2xl px-3 py-2 text-[13px] font-extrabold transition-colors ${
                 isSelected
-                  ? 'border-[var(--cr-text-accent)] bg-[var(--cr-bg-surface-elevated)] text-[var(--cr-text-primary)]'
-                  : 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] text-[var(--cr-text-secondary)] hover:border-[var(--cr-border-interactive)] hover:text-[var(--cr-text-primary)]'
+                  ? 'border-2 border-[var(--cr-text-accent)] bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-primary)]'
+                  : 'cr-press-outline text-[var(--cr-text-secondary)]'
               }`}
             >
               <span className="leading-tight">{targetWord}</span>
