@@ -277,8 +277,18 @@ def serialize_entry(
             fetched = []
         contoh_bahasa_pilihan = fetched[0] if fetched else []
         for index, item in enumerate(target_alternatives[:2]):
-            if index + 1 < len(fetched):
-                item['contoh_bahasa_pilihan'] = fetched[index + 1][:2]
+            if index + 1 >= len(fetched) or not fetched[index + 1]:
+                continue
+            item['contoh_bahasa_pilihan'] = fetched[index + 1][:2]
+            # The row's own example is now a real sentence in the panel
+            # language, so the existing card renders Spanish usage without a
+            # second field lookup. The source sentence stays in
+            # `contoh_bahasa_pilihan` with its corpus translation.
+            best = fetched[index + 1][0]
+            item['contoh'] = {
+                'source_text': best['source_text'],
+                'target_text': best['target_text'],
+            }
 
     # The studied language gets its own reading of the word's translation:
     # "divided" is read one way in English, "dividido" another in Spanish.

@@ -73,8 +73,10 @@ lapisan makna kedua tanpa panggilan lain:
 dalam bahasa panel, diambil dari korpus Tatoeba (penutur asli menulisnya), bukan
 kalimat karangan model. `source_text` berbahasa panel, `target_text` terjemahan
 bahasa induk (memakai terjemahan korpus bila ada). `arti_lain_bahasa_pilihan`
-juga membawa `contoh_bahasa_pilihan` sendiri per arti. Kalau korpus tidak punya
-kalimat untuk kata itu, nilainya `[]` dan UI menampilkan state kosong.
+juga membawa `contoh_bahasa_pilihan` sendiri per arti; bila korpus punya kalimat
+untuk arti itu, `contoh` milik baris tersebut juga diganti kalimat bahasa panel
+yang nyata. Kalau korpus tidak punya kalimat untuk kata itu, nilainya `[]` dan UI
+menampilkan state kosong.
 
 Penting: `target_lang` adalah bahasa panel (dropdown "Bahasa terjemahan"), bukan
 `mother_lang`. Mengirim balik `mother_lang` ke `target_lang` membuat lapisan

@@ -1146,6 +1146,11 @@ class StudiedLanguageExampleTest(TestCase):
             'contoh_bahasa_pilihan',
             payload['arti_lain_bahasa_pilihan'][0],
         )
+        # The row's own example is now the real studied-language sentence, so
+        # the card shows Spanish usage without another field lookup.
+        row = payload['arti_lain_bahasa_pilihan'][0]
+        self.assertIn(row['makna'], row['contoh']['source_text'])
+        self.assertEqual(row['contoh']['target_text'], 'Kalimat terjemahan')
 
     @mock.patch('reader.translations.enrichment.fetch_tatoeba_examples')
     @mock.patch('reader.translations.provider.requests.get')
