@@ -27,7 +27,6 @@ Field lama tetap ada. Field tetap untuk panel kata:
 | Field | Isi |
 |---|---|
 | `arti_konteks` | arti kata di kalimat itu (hijau) |
-| `definisi` | definisi singkat bahasa buku |
 | `arti_lain` | `[{makna, kelas_kata, contoh}]`, arti alternatif (abu-abu) |
 | `sinonim` | daftar sinonim |
 | `terjemahan_lain` | padanan lain, urut dari paling umum |
@@ -35,9 +34,18 @@ Field lama tetap ada. Field tetap untuk panel kata:
 | `fonetik` | ejaan bantu bersuku kata, mis. `re-ZIL-ient` |
 | `suku_kata` | `["re", "zil", "ient"]` untuk sorot saat audio jalan |
 | `definisi_bahasa_pilihan` | `[{makna, kelas_kata, contoh, sesuai_konteks}]` |
+| `pelafalan_bahasa_pilihan` | `{ipa, fonetik, suku_kata, audio_url}` untuk kata di bahasa panel |
 
 `contoh` berbentuk `{source_text, target_text}` atau `null` bila tidak ada
 contoh nyata. Backend tidak mengarang contoh.
+
+`examples` hanya berisi contoh keseharian dari kamus dan bank contoh, bukan
+kalimat buku yang sedang dibaca. Kalimat yang diklik tetap tersedia di
+`sentence_translation` untuk pemakaian lain, tetapi tidak lagi masuk daftar
+contoh.
+
+Tab Arti tidak lagi memuat field `definisi`; definisi hanya ada di tab
+Definisi lewat `definisi_bahasa_pilihan` dan `definisi_bahasa_pilihan_lain`.
 
 `pronunciation` juga memuat `fonetik` dan `suku_kata` supaya satu objek cukup.
 

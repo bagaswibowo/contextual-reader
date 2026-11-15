@@ -328,7 +328,7 @@ class DictionaryEnrichmentTest(TestCase):
 
     @mock.patch('reader.translations.provider.requests.get')
     @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
-    def test_context_sentence_becomes_first_example(self, free, google_get):
+    def test_context_sentence_is_not_an_everyday_example(self, free, google_get):
         from reader.translations.dictionary import lookup
 
         free.return_value = {
@@ -346,11 +346,8 @@ class DictionaryEnrichmentTest(TestCase):
             mother_lang='id',
         )
 
-        self.assertEqual(
-            payload['examples'][0]['source_text'],
-            'The team stayed resilient through the crisis.',
-        )
-        self.assertEqual(payload['examples'][0]['target_text'], 'ulet')
+        # The clicked sentence is the reading line, not an everyday example.
+        self.assertEqual(payload['examples'], [])
         self.assertEqual(
             payload['sentence_translation']['source_text'],
             'The team stayed resilient through the crisis.',
@@ -828,11 +825,14 @@ class WordCardContractTest(TestCase):
         payload = lookup('resilient', 'en', mother_lang='id')
 
         for field in (
-            'arti_konteks', 'definisi', 'arti_lain', 'sinonim',
+            'arti_konteks', 'arti_lain', 'sinonim',
             'terjemahan_lain', 'ipa', 'fonetik', 'suku_kata',
             'definisi_bahasa_pilihan',
         ):
             self.assertIn(field, payload)
+
+        # Tab Arti no longer carries a definition; that lives in its own tab.
+        self.assertNotIn('definisi', payload)
 
         self.assertEqual(payload['arti_konteks'], 'ulet')
         self.assertEqual(payload['ipa'], '/rɪˈzɪliənt/')
@@ -914,6 +914,13 @@ class SecondLanguageLayerTest(TestCase):
             if (params or {}).get('dt') == 't':
                 response.json.return_value = [[['ulet', 'resilient', None, None, 10]]]
                 return response
+            if (params or {}).get('q') == 'resistente':
+                response.json.return_value = [
+                    [['resistente', 'resistente', None, None, 10], [None, None, None, 'resisˈtente']],
+                    [['adjective', ['resistente'], []]],
+                    'es',
+                ]
+                return response
             if (params or {}).get('tl') == 'es':
                 response.json.return_value = [
                     [['resistente', 'resilient', None, None, 10]],
@@ -953,6 +960,28 @@ class SecondLanguageLayerTest(TestCase):
 
     @mock.patch('reader.translations.provider.requests.get')
     @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_card_has_second_pronunciation_layer(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'adjective',
+            'senses': [{'meaning': 'returning quickly to shape', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+        google_get.side_effect = self._google_side_effect()
+
+        payload = lookup('resilient', 'en', mother_lang='id', target_lang='es')
+
+        reading = payload['pelafalan_bahasa_pilihan']
+        self.assertEqual(reading['ipa'], 'resisˈtente')
+        self.assertTrue(reading['fonetik'])
+        self.assertTrue(reading['suku_kata'])
+        self.assertIn('lang=es', reading['audio_url'])
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
     def test_panel_language_equal_to_mother_tongue_is_empty(self, free, google_get):
         from reader.translations.dictionary import lookup
 
@@ -971,6 +1000,7 @@ class SecondLanguageLayerTest(TestCase):
         self.assertEqual(payload['arti_bahasa_pilihan'], '')
         self.assertEqual(payload['terjemahan_lain_bahasa_pilihan'], [])
         self.assertEqual(payload['definisi_bahasa_pilihan_lain'], [])
+        self.assertEqual(payload['pelafalan_bahasa_pilihan']['ipa'], '')
 
     @mock.patch('reader.translations.provider.requests.get')
     @mock.patch('reader.translations.dictionary._fetch_free_dictionary')

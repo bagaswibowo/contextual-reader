@@ -252,9 +252,29 @@ def serialize_entry(
     except Exception:
         target_alternatives = []
 
+    # The studied language gets its own reading of the word's translation:
+    # "divided" is read one way in English, "dividido" another in Spanish.
+    # The block carries the reading of the translated word plus its audio.
+    target_pronunciation = None
+    if target_layer and target_primary:
+        target_reading = {}
+        try:
+            target_reading = fetch_word_enrichment(
+                target_primary, target_lang, mother_lang
+            ).get('pronunciation') or {}
+        except Exception:
+            target_reading = {}
+        target_pronunciation = build_pronunciation(
+            target_reading.get('ipa') or '',
+            target_reading.get('guide') or '',
+            target_reading.get('romanization') or '',
+            target_lang,
+        )
+        target_pronunciation['audio_url'] = build_audio_url(target_primary, target_lang)
+
     source_examples = []
-    if context and entry.word.lower() in context.lower():
-        source_examples.append(context)
+    # The clicked sentence is the reading line, not an everyday example, so it
+    # does not join the example list. Dictionary and corpus examples only.
     source_examples.extend(enrichment.get('google_examples') or [])
     source_examples.extend(
         example
@@ -366,8 +386,9 @@ def serialize_entry(
         'source': entry.source,
         'fetched_at': entry.fetched_at,
         # Fixed fields the word card renders; names are part of the contract.
+        # Tab Arti shows meanings only, so there is no `definisi` here; the
+        # definition list lives in the Definition tab.
         'arti_konteks': primary_meaning,
-        'definisi': definitions[0]['definition'] if definitions else '',
         'arti_lain': alternative_meanings,
         'sinonim': list(entry.synonyms or []),
         'terjemahan_lain': [
@@ -391,6 +412,12 @@ def serialize_entry(
             if item.get('target_word')
         ],
         'definisi_bahasa_pilihan_lain': target_definitions,
+        # Reading of the word in the panel language, same shape as
+        # `pronunciation`; empty when the panel language matches the mother
+        # tongue or the book language.
+        'pelafalan_bahasa_pilihan': target_pronunciation or {
+            'ipa': '', 'fonetik': '', 'suku_kata': [],
+        },
     }
 
 
