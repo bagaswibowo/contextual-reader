@@ -174,7 +174,7 @@ def _fetch_google_fallback(word: str, lang: str) -> dict:
         'senses': [{'meaning': meaning, 'examples': [], 'synonyms': []}],
         'synonyms': _dedupe(synonyms)[:MAX_SYNONYMS],
         # Google's reading field is a romanization for non-Latin scripts, not IPA.
-        'phonetic_ipa': _clean_text(data.get('ipa'))[:100] if is_latin_script(lang) else '',
+        'phonetic_ipa': _clean_text(data.get('ipa')).strip('/[] ')[:100] if is_latin_script(lang) else '',
         'source': 'google-translate',
     }
 

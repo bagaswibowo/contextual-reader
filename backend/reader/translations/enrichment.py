@@ -69,9 +69,17 @@ _IPA_SINGLE = {
 def _transliterate(text: str) -> str:
     """Map IPA symbols to Latin letters, dropping stress and length marks."""
     text = text.replace('ˈ', '').replace('ˌ', '')
-    for symbol, latin in _IPA_SEQUENCES:
-        text = text.replace(symbol, latin)
+    # Sequence output must not be re-mapped by the single-symbol table, so park
+    # each match behind a placeholder until the single pass is done.
+    parked = []
+    for index, (symbol, latin) in enumerate(_IPA_SEQUENCES):
+        if symbol in text:
+            token = f'\x00{index}\x00'
+            text = text.replace(symbol, token)
+            parked.append((token, latin))
     text = ''.join(_IPA_SINGLE.get(char, char) for char in text)
+    for token, latin in parked:
+        text = text.replace(token, latin)
     return re.sub(r"[^a-zA-Z'\- ]+", '', text).strip()
 
 
