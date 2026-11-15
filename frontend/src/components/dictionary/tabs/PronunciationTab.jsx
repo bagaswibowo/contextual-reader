@@ -37,14 +37,17 @@ export function PronunciationTab({
   const romanization = entry?.pronunciation?.romanization || ''
   const phonetic = entry?.fonetik || guide || ''
 
+  const second = entry?.pelafalan_bahasa_pilihan || null
   const isTargetMode = mode === 'target' && Boolean(targetWord)
-  const activeWord = isTargetMode ? targetWord : word
+  const activeWord = isTargetMode ? second?.word || targetWord : word
   const activeLang = isTargetMode ? targetLang : sourceLang || entry?.lang || 'en'
-  const activeIpa = isTargetMode ? '' : ipa
-  const activePhonetic = isTargetMode ? '' : phonetic
+  const activeIpa = isTargetMode ? second?.ipa || '' : ipa
+  const activePhonetic = isTargetMode ? second?.fonetik || '' : phonetic
 
   const syllables = isTargetMode
-    ? syllabify(targetWord)
+    ? Array.isArray(second?.suku_kata) && second.suku_kata.length > 0
+      ? second.suku_kata
+      : syllabify(second?.fonetik || activeWord)
     : activePhonetic.includes('-')
     ? activePhonetic.split('-').filter(Boolean)
     : Array.isArray(entry?.suku_kata) && entry.suku_kata.length > 0
