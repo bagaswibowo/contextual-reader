@@ -32,8 +32,8 @@ function formatTitle(title) {
 function WordCardStack() {
   const cards = [
     { label: 'kata', value: 'pilih satu kata', tint: 'var(--cr-cover-2-bg)', border: 'var(--cr-cover-2-border)', ink: 'var(--cr-cover-2-ink)', rotate: '-3deg', offset: '0px' },
-    { label: 'makna', value: 'arti sesuai kalimat', tint: 'var(--cr-cover-1-bg)', border: 'var(--cr-cover-1-border)', ink: 'var(--cr-cover-1-ink)', rotate: '1.5deg', offset: '18px' },
-    { label: 'konteks', value: 'kalimat aslinya tetap terlihat', tint: 'var(--cr-cover-3-bg)', border: 'var(--cr-cover-3-border)', ink: 'var(--cr-cover-3-ink)', rotate: '3deg', offset: '36px' },
+    { label: 'makna', value: 'arti sesuai kalimat', tint: 'var(--cr-cover-1-bg)', border: 'var(--cr-cover-1-border)', ink: 'var(--cr-cover-1-ink)', rotate: '1.5deg', offset: '10px' },
+    { label: 'konteks', value: 'kalimat aslinya tetap terlihat', tint: 'var(--cr-cover-3-bg)', border: 'var(--cr-cover-3-border)', ink: 'var(--cr-cover-3-ink)', rotate: '3deg', offset: '20px' },
   ]
 
   return (
@@ -41,7 +41,7 @@ function WordCardStack() {
       {cards.map((card) => (
         <div
           key={card.label}
-          className="relative mb-[-14px] rounded-2xl border-2 px-4 py-3"
+          className="relative mb-2 rounded-2xl border-2 px-4 py-3"
           style={{
             backgroundColor: card.tint,
             borderColor: card.border,
@@ -64,7 +64,7 @@ function WordCardStack() {
         </div>
       ))}
       <div
-        className="mt-5 flex items-center justify-center gap-2 rounded-2xl border-2 px-3 py-2"
+        className="mt-4 flex items-center justify-center gap-2 rounded-2xl border-2 px-3 py-2"
         style={{ borderColor: 'var(--cr-border-subtle)', backgroundColor: 'var(--cr-bg-surface-elevated)' }}
       >
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: 'var(--cr-btn-primary-bg)' }} />
