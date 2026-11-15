@@ -26,6 +26,9 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
 
+import time
+
+import requests
 from django.core.cache import cache
 
 from .provider import (
@@ -38,6 +41,27 @@ from .provider import (
 ENRICHMENT_CACHE_TTL = 86400 * 7
 MAX_EXAMPLES = 4
 MAX_TRANSLATIONS = 8
+
+TATOEBA_SEARCH_URL = 'https://tatoeba.org/en/api_v0/search'
+TATOEBA_TIMEOUT = 6
+TATOEBA_CACHE_TTL = 86400
+# Tatoeba's bot filter rejects generic browser user agents from servers; an
+# honest, descriptive agent gets through and is the polite thing to send.
+TATOEBA_HEADERS = {
+    'User-Agent': 'ContextualReader/1.0 (word-usage examples; contact: team@bagaswibowo.app)',
+    'Accept': 'application/json',
+}
+# Tatoeba indexes sentences by ISO 639-3, not the ISO 639-1 codes the app uses.
+TATOEBA_LANG_CODES = {
+    'en': 'eng', 'id': 'ind', 'ms': 'zsm', 'es': 'spa', 'fr': 'fra',
+    'de': 'deu', 'it': 'ita', 'pt': 'por', 'nl': 'nld', 'tr': 'tur',
+    'vi': 'vie', 'pl': 'pol', 'sv': 'swe', 'da': 'dan', 'no': 'nor',
+    'fi': 'fin', 'cs': 'ces', 'sk': 'slk', 'ro': 'ron', 'hu': 'hun',
+    'hr': 'hrv', 'sl': 'slv', 'tl': 'tgl', 'sw': 'swh', 'af': 'afr',
+    'ca': 'cat', 'ru': 'rus', 'uk': 'ukr', 'ja': 'jpn', 'ko': 'kor',
+    'zh': 'cmn', 'ar': 'ara', 'hi': 'hin', 'th': 'tha', 'el': 'ell',
+    'he': 'heb', 'fa': 'pes', 'ur': 'urd',
+}
 
 # Bump when the shape or the derivation of cached values changes, so entries
 # written by an older release are not served after a deploy.
@@ -417,6 +441,108 @@ def _parse_example_response(response: str, word: str, source_lang: str) -> List[
         })
         if len(examples) >= 3:
             break
+    return examples
+
+
+def fetch_tatoeba_examples(
+    word: str,
+    lang: str,
+    translate_to: str,
+    limit: int = 3,
+) -> List[Dict]:
+    """Real sentences in ``lang`` that use ``word``, with a translation.
+
+    The sentences come from Tatoeba's public corpus of human-written sentences,
+    so the card can show actual usage in the language being studied instead of
+    a source-language sentence with a translated caption. A translation in the
+    reader's mother tongue is kept when the corpus has one; otherwise the
+    sentence is translated, and ``origin`` still marks the sentence as corpus.
+    """
+    source = normalize_lang(lang)
+    target = normalize_lang(translate_to)
+    source_code = TATOEBA_LANG_CODES.get(source)
+    target_code = TATOEBA_LANG_CODES.get(target)
+    if not word or not source_code or not target_code:
+        return []
+
+    cache_key = _cache_key('tatoeba', source, target, word.lower(), str(limit))
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    payload = None
+    # Tatoeba answers 503 when it throttles a burst; one short retry keeps a
+    # reading session from losing its examples to a transient rejection.
+    for attempt in range(2):
+        try:
+            response = requests.get(
+                TATOEBA_SEARCH_URL,
+                params={
+                    'query': word,
+                    'from': source_code,
+                    'to': target_code,
+                    'orphans': 'no',
+                    'unapproved': 'no',
+                    'sort': 'relevance',
+                },
+                headers=TATOEBA_HEADERS,
+                timeout=TATOEBA_TIMEOUT,
+            )
+        except requests.RequestException:
+            response = None
+        if response is not None and response.status_code == 200:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            break
+        if attempt == 0:
+            time.sleep(0.4)
+
+    rows = payload.get('results') if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        return []
+
+    # Match the word and, when the corpus sentence uses an inflected form,
+    # its stem ("romper" covers "rompió" and "rompe").
+    base = word.strip()
+    stem = base[:-2] if len(base) > 4 and base[-2:] in {'ar', 'er', 'ir'} else base
+    pattern = re.compile(
+        rf'(?<!\w){re.escape(stem)}\w*' if stem != base
+        else rf'(?<!\w){re.escape(base)}(?!\w)',
+        re.IGNORECASE,
+    )
+    examples = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        sentence = ' '.join(str(row.get('text') or '').split())
+        if not sentence or not pattern.search(sentence):
+            continue
+        if sentence in {item['source_text'] for item in examples}:
+            continue
+        translation = ''
+        for group in row.get('translations') or []:
+            for option in group if isinstance(group, list) else []:
+                if not isinstance(option, dict):
+                    continue
+                if option.get('lang') == target_code and option.get('text'):
+                    translation = ' '.join(str(option['text']).split())
+                    break
+            if translation:
+                break
+        if not translation:
+            translation = _translate_text(sentence, source, target)
+        examples.append({
+            'source_text': sentence,
+            'target_text': translation,
+            'keyword': word,
+            'origin': 'tatoeba',
+        })
+        if len(examples) >= limit:
+            break
+
+    cache.set(cache_key, examples, timeout=TATOEBA_CACHE_TTL)
     return examples
 
 

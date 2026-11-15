@@ -34,6 +34,7 @@ Field lama tetap ada. Field tetap untuk panel kata:
 | `fonetik` | ejaan bantu bersuku kata, mis. `re-ZIL-ient` |
 | `suku_kata` | `["re", "zil", "ient"]` untuk sorot saat audio jalan |
 | `definisi_bahasa_pilihan` | `[{makna, kelas_kata, contoh, sesuai_konteks}]` |
+| `definisi_bahasa_pilihan_lain` | definisi per makna dalam bahasa panel (isi tab Definisi, sub-tab kedua) |
 | `pelafalan_bahasa_pilihan` | `{ipa, fonetik, suku_kata, audio_url}` untuk kata di bahasa panel |
 
 `contoh` berbentuk `{source_text, target_text}` atau `null` bila tidak ada
@@ -46,6 +47,11 @@ contoh.
 
 Tab Arti tidak lagi memuat field `definisi`; definisi hanya ada di tab
 Definisi lewat `definisi_bahasa_pilihan` dan `definisi_bahasa_pilihan_lain`.
+
+Nama field mengikuti riwayatnya dan mudah tertukar: `definisi_bahasa_pilihan`
+berisi definisi dalam **bahasa induk**, sedangkan `definisi_bahasa_pilihan_lain`
+berisi definisi dalam **bahasa panel**. Dua daftar ini yang menjadi isi dua
+sub-tab di tab Definisi ("Kamus Indonesia" dan "Kamus [bahasa panel]").
 
 `pronunciation` juga memuat `fonetik` dan `suku_kata` supaya satu objek cukup.
 
@@ -61,6 +67,18 @@ lapisan makna kedua tanpa panggilan lain:
 | `arti_lain_bahasa_pilihan` | arti alternatif bahasa panel |
 | `terjemahan_lain_bahasa_pilihan` | padanan lain bahasa panel |
 | `definisi_bahasa_pilihan_lain` | definisi per makna bahasa panel |
+| `contoh_bahasa_pilihan` | `[{source_text, target_text, keyword, origin}]`, kalimat nyata dalam bahasa panel |
+
+`contoh_bahasa_pilihan` berisi kalimat sehari-hari yang benar-benar memakai kata
+dalam bahasa panel, diambil dari korpus Tatoeba (penutur asli menulisnya), bukan
+kalimat karangan model. `source_text` berbahasa panel, `target_text` terjemahan
+bahasa induk (memakai terjemahan korpus bila ada). `arti_lain_bahasa_pilihan`
+juga membawa `contoh_bahasa_pilihan` sendiri per arti. Kalau korpus tidak punya
+kalimat untuk kata itu, nilainya `[]` dan UI menampilkan state kosong.
+
+Penting: `target_lang` adalah bahasa panel (dropdown "Bahasa terjemahan"), bukan
+`mother_lang`. Mengirim balik `mother_lang` ke `target_lang` membuat lapisan
+kedua kosong.
 
 Kosong bila `target_lang` sama dengan `mother_lang` atau `lang`, karena field
 yang sudah ada sudah memuat makna itu. Contoh: `word=principles&lang=en&

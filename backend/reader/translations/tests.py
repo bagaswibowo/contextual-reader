@@ -1026,3 +1026,163 @@ class SecondLanguageLayerTest(TestCase):
         payload = response.json()
         self.assertEqual(payload['bahasa_pilihan'], 'es')
         self.assertTrue(payload['arti_bahasa_pilihan'])
+
+
+class TatoebaExampleTest(TestCase):
+    """Everyday sentences in the panel language come from a real corpus."""
+
+    TATOEBA_PAYLOAD = {
+        'results': [
+            {
+                'text': 'Ella rompió el vaso sin querer.',
+                'lang': 'spa',
+                'translations': [[{'text': 'Dia memecahkan gelas itu tanpa sengaja.', 'lang': 'ind'}]],
+            },
+            {
+                'text': 'Esa frase no contiene la palabra.',
+                'lang': 'spa',
+                'translations': [[{'text': 'Kalimat itu tidak memuat katanya.', 'lang': 'ind'}]],
+            },
+        ],
+    }
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    @mock.patch('reader.translations.enrichment.requests.get')
+    def test_real_sentences_keep_their_corpus_translation(self, get):
+        from reader.translations.enrichment import fetch_tatoeba_examples
+
+        response = mock.Mock()
+        response.status_code = 200
+        response.json.return_value = self.TATOEBA_PAYLOAD
+        get.return_value = response
+
+        examples = fetch_tatoeba_examples('romper', 'es', 'id')
+
+        self.assertEqual(len(examples), 1)
+        self.assertEqual(examples[0]['source_text'], 'Ella rompió el vaso sin querer.')
+        self.assertEqual(examples[0]['target_text'], 'Dia memecahkan gelas itu tanpa sengaja.')
+        self.assertEqual(examples[0]['origin'], 'tatoeba')
+
+    @mock.patch('reader.translations.enrichment.requests.get')
+    def test_missing_corpus_language_returns_nothing(self, get):
+        from reader.translations.enrichment import fetch_tatoeba_examples
+
+        self.assertEqual(fetch_tatoeba_examples('romper', 'xx', 'id'), [])
+        get.assert_not_called()
+
+    @mock.patch('reader.translations.enrichment.requests.get')
+    def test_unreachable_corpus_returns_nothing(self, get):
+        import requests as requests_module
+
+        from reader.translations.enrichment import fetch_tatoeba_examples
+
+        get.side_effect = requests_module.RequestException('down')
+
+        self.assertEqual(fetch_tatoeba_examples('romper', 'es', 'id'), [])
+
+
+class StudiedLanguageExampleTest(TestCase):
+    """The Arti tab carries example sentences in the studied language."""
+
+    @mock.patch('reader.translations.enrichment.fetch_tatoeba_examples')
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_card_carries_studied_language_examples(self, free, google_get, corpus):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'verb',
+            'senses': [{
+                'meaning': 'separate into pieces',
+                'examples': ['He broke the glass.'],
+                'synonyms': [],
+            }],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+
+        def fake_google(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            query = (params or {}).get('q')
+            if (params or {}).get('dt') == 't':
+                response.json.return_value = [[['memecahkan', query, None, None, 10]]]
+            elif (params or {}).get('tl') == 'es':
+                response.json.return_value = [
+                    [['romper', 'break', None, None, 10]],
+                    [['verb', ['romper', 'quebrar'], []]],
+                    'en',
+                ]
+            else:
+                response.json.return_value = [
+                    [['memecahkan', 'break', None, None, 10]],
+                    [['verb', ['merusak', 'memecahkan'], []]],
+                    'en',
+                ]
+            return response
+
+        corpus.side_effect = lambda word, lang, mother: [
+            {
+                'source_text': f'Sentence with {word}',
+                'target_text': 'Kalimat terjemahan',
+                'keyword': word,
+                'origin': 'tatoeba',
+            }
+        ]
+        google_get.side_effect = fake_google
+
+        payload = lookup('break', 'en', mother_lang='id', target_lang='es')
+
+        self.assertTrue(payload['contoh_bahasa_pilihan'])
+        self.assertEqual(payload['contoh_bahasa_pilihan'][0]['origin'], 'tatoeba')
+        self.assertEqual(payload['contoh_bahasa_pilihan'][0]['keyword'], 'romper')
+        self.assertTrue(payload['arti_lain_bahasa_pilihan'])
+        self.assertIn(
+            'contoh_bahasa_pilihan',
+            payload['arti_lain_bahasa_pilihan'][0],
+        )
+
+    @mock.patch('reader.translations.enrichment.fetch_tatoeba_examples')
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_no_corpus_match_leaves_list_empty(self, free, google_get, corpus):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'verb',
+            'senses': [{'meaning': 'separate into pieces', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+
+        def fake_google(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            if (params or {}).get('dt') == 't':
+                response.json.return_value = [[['memecahkan', 'break', None, None, 10]]]
+            elif (params or {}).get('tl') == 'es':
+                response.json.return_value = [
+                    [['romper', 'break', None, None, 10]],
+                    [['verb', ['romper'], []]],
+                    'en',
+                ]
+            else:
+                response.json.return_value = [
+                    [['memecahkan', 'break', None, None, 10]],
+                    [['verb', ['merusak'], []]],
+                    'en',
+                ]
+            return response
+
+        corpus.return_value = []
+        google_get.side_effect = fake_google
+
+        payload = lookup('break', 'en', mother_lang='id', target_lang='es')
+
+        self.assertEqual(payload['contoh_bahasa_pilihan'], [])

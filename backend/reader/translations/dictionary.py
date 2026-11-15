@@ -200,6 +200,7 @@ def serialize_entry(
     from .enrichment import (
         build_alternative_meanings,
         build_examples,
+        fetch_tatoeba_examples,
         fetch_word_enrichment,
         translate_definitions,
         translate_sentence,
@@ -251,6 +252,33 @@ def serialize_entry(
         )
     except Exception:
         target_alternatives = []
+
+    # Everyday sentences in the panel language: real usage of the studied
+    # word, from Tatoeba's human-written corpus. Each alternative meaning gets
+    # its own sentence too, so "Arti lainnya" is not stuck showing the source
+    # language. Nothing is written by a model here: an empty list means the
+    # corpus has no sentence for that word.
+    contoh_bahasa_pilihan = []
+    if target_layer and target_primary:
+        words = [target_primary]
+        words.extend(
+            item['makna'] for item in target_alternatives[:2] if item.get('makna')
+        )
+        fetched = []
+        try:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=len(words)) as executor:
+                fetched = list(executor.map(
+                    lambda value: fetch_tatoeba_examples(value, target_lang, mother_lang),
+                    words,
+                ))
+        except Exception:
+            fetched = []
+        contoh_bahasa_pilihan = fetched[0] if fetched else []
+        for index, item in enumerate(target_alternatives[:2]):
+            if index + 1 < len(fetched):
+                item['contoh_bahasa_pilihan'] = fetched[index + 1][:2]
 
     # The studied language gets its own reading of the word's translation:
     # "divided" is read one way in English, "dividido" another in Spanish.
@@ -421,6 +449,10 @@ def serialize_entry(
         'pelafalan_bahasa_pilihan': target_pronunciation or {
             'ipa': '', 'fonetik': '', 'suku_kata': [],
         },
+        # Everyday sentences in the panel language, fetched from a real-sentence
+        # corpus for the studied word and its alternative meanings. Empty when
+        # the corpus has none, never filled with invented sentences.
+        'contoh_bahasa_pilihan': contoh_bahasa_pilihan,
     }
 
 
