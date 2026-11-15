@@ -1,5 +1,6 @@
 import React from 'react'
 import { BookOpen, Languages } from 'lucide-react'
+import { posLabel } from './MeaningTab'
 
 const LANGUAGE_NAMES = {
   id: 'Indonesia',
@@ -34,11 +35,16 @@ export function DefinitionTab({
   const motherMeaning = entry.mother_meaning || entry.contextual_meaning || ''
   const otherMeanings = Array.isArray(entry.other_meanings) ? entry.other_meanings : []
 
+  const primaryKey = String(motherMeaning || '').toLowerCase().trim()
+  const seenWord = new Set([primaryKey])
   const grouped = new Map()
   translations.forEach((item) => {
+    const key = String(item.target_word || '').toLowerCase().trim()
+    if (!key || seenWord.has(key)) return
+    seenWord.add(key)
     const pos = (item.pos || 'umum').toLowerCase()
     if (!grouped.has(pos)) grouped.set(pos, [])
-    if (item.target_word) grouped.get(pos).push(item)
+    grouped.get(pos).push(item)
   })
 
   if (grouped.size === 0) {
@@ -76,8 +82,8 @@ export function DefinitionTab({
               key={pos}
               className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4"
             >
-              <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-[var(--cr-text-secondary)]">
-                {pos}
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--cr-text-secondary)]">
+                {posLabel(pos)}
               </p>
               <ul className="mt-2 space-y-2">
                 {items.map((item, idx) => (
@@ -100,11 +106,11 @@ export function DefinitionTab({
         </p>
       )}
 
-      <section className="rounded-2xl border border-[var(--cr-border-subtle)] p-4">
-        <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+      <details className="rounded-2xl border border-[var(--cr-border-subtle)] p-4">
+        <summary className="flex cursor-pointer items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-          Definisi asli ({languageName(entry.lang || 'en')})
-        </p>
+          Definisi asli ({languageName(entry.lang || 'en')}) sebagai rujukan
+        </summary>
         <ol className="mt-2 space-y-2">
           {(entry.definitions || entry.senses || []).slice(0, 4).map((item, idx) => (
             <li key={`def-${idx}`} className="flex gap-2 text-[12px] leading-relaxed text-[var(--cr-text-secondary)]">
@@ -118,7 +124,7 @@ export function DefinitionTab({
             </li>
           ))}
         </ol>
-      </section>
+      </details>
     </div>
   )
 }

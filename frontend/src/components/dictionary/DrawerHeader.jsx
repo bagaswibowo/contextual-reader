@@ -1,52 +1,25 @@
 import React from 'react'
 import { Bookmark, Check, X } from 'lucide-react'
-import { WordAudioButton } from './widgets/WordAudioButton'
-
-const LANGUAGE_LABELS = {
-  id: 'Indonesia',
-  en: 'Inggris',
-  es: 'Spanyol',
-  fr: 'Prancis',
-  de: 'Jerman',
-  ja: 'Jepang',
-  ko: 'Korea',
-  zh: 'Mandarin',
-  ar: 'Arab',
-  ru: 'Rusia',
-}
-
-function languageLabel(code) {
-  const key = (code || '').toLowerCase()
-  return LANGUAGE_LABELS[key] || (code ? code.toUpperCase() : 'Asal')
-}
 
 /**
  * DrawerHeader
- * Word title, IPA, dual audio, save toggle and close (DESIGN §3.2).
- * Compact on mobile so the sheet keeps room for content (AC-WI-04, AC-WI-05, AC-WI-06).
+ * Word, IPA, save toggle and close. Audio lives in one place only: the
+ * pronunciation control in the meaning tab, so the panel does not repeat
+ * the same play button three times.
  */
 export function DrawerHeader({
   word = '',
   ipa = '',
-  sourceLang = 'en',
-  targetLang = 'id',
   sourceWord = '',
   targetWord = '',
-  sourceAudioUrl = null,
-  targetAudioUrl = null,
   saved = false,
   saving = false,
-  playingAudioKey = null,
-  onPlayAudio,
   onToggleSave,
   onClose,
   className = '',
 }) {
   const displayWord = word || sourceWord || ''
   const displayTarget = targetWord || ''
-
-  const isSourcePlaying = playingAudioKey === `audio_source_${displayWord}`
-  const isTargetPlaying = playingAudioKey === `audio_target_${displayTarget}`
 
   return (
     <div
@@ -61,7 +34,7 @@ export function DrawerHeader({
             {displayWord}
           </h2>
 
-          <div className="mt-1 flex items-baseline gap-2">
+          <div className="mt-1 flex flex-wrap items-baseline gap-2">
             {ipa ? (
               <span className="rounded-md bg-[var(--cr-highlight-word-hover)] px-1.5 py-0.5 font-mono text-[13px] font-bold text-[var(--cr-text-secondary)]">
                 {ipa.startsWith('/') ? ipa : `/${ipa}/`}
@@ -92,33 +65,7 @@ export function DrawerHeader({
         </button>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <WordAudioButton
-            text={displayWord}
-            lang={sourceLang}
-            label={languageLabel(sourceLang)}
-            isPlaying={isSourcePlaying}
-            audioUrl={sourceAudioUrl}
-            onPlay={(txt, lng, url) =>
-              onPlayAudio && onPlayAudio(txt, lng, `audio_source_${displayWord}`, url)
-            }
-          />
-
-          {displayTarget && (
-            <WordAudioButton
-              text={displayTarget}
-              lang={targetLang}
-              label={languageLabel(targetLang)}
-              isPlaying={isTargetPlaying}
-              audioUrl={targetAudioUrl}
-              onPlay={(txt, lng, url) =>
-                onPlayAudio && onPlayAudio(txt, lng, `audio_target_${displayTarget}`, url)
-              }
-            />
-          )}
-        </div>
-
+      <div className="mt-2 flex items-center justify-end gap-2">
         {onToggleSave && (
           <button
             type="button"
@@ -127,7 +74,7 @@ export function DrawerHeader({
             aria-pressed={saved}
             aria-label={saved ? `Kata ${displayWord} tersimpan` : `Simpan kata ${displayWord}`}
             title={saved ? 'Tersimpan di kosakata' : 'Simpan kata ke kosakata'}
-            className={`cr-pop min-h-[44px] min-w-[44px] shrink-0 rounded-2xl px-2.5 text-xs font-extrabold inline-flex select-none items-center justify-center gap-1.5 sm:px-3.5 ${
+            className={`cr-pop min-h-[44px] min-w-[44px] shrink-0 rounded-2xl px-3.5 text-xs font-extrabold inline-flex select-none items-center justify-center gap-1.5 ${
               saved
                 ? 'cr-press text-[var(--cr-btn-primary-text-aa)]'
                 : 'cr-press-outline text-[var(--cr-text-secondary)]'
@@ -136,12 +83,12 @@ export function DrawerHeader({
             {saved ? (
               <>
                 <Check className="w-4 h-4" />
-                <span className="hidden sm:inline">Tersimpan</span>
+                <span>Tersimpan</span>
               </>
             ) : (
               <>
                 <Bookmark className="w-4 h-4" />
-                <span className="hidden sm:inline">Simpan</span>
+                <span>Simpan</span>
               </>
             )}
           </button>

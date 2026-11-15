@@ -63,182 +63,176 @@ export function Layout() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--cr-bg-page)' }}>
-      {/* Desktop rail. While reading it collapses to icons so the text gets the room. */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r-2 py-6 lg:flex ${
-          isReader ? 'w-[76px] items-center px-2' : 'w-[248px] px-4'
-        }`}
-        style={{
-          backgroundColor: 'var(--cr-bg-surface-elevated)',
-          borderColor: 'var(--cr-border-subtle)',
-        }}
-      >
-        <button
-          type="button"
-          onClick={goHome}
-          aria-label="Contextual Reader, ke perpustakaan"
-          className={`flex items-center gap-3 rounded-2xl py-1 text-left ${isReader ? 'justify-center px-0' : 'px-1'}`}
-        >
-          <BrandMark />
-          <span className={`min-w-0 ${isReader ? 'sr-only' : ''}`}>
-            <span className="block font-heading text-[17px] font-extrabold leading-tight" style={{ color: 'var(--cr-text-primary)' }}>
-              Contextual
-            </span>
-            <span className="block font-heading text-[17px] font-extrabold leading-tight" style={{ color: 'var(--cr-text-accent)' }}>
-              Reader
-            </span>
-          </span>
-        </button>
-
-        <nav aria-label="Navigasi utama" className={`mt-8 flex flex-col gap-1.5 ${isReader ? 'w-full items-center' : ''}`}>
-          {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
-            <NavLink
-              key={path}
-              to={path}
-              onClick={() => clearCurrentBook()}
-              aria-label={label}
-              title={isReader ? label : undefined}
-              className={({ isActive }) =>
-                `rail-link ${isActive ? 'is-active' : ''} ${isReader ? 'w-full justify-center px-0' : ''}`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className="h-5 w-5 shrink-0" strokeWidth={isActive ? 2.6 : 2} aria-hidden="true" />
-                  <span className={isReader ? 'sr-only' : ''}>{label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className={`mt-auto space-y-3 pt-6 ${isReader ? 'w-full' : ''}`}>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className={`rail-link w-full ${isReader ? 'justify-center px-0' : 'justify-start'}`}
-            aria-label={`Ganti ke ${nextThemeLabel.toLowerCase()}`}
-            title={isReader ? nextThemeLabel : undefined}
+      {/* Reading is a focused screen: no rail, no top bar, no bottom tabs. */}
+      {!isReader && (
+        <>
+          <aside
+            className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r-2 px-4 py-6 lg:flex"
+            style={{
+              backgroundColor: 'var(--cr-bg-surface-elevated)',
+              borderColor: 'var(--cr-border-subtle)',
+            }}
           >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5 shrink-0" aria-hidden="true" />
-            ) : (
-              <Moon className="h-5 w-5 shrink-0" aria-hidden="true" />
-            )}
-            <span className={isReader ? 'sr-only' : ''}>{nextThemeLabel}</span>
-          </button>
-
-          {currentBook && !isReader && (
             <button
               type="button"
-              onClick={() => navigate(`/read/${currentBook.id}`)}
-              className="w-full rounded-2xl border-2 px-3 py-2.5 text-left"
-              style={{
-                borderColor: 'var(--cr-border-subtle)',
-                backgroundColor: 'var(--cr-bg-surface)',
-              }}
+              onClick={goHome}
+              className="flex items-center gap-3 rounded-2xl px-1 py-1 text-left"
             >
-              <span className="eyebrow block">Lanjut baca</span>
-              <span
-                className="mt-0.5 block truncate text-sm font-extrabold"
-                style={{ color: 'var(--cr-text-primary)' }}
-              >
-                {currentBook.title}
+              <BrandMark />
+              <span className="min-w-0">
+                <span className="block font-heading text-[17px] font-extrabold leading-tight" style={{ color: 'var(--cr-text-primary)' }}>
+                  Contextual
+                </span>
+                <span className="block font-heading text-[17px] font-extrabold leading-tight" style={{ color: 'var(--cr-text-accent)' }}>
+                  Reader
+                </span>
               </span>
             </button>
-          )}
-        </div>
-      </aside>
 
-      {/* Mobile top bar */}
-      <header
-        className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b-2 px-4 py-3 lg:hidden"
-        style={{
-          backgroundColor: 'var(--cr-bg-surface-elevated)',
-          borderColor: 'var(--cr-border-subtle)',
-        }}
-      >
-        <button type="button" onClick={goHome} className="flex min-h-[48px] min-w-0 items-center gap-2.5 text-left">
-          <BrandMark />
-          <span className="min-w-0">
-            <span className="block truncate font-heading text-base font-extrabold leading-tight" style={{ color: 'var(--cr-text-primary)' }}>
-              Contextual Reader
-            </span>
-            <span className="eyebrow block">Baca, ketuk, paham</span>
-          </span>
-        </button>
+            <nav aria-label="Navigasi utama" className="mt-8 flex flex-col gap-1.5">
+              {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  onClick={() => clearCurrentBook()}
+                  className={({ isActive }) => `rail-link ${isActive ? 'is-active' : ''}`}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon className="h-5 w-5 shrink-0" strokeWidth={isActive ? 2.6 : 2} aria-hidden="true" />
+                      <span>{label}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
 
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="btn-ghost px-2"
-            aria-label={`Ganti ke ${nextThemeLabel.toLowerCase()}`}
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5" aria-hidden="true" />
-            ) : (
-              <Moon className="h-5 w-5" aria-hidden="true" />
-            )}
-          </button>
-          <button
-            ref={menuButtonRef}
-            type="button"
-            onClick={() => setMobileMenuOpen(open => !open)}
-            className="btn-ghost px-2"
-            aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-menu"
-          >
-            {mobileMenuOpen ? (
-              <X className="h-5 w-5" aria-hidden="true" />
-            ) : (
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            )}
-          </button>
-        </div>
-      </header>
-
-      {mobileMenuOpen && (
-        <div
-          id="mobile-menu"
-          ref={menuRef}
-          className="cr-anim-rise sticky top-[73px] z-30 border-b-2 px-4 py-3 lg:hidden"
-          style={{
-            backgroundColor: 'var(--cr-bg-surface-elevated)',
-            borderColor: 'var(--cr-border-subtle)',
-          }}
-        >
-          <nav aria-label="Navigasi seluler" className="flex flex-col gap-1">
-            {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
-              <NavLink
-                key={path}
-                to={path}
-                onClick={() => {
-                  setMobileMenuOpen(false)
-                  clearCurrentBook()
-                }}
-                className={({ isActive }) => `rail-link ${isActive ? 'is-active' : ''}`}
+            <div className="mt-auto space-y-3 pt-6">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="rail-link w-full justify-start"
+                aria-label={`Ganti ke ${nextThemeLabel.toLowerCase()}`}
               >
-                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span>{label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Moon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                )}
+                <span>{nextThemeLabel}</span>
+              </button>
+
+              {currentBook && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/read/${currentBook.id}`)}
+                  className="w-full rounded-2xl border-2 px-3 py-2.5 text-left"
+                  style={{
+                    borderColor: 'var(--cr-border-subtle)',
+                    backgroundColor: 'var(--cr-bg-surface)',
+                  }}
+                >
+                  <span className="eyebrow block">Lanjut baca</span>
+                  <span
+                    className="mt-0.5 block truncate text-sm font-extrabold"
+                    style={{ color: 'var(--cr-text-primary)' }}
+                  >
+                    {currentBook.title}
+                  </span>
+                </button>
+              )}
+            </div>
+          </aside>
+
+          <header
+            className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b-2 px-4 py-3 lg:hidden"
+            style={{
+              backgroundColor: 'var(--cr-bg-surface-elevated)',
+              borderColor: 'var(--cr-border-subtle)',
+            }}
+          >
+            <button type="button" onClick={goHome} className="flex min-h-[48px] min-w-0 items-center gap-2.5 text-left">
+              <BrandMark />
+              <span className="min-w-0">
+                <span className="block truncate font-heading text-base font-extrabold leading-tight" style={{ color: 'var(--cr-text-primary)' }}>
+                  Contextual Reader
+                </span>
+                <span className="eyebrow block">Baca, ketuk, paham</span>
+              </span>
+            </button>
+
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="btn-ghost px-2"
+                aria-label={`Ganti ke ${nextThemeLabel.toLowerCase()}`}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Moon className="h-5 w-5" aria-hidden="true" />
+                )}
+              </button>
+              <button
+                ref={menuButtonRef}
+                type="button"
+                onClick={() => setMobileMenuOpen(open => !open)}
+                className="btn-ghost px-2"
+                aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-menu"
+              >
+                {mobileMenuOpen ? (
+                  <X className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Menu className="h-5 w-5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </header>
+
+          {mobileMenuOpen && (
+            <div
+              id="mobile-menu"
+              ref={menuRef}
+              className="cr-anim-rise sticky top-[73px] z-30 border-b-2 px-4 py-3 lg:hidden"
+              style={{
+                backgroundColor: 'var(--cr-bg-surface-elevated)',
+                borderColor: 'var(--cr-border-subtle)',
+              }}
+            >
+              <nav aria-label="Navigasi seluler" className="flex flex-col gap-1">
+                {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
+                  <NavLink
+                    key={path}
+                    to={path}
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      clearCurrentBook()
+                    }}
+                    className={({ isActive }) => `rail-link ${isActive ? 'is-active' : ''}`}
+                  >
+                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span>{label}</span>
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          )}
+        </>
       )}
 
-      <div className={`transition-[padding] duration-200 ${isReader ? 'lg:pl-[76px]' : 'lg:pl-[248px]'}`}>
+      <div className={isReader ? '' : 'lg:pl-[248px]'}>
         <main
-          className={`mx-auto w-full max-w-[1180px] px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:pb-16 ${
-            isReader ? 'max-w-[1020px]' : ''
+          className={`mx-auto w-full px-4 pb-28 pt-6 sm:px-6 lg:pb-16 ${
+            isReader ? 'max-w-[1180px] pb-10 pt-4 sm:pt-6' : 'max-w-[1180px] sm:pt-8'
           }`}
         >
           <Outlet />
         </main>
       </div>
 
-      {/* Mobile bottom tabs, hidden while reading for an immersive page */}
       {!isReader && (
         <nav
           aria-label="Navigasi bawah"

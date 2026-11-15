@@ -95,6 +95,7 @@ export function DictionaryDrawer({
   sourceLang = 'en',
   targetLang = 'id',
   contextSentence = '',
+  extraExamples = [],
   sentenceId = null,
   bookId = null,
   bookTitle = '',
@@ -170,14 +171,6 @@ export function DictionaryDrawer({
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    // Focus first element or header
-    setTimeout(() => {
-      const drawerEl = drawerRef.current
-      if (drawerEl) {
-        const firstFocusable = drawerEl.querySelector('button, [tabindex="0"]')
-        firstFocusable?.focus()
-      }
-    }, 50)
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
@@ -189,6 +182,15 @@ export function DictionaryDrawer({
       }
     }
   }, [isOpen, isNarrow])
+
+  // Move focus into the panel so Tab reaches its controls, not the page behind.
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const timer = window.setTimeout(() => {
+      drawerRef.current?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [isOpen])
 
   // Track target language change while open (AC-BB-07)
   useEffect(() => {
@@ -390,6 +392,7 @@ export function DictionaryDrawer({
       <aside
         ref={drawerRef}
         role="dialog"
+        tabIndex={-1}
         aria-modal={isNarrow ? 'true' : undefined}
         aria-labelledby="cr-drawer-word-title"
         className="cr-drawer-enter fixed inset-x-0 bottom-0 z-[61] flex h-[72dvh] max-h-[72dvh] flex-col rounded-t-3xl border-t border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-full md:w-[380px] md:rounded-none md:border-l md:border-t-0"
@@ -432,14 +435,9 @@ export function DictionaryDrawer({
         <DrawerHeader
           word={entry?.word || word}
           ipa={entry?.phonetic_ipa || entry?.pronunciation?.ipa || ''}
-          sourceLang={sourceLang}
-          targetLang={targetLang}
           targetWord={targetWord}
-          sourceAudioUrl={entry?.audio_url}
           saved={isSaved}
           saving={saving}
-          playingAudioKey={playingAudioKey}
-          onPlayAudio={handlePlayAudio}
           onToggleSave={() => onSaveWord && onSaveWord(entry?.word || word, contextSentence)}
           onClose={handleClose}
         />
@@ -572,9 +570,8 @@ export function DictionaryDrawer({
                   word={entry?.word || word}
                   entry={entry}
                   sourceLang={sourceLang}
-                  targetLang={motherLang}
                   contextSentence={contextSentence}
-                  onPlayAudio={(txt, lng) => handlePlayAudio(txt, lng, `audio_ex_${txt}`)}
+                  extraExamples={extraExamples}
                 />
               )}
 

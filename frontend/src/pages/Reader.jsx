@@ -31,12 +31,11 @@ function renderCachedKaTeX(formula, displayMode = false) {
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  Globe, ArrowLeft, ChevronDown, Volume2,
-  Sparkles, BookOpen, Sun, Moon, Type, 
-  SlidersHorizontal, AlertTriangle, X, Play, Square,
-  GraduationCap, Clock, GitBranch, Zap, Tag, Palette, Lightbulb, Languages, FileText,
-  Layers, Target, Search, PanelBottom, MessageSquare
+import {
+  Globe, ArrowLeft, ChevronDown,
+  BookOpen, Sun, Moon, Type,
+  AlertTriangle, X, Play, Square,
+  Target, PanelBottom, MessageSquare
 } from 'lucide-react'
 import { booksApi, translationsApi, vocabularyApi } from '../utils/api'
 import { useReaderStore, useVocabularyStore } from '../stores'
@@ -45,6 +44,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary'
 import { DictionaryDrawer } from '../components/dictionary/DictionaryDrawer'
 import { BookLanguageBadge } from '../components/language/BookLanguageBadge'
 import { TargetLanguagePopover } from '../components/language/TargetLanguagePopover'
+import { SentencePanel } from '../components/SentencePanel'
 
 // OCR/MinerU formula delimiter token and precompiled regexes
 const MINERU_MATH_DELIMITER = '72809'
@@ -82,7 +82,7 @@ export function Reader() {
   // Mobile settings modal state
   const [showMobileSettingsModal, setShowMobileSettingsModal] = useState(false)
   const [selectedWord, setSelectedWord] = useState(null) // { sentenceId, wIdx } highlight only
-  const [activeSentencePopup, setActiveSentencePopup] = useState(null) // { sentenceId, text, translation, loading }
+  const [sentencePanel, setSentencePanel] = useState(null) // { sentenceId, text }
   const [showTocModal, setShowTocModal] = useState(false)
   const [savedWords, setSavedWords] = useState(new Set())
   const [savingVocab, setSavingVocab] = useState(false)
@@ -93,9 +93,11 @@ export function Reader() {
   const [drawerContext, setDrawerContext] = useState('')
   const [drawerSentenceId, setDrawerSentenceId] = useState(null)
   const [drawerInitialTab, setDrawerInitialTab] = useState('meaning')
+  const [drawerExtraExamples, setDrawerExtraExamples] = useState([])
   const [isLangPopoverOpen, setIsLangPopoverOpen] = useState(false)
 
   const openDictionaryDrawer = (wordToOpen, sId, sentText, tab = 'meaning') => {
+    setSentencePanel(null)
     setDrawerWord(wordToOpen)
     setDrawerSentenceId(sId)
     setDrawerContext(sentText || '')
@@ -119,7 +121,7 @@ export function Reader() {
         setIsDrawerOpen(false)
         setIsLangPopoverOpen(false)
         setSelectedWord(null)
-        setActiveSentencePopup((prev) => (prev !== null ? null : prev))
+        setSentencePanel(null)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -167,7 +169,7 @@ export function Reader() {
     try {
       setLoading(true)
       setSelectedWord(null)
-      setActiveSentencePopup(null)
+      setSentencePanel(null)
       const res = await booksApi.chapter(bookId, index)
       setChapter(res.data)
       setChapterIndex(index)
@@ -201,6 +203,13 @@ export function Reader() {
     if (!cleanedWord || cleanedWord.length < 2) return
 
     const sentText = chapter?.sentences?.find(s => s.id === sentenceId)?.text || cleanedWord
+    const escaped = cleanedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const pattern = new RegExp(`\\b${escaped}\\b`, 'i')
+    const extra = (chapter?.sentences || [])
+      .filter((item) => item.id !== sentenceId && pattern.test(item.text || ''))
+      .slice(0, 3)
+      .map((item) => item.text)
+    setDrawerExtraExamples(extra)
     setSelectedWord({ sentenceId, wIdx })
     openDictionaryDrawer(cleanedWord, sentenceId, sentText, 'meaning')
   }
@@ -237,103 +246,11 @@ export function Reader() {
     return { mode: 'paragraph', tokens: [], fullText: transliteration }
   }
 
-  const getOriginalLanguageInfo = (langCode) => {
-    const code = (langCode || 'en').toLowerCase()
-    const langMap = {
-      en: { badge: 'EN', name: 'Bahasa Inggris' },
-      id: { badge: 'ID', name: 'Bahasa Indonesia' },
-      es: { badge: 'ES', name: 'Bahasa Spanyol' },
-      fr: { badge: 'FR', name: 'Bahasa Prancis' },
-      de: { badge: 'DE', name: 'Bahasa Jerman' },
-      ja: { badge: 'JA', name: 'Bahasa Jepang' },
-      'zh-cn': { badge: 'ZH', name: 'Bahasa Mandarin' },
-      zh: { badge: 'ZH', name: 'Bahasa Mandarin' },
-      ko: { badge: 'KO', name: 'Bahasa Korea' },
-      ar: { badge: 'AR', name: 'Bahasa Arab' },
-      ru: { badge: 'RU', name: 'Bahasa Rusia' },
-      pt: { badge: 'PT', name: 'Bahasa Portugis' },
-      it: { badge: 'IT', name: 'Bahasa Italia' },
-      nl: { badge: 'NL', name: 'Bahasa Belanda' },
-    }
-    return langMap[code] || { badge: code.toUpperCase(), name: code.toUpperCase() }
-  }
-
-  const AVAILABLE_LANGUAGES = [
-    { code: 'id', name: 'Bahasa Indonesia', badge: 'ID' },
-    { code: 'es', name: 'Bahasa Spanyol', badge: 'ES' },
-    { code: 'fr', name: 'Bahasa Prancis', badge: 'FR' },
-    { code: 'de', name: 'Bahasa Jerman', badge: 'DE' },
-    { code: 'ja', name: 'Bahasa Jepang', badge: 'JA' },
-    { code: 'zh-CN', name: 'Bahasa Mandarin', badge: 'ZH' },
-    { code: 'ko', name: 'Bahasa Korea', badge: 'KO' },
-    { code: 'ar', name: 'Bahasa Arab', badge: 'AR' },
-    { code: 'ru', name: 'Bahasa Rusia', badge: 'RU' },
-    { code: 'pt', name: 'Bahasa Portugis', badge: 'PT' },
-    { code: 'it', name: 'Bahasa Italia', badge: 'IT' },
-    { code: 'nl', name: 'Bahasa Belanda', badge: 'NL' },
-    { code: 'tr', name: 'Bahasa Turki', badge: 'TR' },
-    { code: 'vi', name: 'Bahasa Vietnam', badge: 'VI' },
-    { code: 'th', name: 'Bahasa Thailand', badge: 'TH' },
-    { code: 'su', name: 'Bahasa Sunda', badge: 'SU' },
-    { code: 'jv', name: 'Bahasa Jawa', badge: 'JV' },
-  ]
-
   // Handle sentence margin icon click -> full paragraph/sentence translation
-  const handleSentenceTranslate = async (sentenceId, sentenceText, overrideLang) => {
-    const langToUse = overrideLang || targetLanguage || 'id'
-
-    setActiveSentencePopup({
-      sentenceId,
-      text: sentenceText,
-      lang: langToUse,
-      loading: true,
-      translation: null,
-      notes: null
-    })
-
-    try {
-      const customConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
-      const res = await translationsApi.sentence(sentenceId, langToUse, translationEngine || 'google', customConfig)
-      let text = res.data.indonesian_text || ''
-      let notes = res.data.notes || ''
-
-      // Client-side safety parsing if note was embedded in indonesian_text
-      if (!notes && text.includes('(Note:')) {
-        const parts = text.split('(Note:')
-        text = parts[0].trim()
-        notes = parts[1].replace(/\)$/, '').trim()
-      } else if (!notes && text.includes('(Catatan:')) {
-        const parts = text.split('(Catatan:')
-        text = parts[0].trim()
-        notes = parts[1].replace(/\)$/, '').trim()
-      }
-
-      let motherText = null
-      if (langToUse.toLowerCase() !== (motherLanguage || 'id').toLowerCase()) {
-        try {
-          const motherRes = await translationsApi.sentence(sentenceId, motherLanguage || 'id', translationEngine || 'google', customConfig)
-          motherText = motherRes.data.indonesian_text || null
-        } catch (e) {}
-      }
-
-      setActiveSentencePopup(prev => ({
-        ...prev,
-        loading: false,
-        translation: text,
-        motherTranslation: motherText,
-        transliteration: res.data.transliteration,
-        tense: res.data.tense,
-        structure: res.data.structure,
-        grammar_details: res.data.grammar_details,
-        notes: notes
-      }))
-    } catch (err) {
-      setActiveSentencePopup(prev => ({
-        ...prev,
-        loading: false,
-        error: err.message || 'Gagal menerjemahkan kalimat'
-      }))
-    }
+  const handleSentenceTranslate = (sentenceId, sentenceText) => {
+    setSelectedWord(null)
+    setIsDrawerOpen(false)
+    setSentencePanel({ sentenceId, text: sentenceText })
   }
 
   // Save word to vocabulary list ("Pelajari")
@@ -577,10 +494,10 @@ export function Reader() {
   }
 
   return (
-    <div className={`flex flex-col gap-6 pb-20 transition-[padding] duration-200 ${isDrawerOpen ? 'lg:pr-[392px]' : ''}`}>
+    <div className={`flex flex-col gap-6 pb-20 transition-[padding] duration-200 ${isDrawerOpen || sentencePanel ? 'lg:pr-[392px]' : ''}`}>
       {/* Reading Toolbar - Mobile-First Responsive Design */}
       <div
-        className="card-duo sticky top-[72px] z-30 flex items-center justify-between gap-2 p-2.5 lg:top-4 sm:p-3"
+        className="card-duo sticky top-2 z-30 flex items-center justify-between gap-2 p-2.5 sm:p-3 lg:top-4"
         style={{ backgroundColor: 'var(--cr-bg-surface-elevated)' }}
       >
         {/* Left: Back & TOC */}
@@ -959,256 +876,6 @@ export function Reader() {
 
 
 
-      {/* Sentence Translation Modal / Bottom Sheet (Mobile & Desktop Responsive) */}
-      {activeSentencePopup && (
-        <div 
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setActiveSentencePopup(null);
-          }}
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in cursor-pointer"
-        >
-          <div className="card-duo max-w-2xl md:max-w-3xl w-full p-4 sm:p-6 bg-white dark:bg-dark-card border-2 border-duo-blue shadow-2xl space-y-4 max-h-[85vh] flex flex-col overflow-hidden cursor-default">
-            {/* Fixed Header */}
-            <div className="flex items-center justify-between pb-3 border-b-2 border-gray-100 dark:border-dark-border shrink-0">
-              <div className="flex items-center gap-2 text-duo-blue font-heading font-extrabold text-lg sm:text-xl">
-                <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span>Terjemahan Kalimat Utuh</span>
-              </div>
-              <button
-                onClick={() => setActiveSentencePopup(null)}
-                className="p-1 text-gray-400 hover:text-eel dark:hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {activeSentencePopup.loading ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-3">
-                <div className="w-8 h-8 border-4 border-duo-blue border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm font-bold text-duo-blue">Menerjemahkan kalimat & memproses konteks...</span>
-              </div>
-            ) : (
-              /* Scrollable Content Body */
-              <div className="overflow-y-auto space-y-4 pr-1 flex-1">
-                {/* SECTION 1: Kalimat Asli */}
-                <div className="p-3.5 sm:p-4 rounded-duo bg-gray-100 dark:bg-dark-border/60 border border-gray-200 dark:border-dark-border">
-                  <div className="flex items-center justify-between mb-2">
-                    {(() => {
-                      const origInfo = getOriginalLanguageInfo(book?.language)
-                      return (
-                        <span className="badge-duo bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 inline-flex items-center gap-1 text-xs font-bold">
-                          <Globe className="w-3 h-3 text-duo-blue inline" /> Kalimat Asli ({origInfo.name})
-                        </span>
-                      )
-                    })()}
-                    {(() => {
-                      const audioKey = `sent_orig_${activeSentencePopup.sentenceId}`
-                      const isPlaying = playingAudioKey === audioKey
-                      return (
-                        <button
-                          onClick={() => speakText(activeSentencePopup.text, book?.language || 'en', audioKey)}
-                          className={`p-1 rounded-full transition-colors ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-gray-500 hover:text-eel dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-border'}`}
-                          title={isPlaying ? "Berhenti" : "Dengarkan pengucapan kalimat asli"}
-                        >
-                          {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
-                        </button>
-                      )
-                    })()}
-                  </div>
-                  <p className="font-body text-sm sm:text-base italic text-eel dark:text-dark-text leading-relaxed break-words">
-                    "{activeSentencePopup.text}"
-                  </p>
-                </div>
-
-                {/* SECTION 2: Terjemahan dalam Bahasa Pilih */}
-                <div className="p-3.5 sm:p-4 rounded-duo bg-duo-blue/10 border-2 border-duo-blue space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="badge-blue inline-flex items-center gap-1 text-xs font-bold">
-                      <Languages className="w-3.5 h-3.5 text-duo-blue" />
-                      Terjemahan ({AVAILABLE_LANGUAGES.find(l => l.code === (activeSentencePopup.lang || targetLanguage || 'id'))?.name || 'Indonesia'})
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        const audioKey = `sent_trans_${activeSentencePopup.sentenceId}_${activeSentencePopup.lang}`
-                        const isPlaying = playingAudioKey === audioKey
-                        return (
-                          <button
-                            onClick={() => speakText(activeSentencePopup.translation, activeSentencePopup.lang || targetLanguage || 'id', audioKey)}
-                            className={`p-1 rounded-full transition-colors ${isPlaying ? 'text-duo-yellow bg-duo-yellow/20 animate-pulse' : 'text-duo-blue hover:bg-duo-blue/20'}`}
-                            title={isPlaying ? "Berhenti" : "Dengarkan suara terjemahan kalimat"}
-                          >
-                            {isPlaying ? <Square className="w-4 h-4 fill-current text-duo-yellow" /> : <Volume2 className="w-4 h-4" />}
-                          </button>
-                        )
-                      })()}
-
-                      {/* Compact Language Selector Dropdown */}
-                      <div className="flex items-center gap-1.5">
-                        <Globe className="w-3.5 h-3.5 text-duo-blue shrink-0" />
-                        <select
-                          value={activeSentencePopup.lang || targetLanguage || 'id'}
-                          onChange={(e) => {
-                            const newLang = e.target.value
-                            setTargetLanguage(newLang)
-                            handleSentenceTranslate(activeSentencePopup.sentenceId, activeSentencePopup.text, newLang)
-                          }}
-                          className="input-duo py-1 px-2.5 text-xs font-extrabold w-auto cursor-pointer bg-white dark:bg-dark-card text-eel dark:text-dark-text border border-duo-blue/40 rounded-duo"
-                        >
-                          {AVAILABLE_LANGUAGES.map(l => (
-                            <option key={l.code} value={l.code}>
-                              [{l.badge}] {l.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Primary Translation Script Display */}
-                  <p className="font-heading font-extrabold text-base sm:text-lg text-eel dark:text-dark-text leading-relaxed pt-1 break-words">
-                    {activeSentencePopup.translation}
-                  </p>
-
-                  {/* Mother Tongue Sentence Translation (Compact Badge) */}
-                  {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.motherTranslation && (
-                    <div className="p-2.5 rounded-duo bg-duo-green/10 border border-duo-green/30 space-y-0.5">
-                      <span className="text-[10px] font-extrabold text-duo-green uppercase tracking-wider flex items-center gap-1">
-                        <Languages className="w-3.5 h-3.5 text-duo-green" />
-                        <span>Terjemahan ({AVAILABLE_LANGUAGES.find(l => l.code === (motherLanguage || 'id'))?.name || 'Indonesia'}):</span>
-                      </span>
-                      <p className="font-heading font-extrabold text-xs sm:text-sm text-duo-green leading-snug break-words">
-                        {activeSentencePopup.motherTranslation}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* 3-Layer Interleaved Aligned Cards: Only when target language is different from user's mother language */}
-                  {(activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.grammar_details?.token_pairs?.length > 0 ? (
-                    <div className="space-y-2 pt-2 border-t border-duo-blue/20">
-                      <span className="text-xs sm:text-sm font-extrabold text-duo-blue uppercase tracking-wider flex items-center gap-1.5">
-                        <Languages className="w-4 h-4 text-duo-blue shrink-0" />
-                        <span>Terjemahan 3 Layer Per-Kata ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})</span>
-                      </span>
-
-                      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[35vh] overflow-y-auto">
-                        {activeSentencePopup.grammar_details.token_pairs.map((item, idx) => (
-                          <div key={idx} className="flex flex-col items-center bg-gray-50 dark:bg-dark-border/50 px-2 py-1 rounded-lg border border-gray-200 dark:border-dark-border hover:border-duo-blue transition-all shrink-0">
-                            {/* Layer 1: Aksara/Kata Target */}
-                            <span className="font-heading font-extrabold text-sm sm:text-base text-eel dark:text-dark-text leading-tight">
-                              {item.word}
-                            </span>
-                            {/* Layer 2: Cara Baca Latin */}
-                            <span className="font-mono text-[10px] sm:text-xs font-bold text-duo-blue leading-tight tracking-tight mt-0.5">
-                              {item.latin}
-                            </span>
-                            {/* Layer 3: Terjemahan Bahasa Induk Pengguna (Compact) */}
-                            <span className="text-[10px] font-bold text-duo-green bg-duo-green/10 px-1.5 py-0.5 rounded mt-0.5 max-w-[110px] truncate">
-                              {item.meaning}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (activeSentencePopup.lang || targetLanguage || 'id').toLowerCase() !== (motherLanguage || 'id').toLowerCase() && activeSentencePopup.transliteration ? (
-                    <div className="space-y-2 pt-2 border-t border-duo-blue/20">
-                      <span className="text-xs sm:text-sm font-extrabold text-duo-blue uppercase tracking-wider flex items-center gap-1.5">
-                        <Languages className="w-4 h-4 text-duo-blue shrink-0" />
-                        <span>Panduan Cara Baca Latin ({activeSentencePopup.lang === 'zh-CN' ? 'Pīnyīn' : activeSentencePopup.lang === 'ja' ? 'Rōmaji' : activeSentencePopup.lang === 'ko' ? 'Romaja' : 'Latin'})</span>
-                      </span>
-
-                      <div className="p-3 rounded-duo bg-white/90 dark:bg-dark-card/90 border border-duo-blue/30 max-h-[30vh] overflow-y-auto">
-                        <p className="font-mono text-xs sm:text-sm font-bold text-duo-blue leading-relaxed break-words tracking-tight">
-                          {activeSentencePopup.transliteration}
-                        </p>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* SECTION 3: Analisis Tata Bahasa & 16 Tenses */}
-                {activeSentencePopup.tense && (
-                  <div className="p-4 sm:p-5 rounded-duo bg-duo-purple/10 border-2 border-duo-purple space-y-3">
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="w-5 h-5 text-duo-purple shrink-0" />
-                      <span className="font-heading font-extrabold text-sm sm:text-base text-duo-purple uppercase tracking-wider">
-                        Analisis Tata Bahasa & 16 Tenses
-                      </span>
-                    </div>
-
-                    <div className="space-y-2.5 pt-1 text-sm sm:text-base">
-                      <div className="flex items-start gap-2 bg-white/80 dark:bg-dark-card/80 p-2.5 rounded-lg border border-duo-purple/20">
-                        <Clock className="w-4 h-4 text-duo-purple shrink-0 mt-0.5" />
-                        <span className="font-bold text-duo-purple shrink-0">Tenses:</span>
-                        <span className="font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.tense}</span>
-                      </div>
-
-                      {activeSentencePopup.structure && (
-                        <div className="flex items-start gap-2 bg-white/80 dark:bg-dark-card/80 p-2.5 rounded-lg border border-duo-purple/20">
-                          <GitBranch className="w-4 h-4 text-duo-blue shrink-0 mt-0.5" />
-                          <span className="font-bold text-duo-blue shrink-0">Pola Kalimat:</span>
-                          <span className="font-bold text-eel dark:text-dark-text">{activeSentencePopup.structure}</span>
-                        </div>
-                      )}
-
-                      {/* Verbs / Nouns / Adjectives Breakdown */}
-                      {activeSentencePopup.grammar_details && (
-                        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-duo-purple/20">
-                          {activeSentencePopup.grammar_details.verbs?.length > 0 && (
-                            <div className="flex items-center gap-1.5 bg-duo-green/10 px-2.5 py-1 rounded-md border border-duo-green/20 text-xs sm:text-sm">
-                              <Zap className="w-3.5 h-3.5 text-duo-green shrink-0" />
-                              <span className="font-bold text-duo-green">Verb (Kata Kerja):</span>
-                              <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.verbs.join(', ')}</span>
-                            </div>
-                          )}
-                          {activeSentencePopup.grammar_details.nouns?.length > 0 && (
-                            <div className="flex items-center gap-1.5 bg-duo-blue/10 px-2.5 py-1 rounded-md border border-duo-blue/20 text-xs sm:text-sm">
-                              <Tag className="w-3.5 h-3.5 text-duo-blue shrink-0" />
-                              <span className="font-bold text-duo-blue">Noun (Kata Benda):</span>
-                              <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.nouns.join(', ')}</span>
-                            </div>
-                          )}
-                          {activeSentencePopup.grammar_details.adjectives?.length > 0 && (
-                            <div className="flex items-center gap-1.5 bg-duo-yellow/10 px-2.5 py-1 rounded-md border border-duo-yellow/20 text-xs sm:text-sm">
-                              <Palette className="w-3.5 h-3.5 text-duo-yellow shrink-0" />
-                              <span className="font-bold text-yellow-600 dark:text-duo-yellow">Adjective (Kata Sifat):</span>
-                              <span className="font-mono font-extrabold text-eel dark:text-dark-text">{activeSentencePopup.grammar_details.adjectives.join(', ')}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* SECTION 4: Catatan Konteks & Istilah */}
-                {activeSentencePopup.notes && (
-                  <div className="p-4 sm:p-5 rounded-duo bg-duo-yellow/10 border-2 border-duo-yellow space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Lightbulb className="w-5 h-5 text-duo-yellow shrink-0" />
-                      <span className="font-heading font-extrabold text-sm sm:text-base text-yellow-900 dark:text-duo-yellow uppercase tracking-wider">
-                        Catatan Konteks & Istilah
-                      </span>
-                    </div>
-                    <p className="font-ui font-bold text-sm sm:text-base text-yellow-900 dark:text-duo-yellow leading-relaxed break-words pt-1">
-                      {activeSentencePopup.notes}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Fixed Footer Close Button */}
-            <button
-              onClick={() => setActiveSentencePopup(null)}
-              className="btn-secondary w-full mt-3 shrink-0"
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Table of Contents Modal */}
       {showTocModal && (
         <div 
@@ -1414,6 +1081,7 @@ export function Reader() {
         sourceLang={book?.language || 'en'}
         targetLang={targetLanguage || 'id'}
         contextSentence={drawerContext}
+        extraExamples={drawerExtraExamples}
         sentenceId={drawerSentenceId}
         bookId={bookId}
         bookTitle={book?.title || ''}
@@ -1427,6 +1095,18 @@ export function Reader() {
         translationEngine={translationEngine || 'google'}
         motherLang={motherLanguage || 'id'}
         customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
+      />
+
+      <SentencePanel
+        isOpen={Boolean(sentencePanel)}
+        sentenceId={sentencePanel?.sentenceId || null}
+        sentenceText={sentencePanel?.text || ''}
+        sourceLang={book?.language || 'en'}
+        targetLang={targetLanguage || 'id'}
+        translationEngine={translationEngine || 'google'}
+        customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
+        onPlayAudio={(text, lang, key) => speakText(text, lang, key)}
+        onClose={() => setSentencePanel(null)}
       />
 
       {/* Target Language Popover (F3) */}
