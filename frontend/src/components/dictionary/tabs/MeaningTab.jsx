@@ -30,17 +30,23 @@ export function MeaningTab({
   if (!entry) return null
 
   const meaning = entry.arti_konteks || entry.mother_meaning || entry.contextual_meaning || ''
-  const alternativeMeanings = Array.isArray(entry.arti_lain) ? entry.arti_lain : []
+  const targetAlternatives = Array.isArray(entry.arti_lain_bahasa_pilihan)
+    ? entry.arti_lain_bahasa_pilihan
+    : []
+  const alternativeMeanings = targetAlternatives.length > 0
+    ? targetAlternatives
+    : Array.isArray(entry.arti_lain)
+    ? entry.arti_lain
+    : []
   const synonyms = Array.isArray(entry.sinonim) ? entry.sinonim : entry.synonyms || []
-  const otherTranslations = Array.isArray(entry.terjemahan_lain)
+  const otherTranslations = Array.isArray(entry.terjemahan_lain_bahasa_pilihan) && entry.terjemahan_lain_bahasa_pilihan.length > 0
+    ? entry.terjemahan_lain_bahasa_pilihan
+    : Array.isArray(entry.terjemahan_lain)
     ? entry.terjemahan_lain
     : (entry.translations_table || []).map((item) => item.target_word).filter(Boolean)
   const examples = Array.isArray(entry.examples) ? entry.examples : []
   const bookExamples = Array.isArray(extraExamples) ? extraExamples.filter(Boolean) : []
   const targetMeaning = entry.arti_bahasa_pilihan || ''
-  const targetAlternatives = Array.isArray(entry.arti_lain_bahasa_pilihan)
-    ? entry.arti_lain_bahasa_pilihan
-    : []
 
   return (
     <div className={`space-y-4 pb-2 ${className}`}>
@@ -83,7 +89,7 @@ export function MeaningTab({
 
       <section aria-labelledby="block-other-meanings" className="space-y-2">
         <BlockLabel icon={Languages} id="block-other-meanings">
-          Arti lainnya
+          Arti lainnya{targetAlternatives.length > 0 ? ` (${String(entry.bahasa_pilihan || '').toUpperCase()})` : ''}
         </BlockLabel>
         {alternativeMeanings.length > 0 ? (
           <ul className="space-y-2">

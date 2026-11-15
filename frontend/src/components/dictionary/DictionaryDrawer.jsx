@@ -448,11 +448,11 @@ export function DictionaryDrawer({
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-4 py-2">
           <label htmlFor="drawer-language" className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
-            Bahasa terjemahan
+            Bahasa yang dipelajari
           </label>
           <select
             id="drawer-language"
-            value={motherLang}
+            value={targetLang}
             onChange={(event) => onLanguageChange && onLanguageChange(event.target.value)}
             className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 text-xs font-extrabold text-[var(--cr-text-primary)]"
           >
