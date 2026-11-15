@@ -39,11 +39,15 @@ ENRICHMENT_CACHE_TTL = 86400 * 7
 MAX_EXAMPLES = 4
 MAX_TRANSLATIONS = 8
 
+# Bump when the shape or the derivation of cached values changes, so entries
+# written by an older release are not served after a deploy.
+CACHE_VERSION = 'v2'
+
 
 def _cache_key(prefix: str, *parts: str) -> str:
     """Hash the variable part so the key is safe for any cache backend."""
     digest = hashlib.sha256('|'.join(parts).encode()).hexdigest()[:32]
-    return f'{prefix}:{digest}'
+    return f'{prefix}:{CACHE_VERSION}:{digest}'
 
 # Multi-character IPA symbols must be replaced before their single-character
 # parts, otherwise "tʃ" would become "c" plus a stray "sy".
