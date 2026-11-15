@@ -351,6 +351,11 @@ class DictionaryEnrichmentTest(TestCase):
             'The team stayed resilient through the crisis.',
         )
         self.assertEqual(payload['examples'][0]['target_text'], 'ulet')
+        self.assertEqual(
+            payload['sentence_translation']['source_text'],
+            'The team stayed resilient through the crisis.',
+        )
+        self.assertEqual(payload['sentence_translation']['target_text'], 'ulet')
 
     @mock.patch('reader.translations.provider.requests.get')
     @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
@@ -397,6 +402,95 @@ class DictionaryEnrichmentTest(TestCase):
         self.assertEqual(payload['pronunciation']['guide'], 'Hon')
         self.assertEqual(payload['phonetic_ipa'], '')
         self.assertEqual(payload['mother_meaning'], 'buku')
+
+
+class EverydayExampleTest(TestCase):
+    """Examples must never be empty when the model can supply everyday usage."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_model_examples_fill_when_corpus_is_thin(self):
+        from reader.translations import enrichment
+
+        response = (
+            '{"examples": ['
+            '{"source": "He remarried last year.", "target": "Dia menikah lagi tahun lalu."},'
+            '{"source": "She remarried after the divorce.", "target": "Dia menikah lagi setelah bercerai."},'
+            '{"source": "They remarried in a small ceremony.", "target": "Mereka menikah lagi dalam upacara kecil."}'
+            ']}'
+        )
+        with mock.patch(
+            'reader.translations.services.LLMClient.get_completion_text',
+            return_value=response,
+        ):
+            examples = enrichment.build_examples(
+                [], 'remarried', 'en', 'id', meaning='menikah lagi'
+            )
+
+        self.assertEqual(len(examples), 3)
+        self.assertTrue(all(item['origin'] == 'model' for item in examples))
+        self.assertEqual(examples[0]['target_text'], 'Dia menikah lagi tahun lalu.')
+
+    def test_model_examples_without_the_word_are_dropped(self):
+        from reader.translations import enrichment
+
+        response = (
+            '{"examples": ['
+            '{"source": "He stayed home.", "target": "Dia di rumah."},'
+            '{"source": "They remarried quietly.", "target": "Mereka menikah lagi diam-diam."}'
+            ']}'
+        )
+        with mock.patch(
+            'reader.translations.services.LLMClient.get_completion_text',
+            return_value=response,
+        ):
+            examples = enrichment.build_examples(
+                [], 'remarried', 'en', 'id', meaning='menikah lagi'
+            )
+
+        self.assertEqual(len(examples), 1)
+        self.assertEqual(examples[0]['source_text'], 'They remarried quietly.')
+
+    def test_model_failure_leaves_corpus_examples(self):
+        from reader.translations import enrichment
+
+        with mock.patch(
+            'reader.translations.services.LLMClient.get_completion_text',
+            side_effect=RuntimeError('no endpoint'),
+        ), mock.patch(
+            'reader.translations.enrichment._translate_text',
+            return_value='Dia menikah lagi.',
+        ):
+            examples = enrichment.build_examples(
+                ['She remarried.'], 'remarried', 'en', 'id', meaning='menikah lagi'
+            )
+
+        self.assertEqual(len(examples), 1)
+        self.assertEqual(examples[0]['origin'], 'corpus')
+
+    @mock.patch('reader.translations.enrichment.translate_query')
+    def test_sentence_translation_returns_pair(self, translate_query):
+        from reader.translations import enrichment
+
+        translate_query.return_value = [[['Orang tuaku bercerai saat aku berusia empat tahun.', 'My parents divorced when I was four.', None, None, 10]]]
+
+        result = enrichment.translate_sentence(
+            'My parents divorced when I was four.', 'en', 'id'
+        )
+
+        self.assertEqual(
+            result['target_text'],
+            'Orang tuaku bercerai saat aku berusia empat tahun.',
+        )
+        self.assertEqual(result['source_text'], 'My parents divorced when I was four.')
+
+    def test_google_macron_reading_is_not_left_empty(self):
+        from reader.translations.enrichment import ipa_to_guide
+
+        self.assertEqual(ipa_to_guide('bəˈlēv'), 'beLIV')
 
 
 class DictionaryEndpointTest(TestCase):

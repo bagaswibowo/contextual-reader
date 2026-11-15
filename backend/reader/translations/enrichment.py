@@ -21,6 +21,7 @@ partially enriched card beats an error page while someone is reading.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
@@ -38,6 +39,12 @@ ENRICHMENT_CACHE_TTL = 86400 * 7
 MAX_EXAMPLES = 4
 MAX_TRANSLATIONS = 8
 
+
+def _cache_key(prefix: str, *parts: str) -> str:
+    """Hash the variable part so the key is safe for any cache backend."""
+    digest = hashlib.sha256('|'.join(parts).encode()).hexdigest()[:32]
+    return f'{prefix}:{digest}'
+
 # Multi-character IPA symbols must be replaced before their single-character
 # parts, otherwise "tʃ" would become "c" plus a stray "sy".
 _IPA_SEQUENCES = [
@@ -49,10 +56,13 @@ _IPA_SEQUENCES = [
 ]
 
 _IPA_SINGLE = {
-    'ɪ': 'i', 'i': 'i', 'ɛ': 'e', 'e': 'e', 'æ': 'a', 'ʌ': 'e', 'ə': 'e',
+    'ɪ': 'i', 'i': 'i', 'ɛ': 'e', 'e': 'e', 'æ': 'a', 'ʌ': 'a', 'ə': 'e',
     'ɑ': 'o', 'ɒ': 'o', 'ɔ': 'o', 'ʊ': 'u', 'u': 'u', 'y': 'i', 'ø': 'e',
     'œ': 'e', 'ɐ': 'a', 'ɨ': 'i', 'ʉ': 'u', 'ɯ': 'u', 'j': 'y', 'r': 'r',
     'ɹ': 'r', 'ɾ': 'r', 'ʤ': 'j', 'ʧ': 'c', 'x': 'kh', 'ɣ': 'g', 'c': 'k',
+    # Google's reading field uses macrons and circumflexes for long vowels.
+    'ā': 'ei', 'ē': 'i', 'ī': 'ai', 'ō': 'ou', 'ū': 'u',
+    'â': 'a', 'ê': 'e', 'î': 'i', 'ô': 'o', 'û': 'u',
 }
 
 
@@ -133,7 +143,7 @@ def fetch_word_enrichment(word: str, source_lang: str, mother_lang: str) -> Dict
     if not word:
         return _empty_enrichment(mother)
 
-    cache_key = f'dict_enrich:{source}:{mother}:{word.lower()}'
+    cache_key = _cache_key('dict_enrich', source, mother, word.lower())
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -222,28 +232,162 @@ def build_examples(
     word: str,
     source_lang: str,
     mother_lang: str,
+    meaning: str = '',
+    part_of_speech: str = '',
+    minimum: int = 3,
 ) -> List[Dict]:
-    """Pair up to ``MAX_EXAMPLES`` source sentences with their translation."""
+    """Return example sentences, topping up with model-written everyday usage.
+
+    Real sentences from the reader's book or the dictionary come first. When
+    there are too few, the configured model writes short everyday sentences so
+    the card never opens with an empty example block.
+    """
     sentences = [text.strip() for text in source_sentences if isinstance(text, str) and text.strip()]
     sentences = list(dict.fromkeys(sentences))[:MAX_EXAMPLES]
-    if not sentences:
-        return []
 
-    cache_key = f'dict_examples:{normalize_lang(source_lang)}:{normalize_lang(mother_lang)}:{word.lower()}:' + '|'.join(sentences)
+    cache_key = _cache_key(
+        'dict_examples',
+        normalize_lang(source_lang),
+        normalize_lang(mother_lang),
+        word.lower(),
+        str(minimum),
+        *sentences,
+    )
     cached = cache.get(cache_key)
     if cached:
         return cached
 
-    with ThreadPoolExecutor(max_workers=len(sentences)) as executor:
+    with ThreadPoolExecutor(max_workers=max(1, len(sentences))) as executor:
         translated = list(executor.map(
             lambda text: _translate_text(text, source_lang, mother_lang),
             sentences,
-        ))
+        )) if sentences else []
 
     examples = [
-        {'source_text': source, 'target_text': target, 'keyword': word}
+        {'source_text': source, 'target_text': target, 'keyword': word, 'origin': 'corpus'}
         for source, target in zip(sentences, translated)
         if source
     ]
+
+    if len(examples) < minimum:
+        try:
+            generated = generate_everyday_examples(
+                word, source_lang, mother_lang, meaning, part_of_speech
+            )
+        except Exception:
+            generated = []
+        existing = {item['source_text'].lower() for item in examples}
+        for item in generated:
+            if len(examples) >= MAX_EXAMPLES:
+                break
+            if item['source_text'].lower() in existing:
+                continue
+            examples.append(item)
+            existing.add(item['source_text'].lower())
+
     cache.set(cache_key, examples, timeout=ENRICHMENT_CACHE_TTL)
     return examples
+
+
+_EXAMPLE_PROMPT = (
+    'You write short example sentences for a language learner.\n'
+    'Target word: "{word}"\n'
+    'Language of the word: "{source}"\n'
+    'Meaning in "{mother}": "{meaning}"\n'
+    'Part of speech: "{pos}"\n'
+    'Write 3 short, natural, everyday sentences in "{source}" that use the word '
+    'exactly in the given form, the kind of sentence a person says or reads in '
+    'daily life. Then give the "{mother}" translation of each sentence.\n'
+    'Output ONLY JSON: '
+    '{{"examples": [{{"source": "...", "target": "..."}}]}}'
+)
+
+
+def generate_everyday_examples(
+    word: str,
+    source_lang: str,
+    mother_lang: str,
+    meaning: str = '',
+    part_of_speech: str = '',
+) -> List[Dict]:
+    """Ask the configured model for everyday sentences; drop anything unusable."""
+    if not word:
+        return []
+
+    from .services import LLMClient
+
+    client = LLMClient()
+    response = client.get_completion_text([
+        {
+            'role': 'system',
+            'content': _EXAMPLE_PROMPT.format(
+                word=word,
+                source=normalize_lang(source_lang) or 'auto',
+                mother=normalize_lang(mother_lang) or 'id',
+                meaning=meaning or word,
+                pos=part_of_speech or '-',
+            ),
+        },
+        {'role': 'user', 'content': f'Word: "{word}"'},
+    ])
+    return _parse_example_response(response, word, source_lang)
+
+
+def _parse_example_response(response: str, word: str, source_lang: str) -> List[Dict]:
+    import json
+
+    if not isinstance(response, str) or '{' not in response:
+        return []
+    start, end = response.find('{'), response.rfind('}')
+    try:
+        payload = json.loads(response[start:end + 1])
+    except ValueError:
+        return []
+
+    raw = payload.get('examples') if isinstance(payload, dict) else None
+    if not isinstance(raw, list):
+        return []
+
+    word_lower = word.lower().strip()
+    stem = word_lower[:-2] if word_lower.endswith('ed') and len(word_lower) > 4 else word_lower
+    examples = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get('source') or '').strip()
+        target = str(item.get('target') or '').strip()
+        if not source or not target or len(source) > 240 or len(target) > 240:
+            continue
+        lowered = source.lower()
+        if word_lower not in lowered and stem not in lowered:
+            continue
+        examples.append({
+            'source_text': source,
+            'target_text': target,
+            'keyword': word,
+            'origin': 'model',
+            'lang': normalize_lang(source_lang),
+        })
+        if len(examples) >= 3:
+            break
+    return examples
+
+
+def translate_sentence(text: str, source_lang: str, mother_lang: str) -> Dict:
+    """Mother-tongue translation of the sentence the word was clicked in."""
+    cleaned = ' '.join((text or '').split())
+    if not cleaned:
+        return {'source_text': '', 'target_text': ''}
+
+    cache_key = _cache_key('dict_sentence', normalize_lang(source_lang), normalize_lang(mother_lang), cleaned)
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    result = {
+        'source_text': cleaned,
+        'target_text': _translate_text(cleaned, source_lang, mother_lang),
+    }
+    cache.set(cache_key, result, timeout=ENRICHMENT_CACHE_TTL)
+    return result
+

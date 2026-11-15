@@ -191,7 +191,7 @@ def serialize_entry(
     mother_lang: str = 'id',
 ) -> dict:
     """Build the full word card: source-language entry plus mother-tongue layer."""
-    from .enrichment import build_examples, fetch_word_enrichment
+    from .enrichment import build_examples, fetch_word_enrichment, translate_sentence
 
     senses = _rank_by_context(list(entry.senses or []), context)
     try:
@@ -212,9 +212,23 @@ def serialize_entry(
         if isinstance(example, str) and example.strip()
     )
     try:
-        examples = build_examples(source_examples, entry.word, entry.lang, mother_lang)
+        examples = build_examples(
+            source_examples,
+            entry.word,
+            entry.lang,
+            mother_lang,
+            meaning=primary_meaning,
+            part_of_speech=entry.part_of_speech,
+        )
     except Exception:
         examples = []
+
+    try:
+        sentence_translation = translate_sentence(context, entry.lang, mother_lang) if context else {
+            'source_text': '', 'target_text': ''
+        }
+    except Exception:
+        sentence_translation = {'source_text': context, 'target_text': ''}
 
     phonetic_ipa = entry.phonetic_ipa or pronunciation.get('ipa') or ''
     if not is_latin_script(entry.lang):
@@ -269,6 +283,7 @@ def serialize_entry(
         'definitions': definitions,
         'senses': senses,
         'examples': examples,
+        'sentence_translation': sentence_translation,
         'synonyms': list(entry.synonyms or []),
         'source': entry.source,
         'fetched_at': entry.fetched_at,
