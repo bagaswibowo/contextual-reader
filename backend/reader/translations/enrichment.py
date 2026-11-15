@@ -196,6 +196,7 @@ def fetch_word_enrichment(word: str, source_lang: str, mother_lang: str) -> Dict
         # Latin scripts, a romanization for every other script.
         segment = payload[0][1]
         reading = str(segment[3]).strip() if len(segment) > 3 and segment[3] else ''
+        reading = reading.strip('/[] ')
         if is_latin_script(source):
             ipa = reading
         else:
