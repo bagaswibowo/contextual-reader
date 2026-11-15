@@ -259,9 +259,9 @@ export function Vocabulary() {
                 const sentence = item.sentence || {}
 
                 return (
-                  <div 
+                  <div
                     key={item.id}
-                    className="card-duo p-5 hover:border-duo-green transition-all flex flex-col justify-between"
+                    className="card-duo cr-hover-lift p-5 transition-all flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
@@ -335,7 +335,7 @@ export function Vocabulary() {
           {sessionFinished ? (
             /* Session Completed Screen */
             <div className="card-duo p-8 text-center bg-white dark:bg-dark-card animate-bounce-in">
-              <div className="w-20 h-20 bg-duo-green/20 text-duo-green rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-20 h-20 bg-duo-green/20 text-duo-green rounded-3xl flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-10 h-10" />
               </div>
               <h2 className="heading-1 text-3xl mb-2">Sesi Review Selesai</h2>
@@ -399,10 +399,20 @@ export function Vocabulary() {
                 const sentence = card?.sentence || {}
 
                 return (
-                  <div 
+                  <div
                     onClick={() => setIsFlipped(!isFlipped)}
-                    className="card-duo min-h-[320px] p-8 cursor-pointer flex flex-col items-center justify-center text-center relative hover:border-duo-blue transition-all duration-300 shadow-xl"
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isFlipped}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setIsFlipped(!isFlipped)
+                      }
+                    }}
+                    className="cr-flip-scene cursor-pointer select-none"
                   >
+                    <div className={`card-duo min-h-[320px] p-8 flex flex-col items-center justify-center text-center relative shadow-xl transition-colors ${isFlipped ? '' : 'cr-pop'}`}>
                     {!isFlipped ? (
                       /* FRONT SIDE */
                       <div className="space-y-4 animate-in">
@@ -462,6 +472,7 @@ export function Vocabulary() {
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
                 )
               })()}

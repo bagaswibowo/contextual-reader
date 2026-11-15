@@ -91,7 +91,7 @@ export function Settings() {
                 {/* Engine 1: Google Translate */}
                 <button
                   onClick={() => setTranslationEngine('google')}
-                  className={`p-4 rounded-duo border-2 text-left transition-all ${
+                  className={`cr-hover-lift p-4 rounded-duo border-2 text-left ${
                     translationEngine === 'google'
                       ? 'border-duo-green bg-duo-green/10 shadow-3d'
                       : 'border-gray-200 dark:border-dark-border'
@@ -110,7 +110,7 @@ export function Settings() {
                 {/* Engine 2: OmniRoute Proxy */}
                 <button
                   onClick={() => setTranslationEngine('omni')}
-                  className={`p-4 rounded-duo border-2 text-left transition-all ${
+                  className={`cr-hover-lift p-4 rounded-duo border-2 text-left ${
                     translationEngine === 'omni'
                       ? 'border-duo-blue bg-duo-blue/10 shadow-3d-blue'
                       : 'border-gray-200 dark:border-dark-border'
@@ -129,7 +129,7 @@ export function Settings() {
                 {/* Engine 3: Custom AI Provider */}
                 <button
                   onClick={() => setTranslationEngine('custom')}
-                  className={`p-4 rounded-duo border-2 text-left transition-all ${
+                  className={`cr-hover-lift p-4 rounded-duo border-2 text-left ${
                     translationEngine === 'custom'
                       ? 'border-duo-purple bg-duo-purple/10 shadow-3d'
                       : 'border-gray-200 dark:border-dark-border'

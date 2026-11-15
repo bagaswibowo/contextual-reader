@@ -215,7 +215,7 @@ export function Library() {
       ) : !books || books.length === 0 ? (
         !uploading && (
           <div className="card-duo p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-duo-green/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-20 h-20 rounded-3xl bg-duo-green/10 flex items-center justify-center mx-auto mb-4 animate-bounce-in">
               <BookOpen className="w-10 h-10 text-duo-green" />
             </div>
             <h2 className="heading-3 mb-2">Belum Ada Buku</h2>
@@ -233,7 +233,7 @@ export function Library() {
           {books.map(book => {
             const isReady = book.status === 'ready' || book.status === 'completed'
             return (
-              <article key={book.id} className="card-duo overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col justify-between min-h-[220px]">
+              <article key={book.id} className="card-duo cr-hover-lift overflow-hidden transition-all duration-300 flex flex-col justify-between min-h-[220px]">
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -245,7 +245,7 @@ export function Library() {
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, book.id)}
-                      className="p-1.5 text-gray-400 hover:text-duo-red hover:bg-duo-red/10 rounded-lg transition-colors"
+                      className="cr-pop p-1.5 text-gray-400 hover:text-duo-red hover:bg-duo-red/10 rounded-lg transition-colors"
                       aria-label="Hapus buku"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -297,7 +297,12 @@ export function Library() {
                     ${!isReady ? 'opacity-50 cursor-not-allowed bg-gray-300 text-gray-500 shadow-none' : ''}
                   `}
                 >
-                  {isReady ? 'Baca' : book.status === 'processing' ? 'Memproses...' : 'Gagal Dimuat'}
+                  {isReady ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <BookOpen className="w-4 h-4" />
+                      Baca
+                    </span>
+                  ) : book.status === 'processing' ? 'Memproses...' : 'Gagal Dimuat'}
                 </button>
               </article>
             )

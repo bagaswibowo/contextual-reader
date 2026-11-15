@@ -132,8 +132,8 @@
   /* Word highlight in reader */
   .word-clickable {
     @apply underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-dark-border
-           cursor-pointer transition-all duration-150
-           hover:decoration-duo-green hover:decoration-2;
+           cursor-pointer transition-all duration-150 rounded
+           hover:decoration-duo-green hover:decoration-2 hover:bg-duo-green/10;
   }
 
   .word-clickable:focus-visible {
@@ -438,6 +438,69 @@
   }
   .cr-pop:active {
     transform: scale(0.94);
+  }
+
+  /* Duolingo streak flame + mascot bounce on hover */
+  .cr-hover-lift {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out;
+  }
+  .cr-hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 0 -2px var(--cr-btn-primary-shadow), 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+  }
+  .cr-hover-lift:active {
+    transform: translateY(-1px);
+  }
+
+  /* Flashcard 3D flip */
+  .cr-flip-scene {
+    perspective: 1200px;
+  }
+  .cr-flip-card {
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  .cr-flip-card.is-flipped {
+    transform: rotateY(180deg);
+  }
+  .cr-flip-face {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .cr-flip-face-back {
+    transform: rotateY(180deg);
+  }
+
+  /* Progress bar with Duolingo shine stripe */
+  .progress-duo-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.35) 50%,
+      transparent 100%
+    );
+    animation: crShine 2s ease-in-out infinite;
+  }
+  .progress-duo-fill {
+    position: relative;
+  }
+  @keyframes crShine {
+    0% { transform: translateX(-100%); }
+    60%, 100% { transform: translateX(100%); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-hover-lift:hover,
+  .cr-hover-lift:active,
+  .cr-flip-card,
+  .progress-duo-fill::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
   }
 }
 

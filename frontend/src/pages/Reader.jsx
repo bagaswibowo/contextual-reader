@@ -686,7 +686,7 @@ export function Reader() {
           {/* Mobile Settings Modal Trigger Button [Aa] */}
           <button
             onClick={() => setShowMobileSettingsModal(true)}
-            className="sm:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-duo bg-duo-green text-white font-extrabold text-xs shadow-3d"
+            className="cr-press sm:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-2xl font-extrabold text-xs text-[var(--cr-btn-primary-text-aa)]"
             title="Pengaturan Tampilan"
           >
             <Type className="w-3.5 h-3.5" />
@@ -1105,10 +1105,10 @@ export function Reader() {
                                     type="button"
                                     onClick={handleSaveVocabulary}
                                     disabled={savingVocab || savedWords.has(activeWordPopup.data?.id)}
-                                    className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                                    className={`cr-press min-h-[40px] px-3 py-1.5 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1.5 ${
                                       savedWords.has(activeWordPopup.data?.id)
-                                        ? 'bg-gray-200 dark:bg-dark-border text-gray-500'
-                                        : 'bg-duo-green text-white hover:bg-duo-green-dark'
+                                        ? 'cr-press-outline text-[var(--cr-text-secondary)]'
+                                        : 'text-[var(--cr-btn-primary-text-aa)]'
                                     }`}
                                   >
                                     {savedWords.has(activeWordPopup.data?.id) ? (
@@ -1130,7 +1130,8 @@ export function Reader() {
                                       const sentText = chapter?.sentences?.find(s => s.id === activeWordPopup.sentenceId)?.text || activeWordPopup.word
                                       openDictionaryDrawer(activeWordPopup.word, activeWordPopup.sentenceId, sentText, 'definition')
                                     }}
-                                    className="min-h-[40px] flex-1 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-duo-blue text-white hover:bg-blue-600 flex items-center justify-center gap-1 transition-all"
+                                    className="cr-press min-h-[40px] flex-1 px-3 py-1.5 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-1"
+                                    style={{ '--press-bg': '#1CB0F6', '--press-shadow': '#1598D9' }}
                                   >
                                     <span>Buka Kamus Lengkap</span>
                                     <ArrowRight className="w-3.5 h-3.5" />
