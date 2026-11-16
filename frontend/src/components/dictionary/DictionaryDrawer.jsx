@@ -241,10 +241,12 @@ export function DictionaryDrawer({
         setStatus((s) => (s === 'loading' ? 'slow' : s))
       }, 3000)
 
-      // Timeout at 8s (AC-WI-11)
+      // Some language pairs need several upstream lookups on a cold cache.
+      // Keep the request alive long enough for the backend to return a real
+      // result instead of showing a terminal error while it is still running.
       timeoutTimerRef.current = setTimeout(() => {
         setStatus((s) => (s === 'loading' || s === 'slow' ? 'timeout' : s))
-      }, 8000)
+      }, 30000)
 
       try {
         const res = await translationsApi.dictionary(
@@ -492,7 +494,7 @@ export function DictionaryDrawer({
             />
           )}
 
-          {/* State: Timeout after 8 seconds (AC-WI-11) */}
+          {/* State: Timeout after 30 seconds */}
           {status === 'timeout' && (
             <div className="p-6 text-center space-y-3 rounded-2xl bg-[var(--cr-bg-surface-elevated)] border border-[var(--cr-border-subtle)]">
               <AlertCircle className="w-8 h-8 mx-auto text-[var(--cr-text-danger)]" />
