@@ -29,8 +29,9 @@ CLIENT_NAMES = ('gtx', 'tw-ob', 'dict-chrome-ex')
 
 # The reading proxy answers with Google's block page when it is hit in a burst,
 # so a retry backs off before giving up on a layer.
-PROXY_ATTEMPTS = 3
+PROXY_ATTEMPTS = 4
 PROXY_RETRY_DELAY = 0.6
+PROXY_MAX_WAIT = 5.0
 
 # The card builds its layers in parallel and the proxy holds up under a burst,
 # so a few calls may run at once while the rest wait for a slot. Direct Google
@@ -82,6 +83,26 @@ def translate_query(params: Dict) -> Optional[list]:
     return translate_query_via_reader(params)
 
 
+def _proxy_wait(body: str, try_index: int) -> float:
+    """Seconds to wait before retrying a throttled proxy request.
+
+    The proxy states ``retryAfter`` in its reply; when it does not, a short
+    backoff keeps the retry from hitting the same limit again.
+    """
+    try:
+        data = json.loads(body)
+    except ValueError:
+        data = None
+    if isinstance(data, dict):
+        try:
+            stated = float(data.get('retryAfter') or 0)
+        except (TypeError, ValueError):
+            stated = 0
+        if stated > 0:
+            return min(stated, PROXY_MAX_WAIT)
+    return min(PROXY_RETRY_DELAY * (try_index + 1), PROXY_MAX_WAIT)
+
+
 def translate_query_via_reader(params: Dict) -> Optional[list]:
     """Repeat the same query through a reading proxy when Google blocks us.
 
@@ -116,10 +137,11 @@ def translate_query_via_reader(params: Dict) -> Optional[list]:
         marker = 'Markdown Content:'
         raw = body.split(marker, 1)[1].strip() if marker in body else body.strip()
         if not raw.startswith('['):
-            # A burst of lookups makes the proxy pass Google's block page back.
-            # Back off and try again rather than leaving the layer empty.
+            # A burst of lookups makes the proxy answer with its own throttle
+            # reply, which states how long to wait. Waiting less than that just
+            # burns the remaining attempts and leaves the layer empty.
             if try_index < PROXY_ATTEMPTS - 1:
-                time.sleep(PROXY_RETRY_DELAY * (try_index + 1))
+                time.sleep(_proxy_wait(body, try_index))
                 continue
             return None
         try:

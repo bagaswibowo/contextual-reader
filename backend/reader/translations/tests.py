@@ -1766,6 +1766,18 @@ class TranslateReaderProxyTest(TestCase):
 
         self.assertEqual(payload[0][0][0], 'merusak')
 
+    def test_throttle_reply_states_how_long_to_wait(self):
+        from reader.translations import provider
+
+        reply = '{"data":null,"retryAfter":3,"retryAfterDate":null}'
+
+        self.assertEqual(provider._proxy_wait(reply, 0), 3.0)
+
+    def test_missing_retry_hint_falls_back_to_a_short_backoff(self):
+        from reader.translations import provider
+
+        self.assertEqual(provider._proxy_wait('not json', 1), 1.2)
+
     @mock.patch('reader.translations.provider.requests.get')
     def test_no_proxy_configured_returns_none(self, get):
         from django.test import override_settings
