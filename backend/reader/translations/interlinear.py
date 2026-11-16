@@ -24,7 +24,7 @@ from django.core.cache import cache
 from .provider import is_translate_payload, normalize_lang, translate_query
 
 CACHE_TTL = 86400 * 7
-CACHE_VERSION = 'v1'
+CACHE_VERSION = 'v2'
 MAX_TOKENS = 60
 MAX_ALTERNATIVES = 3
 
@@ -250,7 +250,7 @@ def _grammar_note(tense: str) -> str:
     return f'Kalimat ini memakai pola {name}.'
 
 
-def build_interlinear(text: str, source_lang: str, target_lang: str) -> Dict:
+def build_interlinear(text: str, source_lang: str, target_lang: str, mother_lang: str = 'id') -> Dict:
     """Return the full translation, per-word alignment and grammar shape."""
     cleaned = ' '.join((text or '').split())
     if not cleaned:
@@ -264,8 +264,9 @@ def build_interlinear(text: str, source_lang: str, target_lang: str) -> Dict:
 
     source = normalize_lang(source_lang) or 'auto'
     target = normalize_lang(target_lang) or 'id'
+    mother = normalize_lang(mother_lang) or 'id'
 
-    cache_key = _cache_key('interlinear', source, target, cleaned)
+    cache_key = _cache_key('interlinear', source, target, mother, cleaned)
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -282,19 +283,38 @@ def build_interlinear(text: str, source_lang: str, target_lang: str) -> Dict:
             tokens,
         ))
 
-    words = [
-        {
+    mother_results = None
+    if mother != target:
+        # The per-word layer carries the same token in the mother tongue, so
+        # the reader sees the studied meaning and the native meaning at once.
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            mother_results = list(executor.map(
+                lambda token: _translate_token(token['clean'], source, mother),
+                tokens,
+            ))
+
+    words = []
+    for index, token in enumerate(tokens):
+        result = translated[index]
+        mother_result = mother_results[index] if mother_results is not None else None
+        word = {
             'index': token['index'],
             'source': token['source'],
             'target': result['target'],
             'alternatives': result['alternatives'],
         }
-        for token, result in zip(tokens, translated)
-    ]
+        if mother_result is not None:
+            word['mother'] = mother_result['target']
+        elif mother == target:
+            word['mother'] = result['target']
+        else:
+            word['mother'] = ''
+        words.append(word)
 
     result = {
         'source_text': cleaned,
         'target_text': target_text,
+        'mother_lang': mother,
         'words': words,
         'structure': analyze_structure(cleaned, source, target, target_text),
         'grammar': analyze_grammar(cleaned, source),

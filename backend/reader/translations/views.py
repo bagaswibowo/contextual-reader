@@ -1,5 +1,6 @@
 # Translations views
 import re
+from urllib.parse import quote
 
 import requests
 from django.http import HttpResponse
@@ -23,6 +24,17 @@ WORD_PATTERN = re.compile(r"^[\w\s'’.\-]+$", re.UNICODE)
 
 class InvalidCustomBaseUrl(Exception):
     """Internal control-flow signal carrying the caller-safe error message."""
+
+
+def tts_url(text: str, lang: str) -> str:
+    """Relative audio URL for a sentence layer, capped at the TTS text limit."""
+    clean = (text or '').strip()[:300]
+    if not clean:
+        return ''
+    return (
+        '/api/translations/tts/?text=' + quote(clean)
+        + '&lang=' + quote((lang or 'en').strip().lower())
+    )
 
 
 def _validated_custom_base_url(request) -> str | None:
@@ -102,10 +114,16 @@ class TranslationViewSet(viewsets.ViewSet):
         payload = SentenceTranslationSerializer(translation).data
 
         if request.data.get('layers'):
-            payload['layers'] = self._sentence_layers(
+            layers = self._sentence_layers(
                 sentence, translation, target_lang, mother_lang, engine,
                 custom_base_url, custom_api_key, custom_model,
             )
+            payload['layers'] = layers
+            payload['audio'] = {
+                'book': tts_url(layers['book']['text'], layers['book']['lang']),
+                'target': tts_url(layers['target']['text'], layers['target']['lang']),
+                'mother': tts_url(layers['mother']['text'], layers['mother']['lang']),
+            }
         return Response(payload)
 
     def _sentence_layers(self, sentence, target_translation, target_lang, mother_lang, engine,
@@ -209,15 +227,16 @@ class TranslationViewSet(viewsets.ViewSet):
         text = request.data.get('text')
         source_lang = (request.data.get('source_lang') or '').strip()
         target_lang = (request.data.get('target_lang') or 'id').strip() or 'id'
+        mother_lang = (request.data.get('mother_lang') or 'id').strip() or 'id'
 
         if not isinstance(text, str) or not text.strip():
             return self._bad_request('text is required')
         if len(text) > MAX_CONTEXT_CHARS:
             return self._bad_request(f'text must be at most {MAX_CONTEXT_CHARS} characters')
-        if len(source_lang) > 10 or len(target_lang) > 10:
+        if len(source_lang) > 10 or len(target_lang) > 10 or len(mother_lang) > 10:
             return self._bad_request('language codes must be at most 10 characters')
 
-        return Response(build_interlinear(text, source_lang, target_lang))
+        return Response(build_interlinear(text, source_lang, target_lang, mother_lang))
 
     @action(detail=False, methods=['get'])
     def tts(self, request):

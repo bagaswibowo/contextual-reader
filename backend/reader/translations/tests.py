@@ -1344,3 +1344,101 @@ class SentenceLayersEndpointTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['layers']['mother'], response.data['layers']['target'])
         self.assertEqual(translate.call_count, 1)
+
+
+class InterlinearMotherLayerTest(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+
+        cache.clear()
+        self.client = APIClient()
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_each_word_carries_studied_and_mother_meanings(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'She reads books.', 'target_text': 'Ella lee libros.'}
+
+        translations = {
+            ('es', 'She'): 'Ella',
+            ('es', 'reads'): 'lee',
+            ('es', 'books.'): 'libros.',
+            ('id', 'She'): 'Dia',
+            ('id', 'reads'): 'membaca',
+            ('id', 'books.'): 'buku.',
+        }
+
+        def fake_query(params):
+            value = translations.get((params.get('tl'), params.get('q')), params.get('q'))
+            return [[[value, value, None, None, 10]], []]
+
+        translate_query.side_effect = fake_query
+        response = self.client.post(
+            '/api/translations/interlinear/',
+            {
+                'text': 'She reads books.', 'source_lang': 'en',
+                'target_lang': 'es', 'mother_lang': 'id',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['mother_lang'], 'id')
+        words = {word['source']: word for word in payload['words']}
+        self.assertEqual(words['reads']['target'], 'lee')
+        self.assertEqual(words['reads']['mother'], 'membaca')
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_mother_mirrors_target_without_extra_lookup(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'She reads.', 'target_text': 'Dia membaca.'}
+        translate_query.return_value = [[['Dia', 'Dia', None, None, 10]], []]
+
+        response = self.client.post(
+            '/api/translations/interlinear/',
+            {
+                'text': 'She reads.', 'source_lang': 'en',
+                'target_lang': 'id', 'mother_lang': 'id',
+            },
+            format='json',
+        )
+
+        payload = response.json()
+        for word in payload['words']:
+            self.assertEqual(word['mother'], word['target'])
+            self.assertNotEqual(word['target'], '')
+
+
+class SentenceAudioUrlTest(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+        from reader.books.models import Book, Chapter, Sentence
+
+        cache.clear()
+        self.client = APIClient()
+        self.book = Book.objects.create(title='Audio', format='txt', status='ready', language='en')
+        self.chapter = Chapter.objects.create(book=self.book, index=0, title='One', content='Hello world.')
+        self.sentence = Sentence.objects.create(chapter=self.chapter, index=0, text='Hello world.')
+
+    @mock.patch('reader.translations.services.GoogleTranslateClient.translate_sentence')
+    def test_layers_response_includes_audio_for_each_layer(self, translate):
+        translate.side_effect = lambda text, target_lang='id', mother_lang='id': {
+            'indonesian_text': {'es': 'Hola mundo.', 'id': 'Halo dunia.'}.get(target_lang, text),
+            'transliteration': '', 'tense': '', 'structure': '', 'grammar_details': {}, 'notes': '',
+        }
+        response = self.client.post(
+            '/api/translations/sentence/',
+            {
+                'sentence_id': self.sentence.id, 'target_lang': 'es',
+                'mother_lang': 'id', 'engine': 'google', 'layers': True,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        audio = response.data['audio']
+        self.assertIn('lang=en', audio['book'])
+        self.assertIn('lang=es', audio['target'])
+        self.assertIn('lang=id', audio['mother'])
+        self.assertTrue(all(audio.values()))
