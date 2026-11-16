@@ -10,35 +10,36 @@
   --cr-bg-surface: #F7F9FA;
   --cr-bg-surface-elevated: #FFFFFF;
   --cr-text-primary: #1B2A32;
-  --cr-text-secondary: #52606D;
-  /* Third text level for per-word translations, AA on every surface */
-  --cr-text-tertiary: #5B6B77;
-  /* 5.14:1 on white */
-  --cr-text-accent: #2E6E02;
-  /* 6.28:1 on --cr-bg-surface */
-  --cr-text-danger: #B42318;
+  --cr-text-secondary: #3E4C57;
+  /* Third text level, AAA on every light surface */
+  --cr-text-tertiary: #46545F;
+  --cr-text-quaternary: #5B1F7A;
+  /* 8.33:1 on white */
+  --cr-text-accent: #1F5A00;
+  /* 9.31:1 on --cr-bg-surface */
+  --cr-text-danger: #6E140C;
 
   /* Primary CTA: white label on #3A8602 is 4.57:1 */
-  --cr-btn-primary-bg: #3A8602;
-  --cr-btn-primary-hover: #327602;
-  --cr-btn-primary-shadow: #276002;
+  --cr-btn-primary-bg: #236100;
+  --cr-btn-primary-hover: #1F5A00;
+  --cr-btn-primary-shadow: #174500;
   --cr-btn-primary-text: #FFFFFF;
   /* Light theme CTA face is dark green, so its label stays white */
   --cr-btn-primary-text-aa: #FFFFFF;
 
   --cr-blue-bright: #1CB0F6;
   --cr-blue-highlight: rgba(28, 176, 246, 0.12);
-  --cr-blue-text: #0B6E9E;
-  /* Solid fill for buttons that carry white labels (5.62:1) */
-  --cr-blue-solid: #0B6E9E;
-  --cr-blue-solid-shadow: #084A66;
+  --cr-blue-text: #084F70;
+  /* Solid fill for buttons that carry white labels (8.89:1) */
+  --cr-blue-solid: #084F70;
+  --cr-blue-solid-shadow: #063E58;
   --cr-yellow-bright: #FFC800;
-  --cr-yellow-text: #6B4E00;
+  --cr-yellow-text: #4A3600;
   --cr-purple-bright: #CE82FF;
 
   --cr-border-interactive: #64748B;
   --cr-border-subtle: #E3E8EB;
-  --cr-ring-focus: #0B6E9E;
+  --cr-ring-focus: #084F70;
 
   --cr-highlight-sentence: rgba(254, 240, 138, 0.55);
   --cr-highlight-word-hover: rgba(88, 204, 2, 0.12);
@@ -47,16 +48,16 @@
   /* Book cover tints, one per format family. Ink stays readable on each. */
   --cr-cover-1-bg: rgba(58, 134, 2, 0.12);
   --cr-cover-1-border: rgba(58, 134, 2, 0.45);
-  --cr-cover-1-ink: #2C6A01;
+  --cr-cover-1-ink: #144D1E;
   --cr-cover-2-bg: rgba(28, 176, 246, 0.14);
   --cr-cover-2-border: rgba(11, 110, 158, 0.40);
-  --cr-cover-2-ink: #08506E;
+  --cr-cover-2-ink: #04354A;
   --cr-cover-3-bg: rgba(255, 200, 0, 0.22);
   --cr-cover-3-border: rgba(151, 118, 0, 0.45);
-  --cr-cover-3-ink: #5C4300;
+  --cr-cover-3-ink: #3F2D00;
   --cr-cover-4-bg: rgba(139, 63, 175, 0.12);
   --cr-cover-4-border: rgba(139, 63, 175, 0.40);
-  --cr-cover-4-ink: #6B2E8F;
+  --cr-cover-4-ink: #5B1F7A;
 }
 
 html.sepia {
@@ -65,25 +66,26 @@ html.sepia {
   --cr-bg-surface: #F4E8D1;
   --cr-bg-surface-elevated: #FDF7EC;
   --cr-text-primary: #2E1E11;
-  --cr-text-secondary: #684F38;
-  --cr-text-tertiary: #6E5A45;
-  --cr-text-accent: #1E6328;
+  --cr-text-secondary: #4A3826;
+  --cr-text-tertiary: #54402C;
+  --cr-text-quaternary: #4A1B63;
+  --cr-text-accent: #144D1E;
   /* 7.67:1 on --cr-bg-surface */
   --cr-text-danger: #8A1C12;
 
-  --cr-btn-primary-bg: #2C6E02;
-  --cr-btn-primary-hover: #245C01;
-  --cr-btn-primary-shadow: #1B4601;
+  --cr-btn-primary-bg: #1F5A00;
+  --cr-btn-primary-hover: #174500;
+  --cr-btn-primary-shadow: #123A00;
   --cr-btn-primary-text: #FFFFFF;
   --cr-btn-primary-text-aa: #FFFFFF;
 
   --cr-blue-bright: #1CB0F6;
   --cr-blue-highlight: rgba(28, 176, 246, 0.14);
-  --cr-blue-text: #0A4F70;
-  --cr-blue-solid: #0A4F70;
-  --cr-blue-solid-shadow: #06384F;
+  --cr-blue-text: #063E58;
+  --cr-blue-solid: #063E58;
+  --cr-blue-solid-shadow: #04303F;
   --cr-yellow-bright: #FFC800;
-  --cr-yellow-text: #5C4300;
+  --cr-yellow-text: #3F2D00;
   --cr-purple-bright: #A85CC4;
 
   --cr-border-interactive: #8C6D4F;
@@ -96,16 +98,16 @@ html.sepia {
 
   --cr-cover-1-bg: rgba(58, 134, 2, 0.16);
   --cr-cover-1-border: rgba(44, 110, 2, 0.45);
-  --cr-cover-1-ink: #1F5401;
+  --cr-cover-1-ink: #0F3F16;
   --cr-cover-2-bg: rgba(28, 176, 246, 0.16);
   --cr-cover-2-border: rgba(10, 79, 112, 0.40);
-  --cr-cover-2-ink: #0A4F70;
+  --cr-cover-2-ink: #063E58;
   --cr-cover-3-bg: rgba(255, 200, 0, 0.24);
   --cr-cover-3-border: rgba(140, 109, 79, 0.45);
-  --cr-cover-3-ink: #5C4300;
+  --cr-cover-3-ink: #3F2D00;
   --cr-cover-4-bg: rgba(168, 92, 196, 0.16);
   --cr-cover-4-border: rgba(107, 46, 143, 0.40);
-  --cr-cover-4-ink: #5E2478;
+  --cr-cover-4-ink: #4A1B63;
 }
 
 html.dark {
@@ -114,12 +116,13 @@ html.dark {
   --cr-bg-surface: #1A242B;
   --cr-bg-surface-elevated: #202F36;
   --cr-text-primary: #F1F7FB;
-  --cr-text-secondary: #A9BEC9;
-  --cr-text-tertiary: #8FA6B2;
+  --cr-text-secondary: #C3D5DF;
+  --cr-text-tertiary: #AFC3CE;
+  --cr-text-quaternary: #E3B8FF;
   /* Bright duo green reads well on dark surfaces */
-  --cr-text-accent: #89E919;
+  --cr-text-accent: #B7FF70;
   /* 8.31:1 on --cr-bg-surface */
-  --cr-text-danger: #FCA5A5;
+  --cr-text-danger: #FFC2C2;
 
   /* Bright fill with dark ink: 7.8:1 */
   --cr-btn-primary-bg: #58CC02;
@@ -130,11 +133,11 @@ html.dark {
 
   --cr-blue-bright: #1CB0F6;
   --cr-blue-highlight: rgba(28, 176, 246, 0.18);
-  --cr-blue-text: #7CD5FA;
-  --cr-blue-solid: #0E6C96;
+  --cr-blue-text: #A6E4FC;
+  --cr-blue-solid: #084F70;
   --cr-blue-solid-shadow: #084A66;
   --cr-yellow-bright: #FFC800;
-  --cr-yellow-text: #FFD84D;
+  --cr-yellow-text: #FFE28A;
   --cr-purple-bright: #CE82FF;
 
   --cr-border-interactive: #64748B;

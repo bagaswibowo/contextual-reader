@@ -33,7 +33,7 @@ export function DrawerHeader({
 
           <div className="mt-1 flex flex-wrap items-baseline gap-2">
             {ipa ? (
-              <span className="rounded-md bg-[var(--cr-highlight-word-hover)] px-1.5 py-0.5 font-mono text-[0.82em] font-bold text-[var(--cr-text-secondary)]">
+              <span className="rounded-md bg-[var(--cr-highlight-word-hover)] px-1.5 py-0.5 font-mono text-[0.82em] font-bold text-[var(--cr-text-primary)]">
                 {ipa.startsWith('/') ? ipa : `/${ipa}/`}
               </span>
             ) : (

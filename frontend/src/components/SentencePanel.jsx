@@ -352,33 +352,40 @@ export function SentencePanel({
                 Susunan kalimat
               </span>
 
-              {[['Bahasa buku', interlinear.structure?.source], ['Bahasa terjemahan', interlinear.structure?.target]].map(([label, parts]) =>
-                Array.isArray(parts) && parts.length > 0 ? (
-                  <div key={label}>
+              {[
+                { key: 'book', label: 'Bahasa buku', parts: interlinear.structure?.source, fallback: sentenceText },
+                { key: 'learning', label: 'Bahasa dipelajari', parts: interlinear.structure?.target, fallback: translation },
+                { key: 'mother', label: 'Bahasa induk', parts: interlinear.structure?.mother, fallback: state.motherText },
+              ].map(({ key, label, parts, fallback }) => {
+                const items = Array.isArray(parts) && parts.length > 0
+                  ? parts
+                  : fallback
+                  ? [{ label: 'Kalimat', text: fallback, color: 'neutral' }]
+                  : []
+                if (items.length === 0) return null
+
+                const colorFor = (role) => {
+                  if (role === 'subject') return 'text-[var(--cr-text-accent)]'
+                  if (role === 'predicate') return 'text-[var(--cr-blue-text)]'
+                  if (role === 'object') return 'text-[var(--cr-yellow-text)]'
+                  if (role === 'adverbial') return 'text-[var(--cr-text-quaternary)]'
+                  return 'text-[var(--cr-text-primary)]'
+                }
+
+                return (
+                  <div key={key} data-structure-layer={key}>
                     <p className="mb-1 text-[0.68em] font-bold text-[var(--cr-text-secondary)]">{label}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {parts.map((part, index) => (
-                        <span
-                          key={`${label}-${part.label}-${index}`}
-                          className={`rounded-lg border px-2 py-1 text-[0.72em] font-bold ${
-                            index % 3 === 0
-                              ? 'border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
-                              : index % 3 === 1
-                              ? 'border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)]'
-                              : 'border-[var(--cr-yellow-text)] bg-[rgba(255,200,0,0.14)] text-[var(--cr-text-primary)]'
-                          }`}
-                        >
-                          {part.label}: {part.text}
+                    <p className="space-y-0.5">
+                      {items.map((part, index) => (
+                        <span key={`${key}-${part.label}-${index}`} className="block text-[max(12px,0.8em)] leading-snug">
+                          <span className={`font-bold ${colorFor(part.color)}`}>{part.text}</span>
+                          <span className="font-normal text-[var(--cr-text-secondary)]"> : {part.label}</span>
                         </span>
                       ))}
-                    </div>
+                    </p>
                   </div>
-                ) : null
-              )}
-
-              {!interlinear.structure?.source?.length && data.structure && (
-                <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">{data.structure}</p>
-              )}
+                )
+              })}
 
               <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">
                 {interlinear.grammar?.tense || data.tense}

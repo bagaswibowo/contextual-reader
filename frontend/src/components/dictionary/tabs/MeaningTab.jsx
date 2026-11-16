@@ -99,7 +99,7 @@ export function MeaningTab({
           </span>
         )}
         {contextSentence && (
-          <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[0.85em] italic leading-relaxed text-[var(--cr-text-secondary)] line-clamp-3">
+          <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[0.85em] italic leading-relaxed text-[var(--cr-text-primary)] line-clamp-3">
             &ldquo;{contextSentence}&rdquo;
           </blockquote>
         )}
