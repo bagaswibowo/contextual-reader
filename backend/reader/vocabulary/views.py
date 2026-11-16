@@ -15,9 +15,13 @@ class VocabularyViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user_id = self.request.query_params.get('user_id', 'default')
-        return VocabularyEntry.objects.filter(user_id=user_id).select_related(
+        queryset = VocabularyEntry.objects.filter(user_id=user_id).select_related(
             'word_translation', 'sentence', 'sentence__chapter', 'book'
         )
+        book_id = self.request.query_params.get('book_id')
+        if book_id:
+            queryset = queryset.filter(book_id=book_id)
+        return queryset
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -53,6 +57,31 @@ class VocabularyViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(entry)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
     
+    @action(detail=False, methods=['get'])
+    def saved_words(self, request):
+        """Unpaginated saved-word keys so the reader can mark every word as Tersimpan."""
+        user_id = request.query_params.get('user_id', 'default')
+        book_id = request.query_params.get('book_id')
+        entries = VocabularyEntry.objects.filter(user_id=user_id)
+        if book_id:
+            entries = entries.filter(book_id=book_id)
+        entries = entries.select_related('word_translation')
+
+        words = set()
+        translation_ids = set()
+        for entry in entries:
+            translation = entry.word_translation
+            translation_ids.add(translation.id)
+            if translation.word:
+                words.add(translation.word.lower())
+            if translation.word_lower:
+                words.add(translation.word_lower.lower())
+
+        return Response({
+            'words': sorted(words),
+            'word_translation_ids': sorted(translation_ids),
+        })
+
     @action(detail=False, methods=['get'])
     def by_book(self, request):
         user_id = request.query_params.get('user_id', 'default')

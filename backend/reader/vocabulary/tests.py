@@ -235,3 +235,48 @@ class AuthRegressionTest(TestCase):
         # Setelah S1-B1 (token auth + owner FK) ini harus menjadi 401/403.
         resp = self.client.get("/api/books/", format="json")
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+
+class SavedWordsTest(VocabularyFixtureMixin, TestCase):
+    def _entry(self, book, chapter, sentence, word):
+        translation = WordTranslation.objects.create(
+            sentence=sentence, word=word, word_lower=word.lower(), contextual_meaning=word,
+        )
+        VocabularyEntry.objects.create(
+            user_id='default', book=book, sentence=sentence, word_translation=translation,
+        )
+        return translation
+
+    def test_saved_words_returns_every_entry_without_pagination(self):
+        for index in range(60):
+            self._entry(self.book, self.chapter, self.sentence, f'word{index}')
+
+        response = self.client.get('/api/vocabulary/saved_words/', {'book_id': self.book.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['words']), 60)
+        self.assertEqual(len(response.data['word_translation_ids']), 60)
+
+    def test_saved_words_filters_by_book(self):
+        other_book = Book.objects.create(title='Other', format='txt', status='ready')
+        other_chapter = Chapter.objects.create(book=other_book, index=0, title='Two', content='Other.')
+        other_sentence = Sentence.objects.create(chapter=other_chapter, index=0, text='Other.')
+        self._entry(self.book, self.chapter, self.sentence, 'hello')
+        self._entry(other_book, other_chapter, other_sentence, 'other')
+
+        response = self.client.get('/api/vocabulary/saved_words/', {'book_id': self.book.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['words'], ['hello'])
+
+    def test_list_honours_book_id(self):
+        other_book = Book.objects.create(title='Other', format='txt', status='ready')
+        other_chapter = Chapter.objects.create(book=other_book, index=0, title='Two', content='Other.')
+        other_sentence = Sentence.objects.create(chapter=other_chapter, index=0, text='Other.')
+        self._entry(self.book, self.chapter, self.sentence, 'hello')
+        self._entry(other_book, other_chapter, other_sentence, 'other')
+
+        response = self.client.get('/api/vocabulary/', {'book_id': self.book.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)

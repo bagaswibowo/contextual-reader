@@ -1278,3 +1278,69 @@ class DefinitionCoverageTest(TestCase):
             payload['definisi_bahasa_pilihan_lain'][0]['makna'],
             'sedang tidur',
         )
+
+
+class SentenceLayersEndpointTest(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from reader.books.models import Book, Chapter, Sentence
+
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client = APIClient()
+        self.book = Book.objects.create(title='Layers', format='txt', status='ready', language='en')
+        self.chapter = Chapter.objects.create(book=self.book, index=0, title='One', content='Hello world.')
+        self.sentence = Sentence.objects.create(chapter=self.chapter, index=0, text='Hello world.')
+
+    @mock.patch('reader.translations.services.GoogleTranslateClient.translate_sentence')
+    def test_layers_return_book_target_and_mother(self, translate):
+        translate.side_effect = lambda text, target_lang='id', mother_lang='id': {
+            'indonesian_text': {'es': 'Hola mundo.', 'id': 'Halo dunia.'}.get(target_lang, text),
+            'transliteration': '',
+            'tense': '',
+            'structure': '',
+            'grammar_details': {},
+            'notes': '',
+        }
+        response = self.client.post(
+            '/api/translations/sentence/',
+            {
+                'sentence_id': self.sentence.id,
+                'target_lang': 'es',
+                'mother_lang': 'id',
+                'engine': 'google',
+                'layers': True,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        layers = response.data['layers']
+        self.assertEqual(layers['book'], {'lang': 'en', 'text': 'Hello world.'})
+        self.assertEqual(layers['target'], {'lang': 'es', 'text': 'Hola mundo.'})
+        self.assertEqual(layers['mother'], {'lang': 'id', 'text': 'Halo dunia.'})
+
+    @mock.patch('reader.translations.services.GoogleTranslateClient.translate_sentence')
+    def test_mother_layer_reuses_target_when_languages_match(self, translate):
+        translate.return_value = {
+            'indonesian_text': 'Halo dunia.',
+            'transliteration': '',
+            'tense': '',
+            'structure': '',
+            'grammar_details': {},
+            'notes': '',
+        }
+        response = self.client.post(
+            '/api/translations/sentence/',
+            {
+                'sentence_id': self.sentence.id,
+                'target_lang': 'id',
+                'mother_lang': 'id',
+                'engine': 'google',
+                'layers': True,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['layers']['mother'], response.data['layers']['target'])
+        self.assertEqual(translate.call_count, 1)

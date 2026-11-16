@@ -99,7 +99,32 @@ class TranslationViewSet(viewsets.ViewSet):
             sentence, target_lang=target_lang, mother_lang=mother_lang, engine=engine,
             custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
         )
-        return Response(SentenceTranslationSerializer(translation).data)
+        payload = SentenceTranslationSerializer(translation).data
+
+        if request.data.get('layers'):
+            payload['layers'] = self._sentence_layers(
+                sentence, translation, target_lang, mother_lang, engine,
+                custom_base_url, custom_api_key, custom_model,
+            )
+        return Response(payload)
+
+    def _sentence_layers(self, sentence, target_translation, target_lang, mother_lang, engine,
+                         custom_base_url, custom_api_key, custom_model):
+        """Return the book, studied, and mother-tongue layers in one response."""
+        book_lang = (sentence.chapter.book.language or 'en').lower()
+        layers = {
+            'book': {'lang': book_lang, 'text': sentence.text},
+            'target': {'lang': target_lang, 'text': target_translation.indonesian_text},
+        }
+        if str(mother_lang).lower() == str(target_lang).lower():
+            layers['mother'] = dict(layers['target'])
+        else:
+            mother_translation = translation_service.translate_sentence(
+                sentence, target_lang=mother_lang, mother_lang=mother_lang, engine=engine,
+                custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
+            )
+            layers['mother'] = {'lang': mother_lang, 'text': mother_translation.indonesian_text}
+        return layers
 
     @action(detail=False, methods=['post'])
     def batch_sentence(self, request):
