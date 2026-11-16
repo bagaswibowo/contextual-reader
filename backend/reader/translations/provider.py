@@ -33,10 +33,10 @@ PROXY_ATTEMPTS = 4
 PROXY_RETRY_DELAY = 0.6
 PROXY_MAX_WAIT = 5.0
 
-# The card builds its layers in parallel and the proxy holds up under a burst,
-# so a few calls may run at once while the rest wait for a slot. Direct Google
-# calls stay unlimited.
-_PROXY_SLOTS = threading.Semaphore(8)
+# The proxy throttles a burst and asks for a pause between requests, so only a
+# couple may be in flight; the rest wait for a slot. Direct Google calls stay
+# unlimited.
+_PROXY_SLOTS = threading.Semaphore(2)
 
 # Languages written in Latin script: Google's reading field is an IPA-style
 # respelling there, while for other scripts it is a romanization.
