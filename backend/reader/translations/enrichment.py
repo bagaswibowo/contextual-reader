@@ -708,3 +708,116 @@ def build_alternative_meanings(
             } if example else None,
         })
     return result
+
+
+def build_meaning_layers(
+    alternatives: List[Dict],
+    senses: List[Dict],
+    source_lang: str,
+    mother_lang: str,
+    learning_lang: str = '',
+    makna_layer: str = 'learning',
+) -> List[Dict]:
+    """Add book, studied and mother-tongue readings to alternative meanings.
+
+    The dictionary sense at the same position is the meaning in the book
+    language, because that is where the word comes from. ``makna`` is the word
+    in ``makna_layer``: ``learning`` for the panel-language list, ``mother`` for
+    the mother-tongue list. The other layer is translated from the book sense,
+    and only when the two languages really differ, so a layer is never a copy
+    and never a guess; without a source it stays empty.
+    """
+    if not alternatives:
+        return []
+
+    source = normalize_lang(source_lang)
+    mother = normalize_lang(mother_lang) or 'id'
+    learning = normalize_lang(learning_lang) or ''
+    has_learning = bool(learning) and learning != mother
+    book_meanings = [str(sense.get('meaning') or '').strip() for sense in senses]
+
+    rows = [
+        {
+            'item': item,
+            'book': book_meanings[index] if index < len(book_meanings) else '',
+        }
+        for index, item in enumerate(alternatives)
+    ]
+
+    def translate_row(row, lang):
+        return _translate_text(row['book'], source, lang) if row['book'] else ''
+
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, min(4, len(rows)))) as executor:
+            mother_texts = list(executor.map(lambda row: translate_row(row, mother), rows))
+            learning_texts = (
+                list(executor.map(lambda row: translate_row(row, learning), rows))
+                if has_learning and makna_layer != 'learning' else []
+            )
+    except Exception:
+        mother_texts = [''] * len(rows)
+        learning_texts = []
+
+    layered = []
+    for index, row in enumerate(rows):
+        entry = dict(row['item'])
+        word = str(entry.get('makna') or '').strip()
+        entry['meaning_book'] = row['book']
+        if makna_layer == 'mother':
+            entry['meaning_learning'] = (
+                learning_texts[index] if index < len(learning_texts) else ''
+            )
+            entry['meaning_mother'] = word
+        else:
+            entry['meaning_learning'] = word if has_learning else ''
+            entry['meaning_mother'] = mother_texts[index] if index < len(mother_texts) else ''
+        layered.append(entry)
+    return layered
+
+
+def build_example_layers(
+    examples: List[Dict],
+    source_lang: str,
+    learning_lang: str,
+    mother_lang: str,
+) -> List[Dict]:
+    """Add book, studied and mother-tongue text to each example sentence.
+
+    ``source_text`` is the sentence in the book language and ``target_text`` the
+    mother tongue, so both come from existing data. The studied reading is a
+    real translation of the same sentence; when the studied language equals the
+    book language, that side is reused instead of translating twice. A studied
+    layer that would only repeat the mother tongue stays empty.
+    """
+    if not examples:
+        return []
+
+    source = normalize_lang(source_lang) or 'auto'
+    learning = normalize_lang(learning_lang) or ''
+    mother = normalize_lang(mother_lang) or 'id'
+
+    def learning_text(example: Dict) -> str:
+        book_text = str(example.get('source_text') or '').strip()
+        mother_text = str(example.get('target_text') or '').strip()
+        if not learning or learning == mother:
+            return mother_text
+        if learning == source:
+            return book_text
+        return _translate_text(book_text, source, learning) if book_text else ''
+
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, min(4, len(examples)))) as executor:
+            learning_texts = list(executor.map(learning_text, examples))
+    except Exception:
+        learning_texts = []
+
+    layered = []
+    for index, item in enumerate(examples):
+        row = dict(item)
+        row['text_book'] = str(item.get('source_text') or '').strip()
+        row['text_learning'] = (
+            learning_texts[index] if index < len(learning_texts) and learning_texts[index] else ''
+        )
+        row['text_mother'] = str(item.get('target_text') or '').strip()
+        layered.append(row)
+    return layered

@@ -1442,3 +1442,212 @@ class SentenceAudioUrlTest(TestCase):
         self.assertIn('lang=es', audio['target'])
         self.assertIn('lang=id', audio['mother'])
         self.assertTrue(all(audio.values()))
+
+
+class AlternativeMeaningLayersTest(TestCase):
+    """Arti Lainnya carries book, studied and mother-tongue readings."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _senses(self):
+        return [
+            {'meaning': 'a pause from work', 'examples': ['Take a short break.'], 'synonyms': []},
+            {'meaning': 'to separate into pieces', 'examples': [], 'synonyms': []},
+        ]
+
+    def test_each_alternative_has_three_readings(self):
+        from reader.translations.enrichment import build_meaning_layers
+
+        alternatives = [
+            {'makna': 'descanso', 'kelas_kata': 'noun'},
+            {'makna': 'romper', 'kelas_kata': 'verb'},
+        ]
+
+        with mock.patch(
+            'reader.translations.enrichment._translate_text',
+            side_effect=lambda text, src, dst: {'a pause from work': 'istirahat'}.get(text, ''),
+        ):
+            rows = build_meaning_layers(alternatives, self._senses(), 'en', 'id', 'es')
+
+        self.assertEqual(rows[0]['meaning_book'], 'a pause from work')
+        self.assertEqual(rows[0]['meaning_learning'], 'descanso')
+        self.assertEqual(rows[0]['meaning_mother'], 'istirahat')
+        # A sense with no translation leaves the mother layer empty.
+        self.assertEqual(rows[1]['meaning_mother'], '')
+        self.assertEqual(rows[1]['meaning_book'], 'to separate into pieces')
+
+    def test_learning_layer_is_empty_when_studied_language_is_the_mother_tongue(self):
+        from reader.translations.enrichment import build_meaning_layers
+
+        alternatives = [{'makna': 'istirahat', 'kelas_kata': 'noun'}]
+        rows = build_meaning_layers(alternatives, self._senses(), 'en', 'id', '')
+
+        self.assertEqual(rows[0]['meaning_learning'], '')
+        self.assertEqual(rows[0]['meaning_book'], 'a pause from work')
+
+    def test_missing_sense_leaves_book_layer_empty(self):
+        from reader.translations.enrichment import build_meaning_layers
+
+        alternatives = [{'makna': 'descanso'}, {'makna': 'romper'}]
+        rows = build_meaning_layers(alternatives, self._senses()[:1], 'en', 'id', 'es')
+
+        self.assertEqual(rows[0]['meaning_book'], 'a pause from work')
+        self.assertEqual(rows[1]['meaning_book'], '')
+
+
+class ExampleLayersTest(TestCase):
+    """Contoh dalam Keseharian carries book, studied and mother-tongue text."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_each_example_has_three_texts(self):
+        from reader.translations.enrichment import build_example_layers
+
+        examples = [{
+            'source_text': 'She took a short break.',
+            'target_text': 'Dia istirahat sebentar.',
+            'keyword': 'break',
+            'origin': 'corpus',
+        }]
+
+        with mock.patch(
+            'reader.translations.enrichment._translate_text',
+            return_value='Ella tomó un descanso corto.',
+        ):
+            rows = build_example_layers(examples, 'en', 'es', 'id')
+
+        self.assertEqual(rows[0]['text_book'], 'She took a short break.')
+        self.assertEqual(rows[0]['text_learning'], 'Ella tomó un descanso corto.')
+        self.assertEqual(rows[0]['text_mother'], 'Dia istirahat sebentar.')
+
+    def test_learning_text_reuses_book_text_without_translating(self):
+        from reader.translations.enrichment import build_example_layers
+
+        examples = [{'source_text': 'She took a break.', 'target_text': 'Dia istirahat.'}]
+
+        with mock.patch('reader.translations.enrichment._translate_text') as translate:
+            rows = build_example_layers(examples, 'en', 'en', 'id')
+
+        translate.assert_not_called()
+        self.assertEqual(rows[0]['text_learning'], 'She took a break.')
+
+    def test_learning_text_reuses_mother_text_when_languages_match(self):
+        from reader.translations.enrichment import build_example_layers
+
+        examples = [{'source_text': 'She took a break.', 'target_text': 'Dia istirahat.'}]
+
+        with mock.patch('reader.translations.enrichment._translate_text') as translate:
+            rows = build_example_layers(examples, 'en', 'id', 'id')
+
+        translate.assert_not_called()
+        self.assertEqual(rows[0]['text_learning'], 'Dia istirahat.')
+
+
+class DictionaryThreeLayerTest(TestCase):
+    """The word card sends book, studied and mother layers for both blocks."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _free(self):
+        return {
+            'part_of_speech': 'verb',
+            'senses': [
+                {'meaning': 'separate into pieces', 'examples': ['He broke the glass.'], 'synonyms': []},
+                {'meaning': 'a pause from work', 'examples': [], 'synonyms': []},
+            ],
+            'synonyms': [], 'phonetic_ipa': '', 'source': 'free-dictionary',
+        }
+
+    def _google(self):
+        table = {
+            ('separate into pieces', 'id'): 'memisahkan',
+            ('a pause from work', 'id'): 'istirahat',
+            ('He broke the glass.', 'id'): 'Dia memecahkan gelas itu.',
+            ('separate into pieces', 'es'): 'separar en pedazos',
+            ('a pause from work', 'es'): 'tomar un descanso',
+            ('He broke the glass.', 'es'): 'Él rompió el vaso.',
+        }
+
+        def fake(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            query = (params or {}).get('q')
+            lang = (params or {}).get('tl')
+            if (params or {}).get('dt') == 't':
+                response.json.return_value = [[[table.get((query, lang), ''), query, None, None, 10]]]
+            elif lang == 'es':
+                response.json.return_value = [
+                    [['romper', 'break', None, None, 10]],
+                    [['verb', ['romper', 'quebrar'], []]],
+                    'en',
+                ]
+            else:
+                response.json.return_value = [
+                    [['memecahkan', 'break', None, None, 10]],
+                    [['verb', ['memecahkan', 'merusak'], []]],
+                    'en',
+                ]
+            return response
+
+        return fake
+
+    def _lookup(self):
+        from reader.translations.dictionary import lookup
+
+        with mock.patch(
+            'reader.translations.dictionary._fetch_free_dictionary', return_value=self._free()
+        ), mock.patch(
+            'reader.translations.provider.requests.get', side_effect=self._google()
+        ), mock.patch(
+            'reader.translations.enrichment.fetch_tatoeba_examples',
+            side_effect=lambda word, lang, mother: [{
+                'source_text': f'Uso real de {word}',
+                'target_text': f'Pemakaian nyata {word}',
+                'keyword': word,
+                'origin': 'tatoeba',
+            }],
+        ):
+            return lookup('break', 'en', mother_lang='id', target_lang='es')
+
+    def test_alternative_meanings_carry_three_layers(self):
+        payload = self._lookup()
+        rows = payload['arti_lain_bahasa_pilihan']
+        self.assertTrue(rows)
+        row = rows[0]
+        self.assertEqual(row['meaning_book'], 'separate into pieces')
+        self.assertEqual(row['meaning_learning'], 'quebrar')
+        self.assertEqual(row['meaning_mother'], 'memisahkan')
+
+    def test_mother_alternative_list_does_not_repeat_itself(self):
+        payload = self._lookup()
+        rows = payload['arti_lain']
+        self.assertTrue(rows)
+        row = rows[0]
+        self.assertEqual(row['meaning_mother'], 'merusak')
+        self.assertNotEqual(row['meaning_learning'], row['meaning_mother'])
+        self.assertEqual(row['meaning_learning'], 'separar en pedazos')
+
+    def test_examples_carry_three_texts(self):
+        payload = self._lookup()
+        self.assertTrue(payload['examples'])
+        row = payload['examples'][0]
+        self.assertEqual(row['text_book'], 'He broke the glass.')
+        self.assertEqual(row['text_learning'], 'Él rompió el vaso.')
+        self.assertEqual(row['text_mother'], 'Dia memecahkan gelas itu.')
+
+    def test_studied_examples_carry_three_texts(self):
+        payload = self._lookup()
+        self.assertTrue(payload['contoh_bahasa_pilihan'])
+        row = payload['contoh_bahasa_pilihan'][0]
+        self.assertEqual(row['text_learning'], 'Uso real de romper')
+        self.assertEqual(row['text_mother'], 'Pemakaian nyata romper')
+        self.assertIn('text_book', row)

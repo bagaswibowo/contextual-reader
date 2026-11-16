@@ -199,7 +199,9 @@ def serialize_entry(
     """
     from .enrichment import (
         build_alternative_meanings,
+        build_example_layers,
         build_examples,
+        build_meaning_layers,
         fetch_tatoeba_examples,
         fetch_word_enrichment,
         source_definitions,
@@ -291,10 +293,53 @@ def serialize_entry(
             # second field lookup. The source sentence stays in
             # `contoh_bahasa_pilihan` with its corpus translation.
             best = fetched[index + 1][0]
+            # The corpus sentence is in the studied language, so that is its
+            # studied layer; the corpus translation is the mother tongue. The
+            # book-language layer is a real translation of the same sentence,
+            # kept empty when the studied language is the book language.
+            book_text = ''
+            if target_lang and target_lang != entry.lang:
+                try:
+                    book_text = translate_sentence(
+                        best['source_text'], target_lang, entry.lang
+                    ).get('target_text', '')
+                except Exception:
+                    book_text = ''
             item['contoh'] = {
                 'source_text': best['source_text'],
                 'target_text': best['target_text'],
+                'text_book': book_text,
+                'text_learning': best['source_text'],
+                'text_mother': best['target_text'],
             }
+
+    # The studied-language example list is written in the studied language with
+    # a mother-tongue caption, so its book layer is a real translation of the
+    # same sentence, not a copy of another layer.
+    if contoh_bahasa_pilihan:
+        try:
+            contoh_bahasa_pilihan = build_example_layers(
+                contoh_bahasa_pilihan, target_lang, target_lang, mother_lang,
+            )
+            for item in contoh_bahasa_pilihan:
+                book_text = ''
+                if entry.lang != target_lang and item.get('source_text'):
+                    book_text = translate_sentence(
+                        item['source_text'], target_lang, entry.lang
+                    ).get('target_text', '')
+                item['text_book'] = book_text
+        except Exception:
+            pass
+
+    # Three language layers on every alternative meaning: the book-language
+    # sense, the studied-language word, and the mother-tongue reading. Each is
+    # a real source; a missing layer stays empty rather than being filled in.
+    try:
+        target_alternatives = build_meaning_layers(
+            target_alternatives, senses, entry.lang, mother_lang, target_lang,
+        )
+    except Exception:
+        pass
 
     # The studied language gets its own reading of the word's translation:
     # "divided" is read one way in English, "dividido" another in Spanish.
@@ -341,6 +386,19 @@ def serialize_entry(
     except Exception:
         examples = []
 
+    # Three language layers on every example: the book-language sentence, the
+    # studied-language translation, and the mother tongue. The studied reading
+    # is a real translation of that sentence, never a model-written one.
+    try:
+        examples = build_example_layers(
+            examples,
+            entry.lang,
+            target_lang or mother_lang,
+            mother_lang,
+        )
+    except Exception:
+        pass
+
     try:
         sentence_translation = translate_sentence(context, entry.lang, mother_lang) if context else {
             'source_text': '', 'target_text': ''
@@ -368,6 +426,16 @@ def serialize_entry(
         )
     except Exception:
         alternative_meanings = []
+
+    # The mother-tongue list carries ``makna`` as the mother reading, so the
+    # studied layer is translated from the book sense and never copied over.
+    try:
+        alternative_meanings = build_meaning_layers(
+            alternative_meanings, senses, entry.lang, mother_lang, target_lang,
+            makna_layer='mother',
+        )
+    except Exception:
+        pass
 
     try:
         translated_definitions = translate_definitions(
