@@ -411,12 +411,12 @@ export function SentencePanel({
                     className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 py-1 text-left hover:border-[var(--cr-text-accent)]"
                     title={row.alternatives?.length ? `Arti lain: ${row.alternatives.join(', ')}` : row.source}
                   >
-                    <span className="block text-[0.8em] font-bold text-[var(--cr-text-primary)]">{row.source}</span>
-                    <span className="block text-[0.72em] font-semibold text-[var(--cr-text-secondary)]">
+                    <span className="block text-[0.8em] font-bold leading-tight text-[var(--cr-text-primary)]">{row.source}</span>
+                    <span className="block text-[0.64em] font-semibold leading-tight text-[var(--cr-text-secondary)]">
                       {row.target || '—'}
                     </span>
                     {row.mother && row.mother !== row.target && (
-                      <span className="block text-[0.68em] font-medium text-[var(--cr-text-secondary)] opacity-80">
+                      <span className="block text-[0.58em] font-medium leading-tight text-[var(--cr-text-secondary)] opacity-80">
                         {row.mother}
                       </span>
                     )}
