@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 from datetime import timedelta
+from typing import Dict
 from urllib.parse import quote
 
 import requests
@@ -253,6 +254,25 @@ def serialize_entry(
     target_translations = target_layer.get('translations') or []
     target_primary = target_layer.get('primary_meaning') or ''
 
+    def by_book_word(items):
+        """Map each book word to the words that carry it in that language.
+
+        Both layers come from the same provider answer, so a sense the other
+        layer already has needs no new lookup. A book word shared by several
+        senses stays a set, so the caller can refuse to guess between them.
+        """
+        mapping: Dict[str, set] = {}
+        for item in items or []:
+            back = item.get('back_translations') or []
+            word = str(item.get('target_word') or '').strip()
+            book = str(back[0]).strip().lower() if back else ''
+            if book and word:
+                mapping.setdefault(book, set()).add(word)
+        return mapping
+
+    mother_by_book = by_book_word(translations)
+    studied_by_book = by_book_word(target_translations)
+
     # Definitions for the studied language must exist for every language, not
     # only when a second translation layer was fetched. When the studied
     # language is the book language the dictionary senses are already in it;
@@ -347,6 +367,7 @@ def serialize_entry(
         try:
             rows = build_meaning_layers(
                 rows, entry.lang, mother_lang, target_lang,
+                other_words=mother_by_book,
             )
         except Exception:
             pass
@@ -414,6 +435,7 @@ def serialize_entry(
         try:
             return build_meaning_layers(
                 rows, entry.lang, mother_lang, target_lang, makna_layer='mother',
+                other_words=studied_by_book,
             )
         except Exception:
             return rows

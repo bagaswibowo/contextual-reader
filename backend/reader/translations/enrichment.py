@@ -25,7 +25,7 @@ import hashlib
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import requests
 from django.core.cache import cache
@@ -818,6 +818,7 @@ def build_meaning_layers(
     mother_lang: str,
     learning_lang: str = '',
     makna_layer: str = 'learning',
+    other_words: Optional[Dict[str, str]] = None,
 ) -> List[Dict]:
     """Add book, studied and mother-tongue readings to alternative meanings.
 
@@ -825,9 +826,12 @@ def build_meaning_layers(
     ``makna`` is the word in ``makna_layer``: ``learning`` for the panel-language
     list, ``mother`` for the mother-tongue list. The book reading is the word
     that sense translates back to in the book language, which the provider
-    returns with the sense itself, so no pairing is guessed across sources. The
-    remaining layer is the word translated. A layer with no real source stays
-    empty: nothing is copied between layers and nothing is invented.
+    returns with the sense itself, so no pairing is guessed across sources.
+
+    ``other_words`` maps a book word to the same sense in the other layer's
+    language, taken from the other layer's own sense list. A sense found there
+    needs no new lookup; the rest are translated. A layer with no real source
+    stays empty: nothing is copied between layers and nothing is invented.
     """
     if not alternatives:
         return []
@@ -836,33 +840,60 @@ def build_meaning_layers(
     mother = normalize_lang(mother_lang) or 'id'
     learning = normalize_lang(learning_lang) or ''
     has_learning = bool(learning) and learning != mother
+    # A book word may name more than one sense in the other language ("break"
+    # is both "memecahkan" and "mematahkan"), so a pair is only used when that
+    # word points at exactly one word there. Anything else is translated, which
+    # keeps a shared word from standing in for the wrong sense.
+    candidates: Dict[str, set] = {}
+    for key, value in (other_words or {}).items():
+        word = str(key or '').strip().lower()
+        pairs = value if isinstance(value, (set, list, tuple)) else [value]
+        for pair in pairs:
+            pair = str(pair or '').strip()
+            if word and pair:
+                candidates.setdefault(word, set()).add(pair)
+    known = {
+        word: next(iter(pairs)) for word, pairs in candidates.items() if len(pairs) == 1
+    }
 
-    words = [str(item.get('makna') or '').strip() for item in alternatives]
-    if makna_layer == 'mother':
-        # The word is already the mother tongue, so the studied reading is that
-        # same word translated. Without a studied language it stays empty.
-        others = (
-            translate_texts(words, mother, learning) if has_learning else [''] * len(words)
-        )
-    else:
-        # The word is the studied one; the mother reading is its translation.
-        others = translate_texts(words, learning or source, mother)
-
-    layered = []
-    for index, item in enumerate(alternatives):
-        entry = dict(item)
-        word = words[index]
+    rows = []
+    for item in alternatives:
         back = [
-            str(value).strip() for value in (entry.get('back_translations') or [])
+            str(value).strip() for value in (item.get('back_translations') or [])
             if str(value).strip()
         ]
-        entry['meaning_book'] = back[0] if back else ''
-        other = others[index] if index < len(others) else ''
+        book = back[0] if back else ''
+        matched = known.get(book.lower(), '') if book else ''
+        rows.append({
+            'item': item,
+            'book': book,
+            'word': str(item.get('makna') or '').strip(),
+            'matched': matched,
+        })
+
+    # Only senses the other layer did not already carry need a lookup, and those
+    # are single words, so each keeps its own request. The mother list has no
+    # other layer to fill when the studied language is the mother tongue.
+    if makna_layer == 'mother' and not has_learning:
+        missing = []
+    else:
+        missing = [row['word'] for row in rows if not row['matched'] and row['word']]
+    if makna_layer == 'mother':
+        translated = translate_texts(missing, mother, learning) if missing else []
+    else:
+        translated = translate_texts(missing, learning or source, mother) if missing else []
+    pending = iter(translated)
+
+    layered = []
+    for row in rows:
+        entry = dict(row['item'])
+        other = row['matched'] or (next(pending, '') if row['word'] else '')
+        entry['meaning_book'] = row['book']
         if makna_layer == 'mother':
-            entry['meaning_learning'] = other
-            entry['meaning_mother'] = word
+            entry['meaning_learning'] = other if has_learning else ''
+            entry['meaning_mother'] = row['word']
         else:
-            entry['meaning_learning'] = word if has_learning else ''
+            entry['meaning_learning'] = row['word'] if has_learning else ''
             entry['meaning_mother'] = other
         layered.append(entry)
     return layered
