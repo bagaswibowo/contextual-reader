@@ -53,6 +53,11 @@ berisi definisi dalam **bahasa induk**, sedangkan `definisi_bahasa_pilihan_lain`
 berisi definisi dalam **bahasa panel**. Dua daftar ini yang menjadi isi dua
 sub-tab di tab Definisi ("Kamus Indonesia" dan "Kamus [bahasa panel]").
 
+`definisi_bahasa_pilihan_lain` selalu terisi selama kamus punya makna untuk kata
+itu: bila bahasa panel sama dengan bahasa buku, isinya makna kamus apa adanya
+tanpa terjemahan; bila berbeda, maknanya diterjemahkan lewat Google Translate.
+Lapisan terjemahan kata yang gagal tidak lagi mengosongkan daftar definisi.
+
 `pronunciation` juga memuat `fonetik` dan `suku_kata` supaya satu objek cukup.
 
 ### Lapisan bahasa kedua

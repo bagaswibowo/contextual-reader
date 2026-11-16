@@ -1191,3 +1191,90 @@ class StudiedLanguageExampleTest(TestCase):
         payload = lookup('break', 'en', mother_lang='id', target_lang='es')
 
         self.assertEqual(payload['contoh_bahasa_pilihan'], [])
+
+
+class DefinitionCoverageTest(TestCase):
+    """Definitions exist for the studied language in every case."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_studied_language_equal_to_book_language_uses_dictionary_senses(self, free, google_get):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'verb',
+            'senses': [{
+                'meaning': 'resting with eyes closed',
+                'examples': ['She is sleeping now.'],
+                'synonyms': [],
+            }],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+
+        def fake_get(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            response.json.return_value = [[['sedang tidur', 'sleeping', None, None, 10]]]
+            return response
+
+        google_get.side_effect = fake_get
+
+        payload = lookup('sleeping', 'en', mother_lang='id', target_lang='en')
+
+        self.assertEqual(payload['bahasa_pilihan'], 'en')
+        self.assertTrue(payload['definisi_bahasa_pilihan_lain'])
+        first = payload['definisi_bahasa_pilihan_lain'][0]
+        self.assertEqual(first['makna'], 'resting with eyes closed')
+        self.assertEqual(first['contoh']['source_text'], 'She is sleeping now.')
+        self.assertTrue(first['sesuai_konteks'])
+
+    @mock.patch('reader.translations.enrichment.fetch_word_enrichment')
+    @mock.patch('reader.translations.provider.requests.get')
+    @mock.patch('reader.translations.dictionary._fetch_free_dictionary')
+    def test_definitions_survive_a_failed_second_translation_layer(self, free, google_get, enrich):
+        from reader.translations.dictionary import lookup
+
+        free.return_value = {
+            'part_of_speech': 'verb',
+            'senses': [{'meaning': 'resting with eyes closed', 'examples': [], 'synonyms': []}],
+            'synonyms': [],
+            'phonetic_ipa': '',
+            'source': 'free-dictionary',
+        }
+
+        def fake_enrich(word, source_lang, mother_lang):
+            if mother_lang == 'es':
+                return {}
+            return {
+                'mother_lang': mother_lang,
+                'primary_meaning': 'sedang tidur',
+                'pronunciation': {'ipa': '', 'guide': '', 'romanization': ''},
+                'translations': [],
+                'google_examples': [],
+            }
+
+        enrich.side_effect = fake_enrich
+
+        def fake_get(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            response.json.return_value = [[['sedang tidur', 'sleeping', None, None, 10]]]
+            return response
+
+        google_get.side_effect = fake_get
+
+        payload = lookup('sleeping', 'en', mother_lang='id', target_lang='es')
+
+        self.assertEqual(payload['arti_bahasa_pilihan'], '')
+        self.assertTrue(payload['definisi_bahasa_pilihan_lain'])
+        self.assertEqual(
+            payload['definisi_bahasa_pilihan_lain'][0]['makna'],
+            'sedang tidur',
+        )

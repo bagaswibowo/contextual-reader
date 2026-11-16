@@ -202,6 +202,7 @@ def serialize_entry(
         build_examples,
         fetch_tatoeba_examples,
         fetch_word_enrichment,
+        source_definitions,
         translate_definitions,
         translate_sentence,
     )
@@ -227,18 +228,23 @@ def serialize_entry(
     target_translations = target_layer.get('translations') or []
     target_primary = target_layer.get('primary_meaning') or ''
 
+    # Definitions for the studied language must exist for every language, not
+    # only when a second translation layer was fetched. When the studied
+    # language is the book language the dictionary senses are already in it;
+    # otherwise Google Translate carries the meaning across.
     try:
-        target_definitions = (
-            translate_definitions(
+        if not target_lang or target_lang == mother_lang:
+            target_definitions = []
+        elif target_lang == entry.lang:
+            target_definitions = source_definitions(senses, entry.part_of_speech)
+        else:
+            target_definitions = translate_definitions(
                 senses,
                 entry.lang,
                 target_lang,
                 part_of_speech=entry.part_of_speech,
                 contextual_meaning=target_primary,
             )
-            if target_layer
-            else []
-        )
     except Exception:
         target_definitions = []
 

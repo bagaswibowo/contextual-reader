@@ -582,6 +582,32 @@ def translate_sentence(text: str, source_lang: str, mother_lang: str) -> Dict:
 
 
 
+def source_definitions(senses: List[Dict], part_of_speech: str = '') -> List[Dict]:
+    """Definitions in the word's own language, straight from the dictionary.
+
+    Used when the studied language is the book language: there is nothing to
+    translate, and the Definition tab still needs a list for that sub-tab.
+    """
+    result = []
+    for sense in senses or []:
+        definition = str(sense.get('meaning') or '').strip()
+        if not definition:
+            continue
+        example = next(
+            (text for text in (sense.get('examples') or []) if isinstance(text, str) and text.strip()),
+            '',
+        )
+        result.append({
+            'makna': definition,
+            'kelas_kata': part_of_speech or '',
+            'contoh': {'source_text': example, 'target_text': ''} if example else None,
+            'sesuai_konteks': False,
+        })
+    if result:
+        result[0]['sesuai_konteks'] = True
+    return result
+
+
 def translate_definitions(
     senses: List[Dict],
     source_lang: str,
