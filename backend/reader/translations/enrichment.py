@@ -160,16 +160,28 @@ def _uppercase_stressed_syllable(plain: str, consumed: int) -> str:
 def _translate_text(text: str, source_lang: str, mother_lang: str) -> str:
     if not text:
         return ''
+    # The same sentence is translated for more than one layer and the card
+    # rebuilds its layers on every open, so the result is kept per text.
+    cache_key = _cache_key(
+        'translate_text', normalize_lang(source_lang), normalize_lang(mother_lang), text
+    )
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     payload = translate_query({
         'sl': source_lang or 'auto', 'tl': mother_lang,
         'dt': 't', 'q': text,
     })
     if not is_translate_payload(payload):
         return ''
-    return ''.join(
+    translated = ''.join(
         segment[0] for segment in payload[0]
         if isinstance(segment, list) and segment and isinstance(segment[0], str)
     ).strip()
+    if translated:
+        cache.set(cache_key, translated, timeout=ENRICHMENT_CACHE_TTL)
+    return translated
 
 
 def _google_examples(payload) -> List[str]:

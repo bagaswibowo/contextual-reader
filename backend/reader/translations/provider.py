@@ -9,6 +9,7 @@ means one place to fix when the upstream changes.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from typing import Dict, Optional
 
@@ -25,6 +26,16 @@ REQUEST_HEADERS = {
 # Google rate-limits one client name at a time; these are the public names the
 # app has always relied on.
 CLIENT_NAMES = ('gtx', 'tw-ob', 'dict-chrome-ex')
+
+# The reading proxy answers with Google's block page when it is hit in a burst,
+# so a retry backs off before giving up on a layer.
+PROXY_ATTEMPTS = 3
+PROXY_RETRY_DELAY = 0.6
+
+# The proxy blocks a burst of parallel requests, and the card builds its layers
+# in parallel, so proxy calls take a slot instead of all leaving at once. Direct
+# Google calls stay unlimited.
+_PROXY_SLOTS = threading.Semaphore(2)
 
 # Languages written in Latin script: Google's reading field is an IPA-style
 # respelling there, while for other scripts it is a romanization.
@@ -88,37 +99,35 @@ def translate_query_via_reader(params: Dict) -> Optional[list]:
 
     attempt = dict(params)
     attempt.setdefault('client', CLIENT_NAMES[0])
-    body = ''
-    for try_index in range(2):
+    url = proxy.rstrip('/') + '/' + GOOGLE_TRANSLATE_URL
+
+    for try_index in range(PROXY_ATTEMPTS):
         try:
-            response = requests.get(
-                proxy.rstrip('/') + '/' + GOOGLE_TRANSLATE_URL,
-                params=attempt,
-                headers=REQUEST_HEADERS,
-                timeout=20,
-            )
+            with _PROXY_SLOTS:
+                response = requests.get(
+                    url, params=attempt, headers=REQUEST_HEADERS, timeout=20,
+                )
             if response.status_code != 200:
                 return None
             body = response.text
         except Exception:
             return None
-        if 'Markdown Content:' in body or body.strip().startswith('['):
-            break
-        # A burst of parallel lookups can come back as the block page; one
-        # retry after a short pause fills the layer instead of leaving it empty.
-        if try_index == 0:
-            time.sleep(0.5)
 
-    marker = 'Markdown Content:'
-    raw = body.split(marker, 1)[1].strip() if marker in body else body.strip()
-    if not raw.startswith('['):
-        # The proxy passes the block page through when Google refuses it too.
-        return None
-    try:
-        payload, _ = json.JSONDecoder().raw_decode(raw)
-    except ValueError:
-        return None
-    return payload if is_translate_payload(payload) else None
+        marker = 'Markdown Content:'
+        raw = body.split(marker, 1)[1].strip() if marker in body else body.strip()
+        if not raw.startswith('['):
+            # A burst of lookups makes the proxy pass Google's block page back.
+            # Back off and try again rather than leaving the layer empty.
+            if try_index < PROXY_ATTEMPTS - 1:
+                time.sleep(PROXY_RETRY_DELAY * (try_index + 1))
+                continue
+            return None
+        try:
+            payload, _ = json.JSONDecoder().raw_decode(raw)
+        except ValueError:
+            return None
+        return payload if is_translate_payload(payload) else None
+    return None
 
 
 def is_translate_payload(payload) -> bool:
