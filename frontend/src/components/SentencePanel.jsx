@@ -412,11 +412,11 @@ export function SentencePanel({
                     title={row.alternatives?.length ? `Arti lain: ${row.alternatives.join(', ')}` : row.source}
                   >
                     <span className="block text-[max(12px,0.8em)] font-bold leading-tight text-[var(--cr-text-primary)]">{row.source}</span>
-                    <span className="block text-[max(12px,0.8em)] font-semibold leading-tight text-[var(--cr-text-secondary)]">
+                    <span className="block text-[max(12px,0.8em)] font-semibold leading-tight text-[var(--cr-text-accent)]">
                       {row.target || '—'}
                     </span>
                     {row.mother && row.mother !== row.target && (
-                      <span className="block text-[max(12px,0.8em)] font-medium leading-tight text-[var(--cr-text-tertiary)]">
+                      <span className="block text-[max(12px,0.8em)] font-normal leading-tight text-[var(--cr-text-secondary)]">
                         {row.mother}
                       </span>
                     )}
