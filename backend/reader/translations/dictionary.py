@@ -336,7 +336,7 @@ def serialize_entry(
     # a real source; a missing layer stays empty rather than being filled in.
     try:
         target_alternatives = build_meaning_layers(
-            target_alternatives, senses, entry.lang, mother_lang, target_lang,
+            target_alternatives, entry.lang, mother_lang, target_lang,
         )
     except Exception:
         pass
@@ -431,7 +431,7 @@ def serialize_entry(
     # studied layer is translated from the book sense and never copied over.
     try:
         alternative_meanings = build_meaning_layers(
-            alternative_meanings, senses, entry.lang, mother_lang, target_lang,
+            alternative_meanings, entry.lang, mother_lang, target_lang,
             makna_layer='mother',
         )
     except Exception:

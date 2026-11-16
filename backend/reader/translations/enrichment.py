@@ -244,16 +244,26 @@ def fetch_word_enrichment(word: str, source_lang: str, mother_lang: str) -> Dict
             if not isinstance(group, list) or len(group) < 2:
                 continue
             pos = (group[0] or '').strip()
+            # Google puts the sense list at index 1 and the same senses with
+            # their book-language words at index 2, so the back translations
+            # must be read from that third block, matched by the sense itself.
+            backs: Dict[str, List[str]] = {}
+            if len(group) > 2 and isinstance(group[2], list):
+                for sense in group[2]:
+                    if not isinstance(sense, list) or len(sense) < 2:
+                        continue
+                    key = str(sense[0] or '').strip()
+                    if key and isinstance(sense[1], list):
+                        backs[key] = [str(value) for value in sense[1]][:6]
             for option in group[1] or []:
                 candidate = option[0] if isinstance(option, list) and option else option
                 candidate = (candidate or '').strip() if isinstance(candidate, str) else ''
                 if not candidate or len(translations) >= MAX_TRANSLATIONS:
                     continue
-                back = option[1] if isinstance(option, list) and len(option) > 1 else []
                 translations.append({
                     'target_word': candidate,
                     'pos': pos,
-                    'back_translations': [str(value) for value in (back or [])][:6],
+                    'back_translations': backs.get(candidate, []),
                 })
 
     # The contextual translation is the best first variant; Google's sense list
@@ -702,6 +712,9 @@ def build_alternative_meanings(
         result.append({
             'makna': value,
             'kelas_kata': item.get('pos') or '',
+            # Kept so the layered card can show the sense in the book language
+            # without pairing two separate sources by position.
+            'back_translations': item.get('back_translations') or [],
             'contoh': {
                 'source_text': example,
                 'target_text': _translate_text(example, source_lang, mother_lang),
@@ -712,7 +725,6 @@ def build_alternative_meanings(
 
 def build_meaning_layers(
     alternatives: List[Dict],
-    senses: List[Dict],
     source_lang: str,
     mother_lang: str,
     learning_lang: str = '',
@@ -720,12 +732,13 @@ def build_meaning_layers(
 ) -> List[Dict]:
     """Add book, studied and mother-tongue readings to alternative meanings.
 
-    The dictionary sense at the same position is the meaning in the book
-    language, because that is where the word comes from. ``makna`` is the word
-    in ``makna_layer``: ``learning`` for the panel-language list, ``mother`` for
-    the mother-tongue list. The other layer is translated from the book sense,
-    and only when the two languages really differ, so a layer is never a copy
-    and never a guess; without a source it stays empty.
+    Each row is one sense, so each layer is that sense in one language.
+    ``makna`` is the word in ``makna_layer``: ``learning`` for the panel-language
+    list, ``mother`` for the mother-tongue list. The book reading is the word
+    that sense translates back to in the book language, which the provider
+    returns with the sense itself, so no pairing is guessed across sources. The
+    remaining layer is the word translated. A layer with no real source stays
+    empty: nothing is copied between layers and nothing is invented.
     """
     if not alternatives:
         return []
@@ -734,43 +747,25 @@ def build_meaning_layers(
     mother = normalize_lang(mother_lang) or 'id'
     learning = normalize_lang(learning_lang) or ''
     has_learning = bool(learning) and learning != mother
-    book_meanings = [str(sense.get('meaning') or '').strip() for sense in senses]
 
-    rows = [
-        {
-            'item': item,
-            'book': book_meanings[index] if index < len(book_meanings) else '',
-        }
-        for index, item in enumerate(alternatives)
-    ]
-
-    def translate_row(row, lang):
-        return _translate_text(row['book'], source, lang) if row['book'] else ''
-
-    try:
-        with ThreadPoolExecutor(max_workers=max(1, min(4, len(rows)))) as executor:
-            mother_texts = list(executor.map(lambda row: translate_row(row, mother), rows))
-            learning_texts = (
-                list(executor.map(lambda row: translate_row(row, learning), rows))
-                if has_learning and makna_layer != 'learning' else []
-            )
-    except Exception:
-        mother_texts = [''] * len(rows)
-        learning_texts = []
+    def translate(text, from_lang, to_lang):
+        return _translate_text(text, from_lang, to_lang) if text and from_lang != to_lang else ''
 
     layered = []
-    for index, row in enumerate(rows):
-        entry = dict(row['item'])
+    for item in alternatives:
+        entry = dict(item)
         word = str(entry.get('makna') or '').strip()
-        entry['meaning_book'] = row['book']
+        back = [
+            str(value).strip() for value in (entry.get('back_translations') or [])
+            if str(value).strip()
+        ]
+        entry['meaning_book'] = back[0] if back else ''
         if makna_layer == 'mother':
-            entry['meaning_learning'] = (
-                learning_texts[index] if index < len(learning_texts) else ''
-            )
+            entry['meaning_learning'] = translate(word, mother, learning) if has_learning else ''
             entry['meaning_mother'] = word
         else:
             entry['meaning_learning'] = word if has_learning else ''
-            entry['meaning_mother'] = mother_texts[index] if index < len(mother_texts) else ''
+            entry['meaning_mother'] = translate(word, learning or source, mother)
         layered.append(entry)
     return layered
 

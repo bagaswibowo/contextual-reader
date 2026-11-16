@@ -1452,50 +1452,59 @@ class AlternativeMeaningLayersTest(TestCase):
 
         cache.clear()
 
-    def _senses(self):
-        return [
-            {'meaning': 'a pause from work', 'examples': ['Take a short break.'], 'synonyms': []},
-            {'meaning': 'to separate into pieces', 'examples': [], 'synonyms': []},
-        ]
-
     def test_each_alternative_has_three_readings(self):
         from reader.translations.enrichment import build_meaning_layers
 
         alternatives = [
-            {'makna': 'descanso', 'kelas_kata': 'noun'},
-            {'makna': 'romper', 'kelas_kata': 'verb'},
+            {'makna': 'descanso', 'kelas_kata': 'noun', 'back_translations': ['break']},
+            {'makna': 'romper', 'kelas_kata': 'verb', 'back_translations': ['break']},
         ]
 
         with mock.patch(
             'reader.translations.enrichment._translate_text',
-            side_effect=lambda text, src, dst: {'a pause from work': 'istirahat'}.get(text, ''),
+            side_effect=lambda text, src, dst: 'istirahat' if (text, src, dst) == ('descanso', 'es', 'id') else '',
         ):
-            rows = build_meaning_layers(alternatives, self._senses(), 'en', 'id', 'es')
+            rows = build_meaning_layers(alternatives, 'en', 'id', 'es')
 
-        self.assertEqual(rows[0]['meaning_book'], 'a pause from work')
+        self.assertEqual(rows[0]['meaning_book'], 'break')
         self.assertEqual(rows[0]['meaning_learning'], 'descanso')
         self.assertEqual(rows[0]['meaning_mother'], 'istirahat')
-        # A sense with no translation leaves the mother layer empty.
+        # A word the provider could not translate leaves the mother layer empty.
         self.assertEqual(rows[1]['meaning_mother'], '')
-        self.assertEqual(rows[1]['meaning_book'], 'to separate into pieces')
+        self.assertEqual(rows[1]['meaning_book'], 'break')
 
     def test_learning_layer_is_empty_when_studied_language_is_the_mother_tongue(self):
         from reader.translations.enrichment import build_meaning_layers
 
-        alternatives = [{'makna': 'istirahat', 'kelas_kata': 'noun'}]
-        rows = build_meaning_layers(alternatives, self._senses(), 'en', 'id', '')
+        alternatives = [{'makna': 'istirahat', 'back_translations': ['break']}]
+        rows = build_meaning_layers(alternatives, 'en', 'id', '')
 
         self.assertEqual(rows[0]['meaning_learning'], '')
-        self.assertEqual(rows[0]['meaning_book'], 'a pause from work')
+        self.assertEqual(rows[0]['meaning_book'], 'break')
 
-    def test_missing_sense_leaves_book_layer_empty(self):
+    def test_missing_back_translation_leaves_book_layer_empty(self):
         from reader.translations.enrichment import build_meaning_layers
 
-        alternatives = [{'makna': 'descanso'}, {'makna': 'romper'}]
-        rows = build_meaning_layers(alternatives, self._senses()[:1], 'en', 'id', 'es')
+        alternatives = [{'makna': 'descanso'}, {'makna': 'romper', 'back_translations': ['break']}]
+        rows = build_meaning_layers(alternatives, 'en', 'id', 'es')
 
-        self.assertEqual(rows[0]['meaning_book'], 'a pause from work')
-        self.assertEqual(rows[1]['meaning_book'], '')
+        self.assertEqual(rows[0]['meaning_book'], '')
+        self.assertEqual(rows[1]['meaning_book'], 'break')
+
+    def test_mother_list_translates_its_own_word_for_the_studied_layer(self):
+        from reader.translations.enrichment import build_meaning_layers
+
+        alternatives = [{'makna': 'istirahat', 'back_translations': ['break']}]
+
+        with mock.patch(
+            'reader.translations.enrichment._translate_text',
+            side_effect=lambda text, src, dst: 'descanso' if (text, src, dst) == ('istirahat', 'id', 'es') else '',
+        ):
+            rows = build_meaning_layers(alternatives, 'en', 'id', 'es', makna_layer='mother')
+
+        self.assertEqual(rows[0]['meaning_mother'], 'istirahat')
+        self.assertEqual(rows[0]['meaning_learning'], 'descanso')
+        self.assertNotEqual(rows[0]['meaning_learning'], rows[0]['meaning_mother'])
 
 
 class ExampleLayersTest(TestCase):
@@ -1575,6 +1584,11 @@ class DictionaryThreeLayerTest(TestCase):
             ('separate into pieces', 'es'): 'separar en pedazos',
             ('a pause from work', 'es'): 'tomar un descanso',
             ('He broke the glass.', 'es'): 'Él rompió el vaso.',
+            # The mother-tongue list translates its own word for the studied
+            # layer, so those pairs are looked up too.
+            ('merusak', 'es'): 'separar en pedazos',
+            ('memecahkan', 'es'): 'romper',
+            ('quebrar', 'id'): 'memisahkan',
         }
 
         def fake(url, params=None, **kwargs):
@@ -1585,15 +1599,23 @@ class DictionaryThreeLayerTest(TestCase):
             if (params or {}).get('dt') == 't':
                 response.json.return_value = [[[table.get((query, lang), ''), query, None, None, 10]]]
             elif lang == 'es':
+                # Shape Google really returns: sense list at index 1, the same
+                # senses with their book-language words at index 2.
                 response.json.return_value = [
                     [['romper', 'break', None, None, 10]],
-                    [['verb', ['romper', 'quebrar'], []]],
+                    [['verb', ['romper', 'quebrar'], [
+                        ['romper', ['break', 'smash'], None, 0.5],
+                        ['quebrar', ['break'], None, 0.1],
+                    ]]],
                     'en',
                 ]
             else:
                 response.json.return_value = [
                     [['memecahkan', 'break', None, None, 10]],
-                    [['verb', ['memecahkan', 'merusak'], []]],
+                    [['verb', ['memecahkan', 'merusak'], [
+                        ['memecahkan', ['break', 'smash'], None, 0.5],
+                        ['merusak', ['break'], None, 0.1],
+                    ]]],
                     'en',
                 ]
             return response
@@ -1623,7 +1645,9 @@ class DictionaryThreeLayerTest(TestCase):
         rows = payload['arti_lain_bahasa_pilihan']
         self.assertTrue(rows)
         row = rows[0]
-        self.assertEqual(row['meaning_book'], 'separate into pieces')
+        # The book reading is the word this sense translates back to, taken from
+        # the same provider answer, so it belongs to the same sense.
+        self.assertEqual(row['meaning_book'], 'break')
         self.assertEqual(row['meaning_learning'], 'quebrar')
         self.assertEqual(row['meaning_mother'], 'memisahkan')
 
@@ -1635,6 +1659,7 @@ class DictionaryThreeLayerTest(TestCase):
         self.assertEqual(row['meaning_mother'], 'merusak')
         self.assertNotEqual(row['meaning_learning'], row['meaning_mother'])
         self.assertEqual(row['meaning_learning'], 'separar en pedazos')
+        self.assertEqual(row['meaning_book'], 'break')
 
     def test_examples_carry_three_texts(self):
         payload = self._lookup()
