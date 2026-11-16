@@ -24,6 +24,10 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
+          # Mask host IPs so they never appear in console logs
+          if [ -n "$VPS_HOST" ]; then echo "::add-mask::$VPS_HOST"; fi
+          if [ -n "$SXZ_HOST" ]; then echo "::add-mask::$SXZ_HOST"; fi
+
           cat << 'EOF' > ~/.ssh/config
           Host vps
             HostName ${{ env.VPS_HOST }}
@@ -31,6 +35,7 @@ jobs:
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
+            LogLevel ERROR
 
           Host sxz
             HostName ${{ env.SXZ_HOST }}
@@ -39,12 +44,13 @@ jobs:
             ProxyJump vps
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
+            LogLevel ERROR
           EOF
           chmod 600 ~/.ssh/config
 
       - name: Deploy on SXZ
         run: |
-          ssh -o ConnectTimeout=20 sxz << 'EOF'
+          ssh -q -o LogLevel=ERROR -o ConnectTimeout=20 sxz << 'EOF'
             set -e
             cd ~/projects/active/contextual-reader
             echo "Pulling latest changes on main..."
@@ -59,7 +65,7 @@ jobs:
 
       - name: Verify health endpoint
         run: |
-          ssh -o ConnectTimeout=20 sxz << 'EOF'
+          ssh -q -o LogLevel=ERROR -o ConnectTimeout=20 sxz << 'EOF'
             set -e
             echo "Checking backend health..."
             curl -f -s http://127.0.0.1:8088/api/core/health/ || exit 1
