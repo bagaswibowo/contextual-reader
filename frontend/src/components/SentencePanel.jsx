@@ -166,6 +166,31 @@ export function SentencePanel({
   const notesRaw = data.notes || ''
   const translation = state.targetText || data.indonesian_text || ''
 
+  const colorFor = (role) => {
+    if (role === 'subject') return 'text-[var(--cr-text-accent)]'
+    if (role === 'predicate') return 'text-[var(--cr-blue-text)]'
+    if (role === 'object') return 'text-[var(--cr-yellow-text)]'
+    if (role === 'adverbial') return 'text-[var(--cr-text-quaternary)]'
+    return 'text-[var(--cr-text-primary)]'
+  }
+
+  const structureLayers = [
+    { key: 'book', label: 'Bahasa buku', parts: interlinear.structure?.source, fallback: sentenceText },
+    { key: 'learning', label: 'Bahasa dipelajari', parts: interlinear.structure?.target, fallback: translation },
+    { key: 'mother', label: 'Bahasa induk', parts: interlinear.structure?.mother, fallback: state.motherText },
+  ].reduce((layers, { key, label, parts, fallback }) => {
+    const items = Array.isArray(parts) && parts.length > 0
+      ? parts
+      : fallback
+      ? [{ text: fallback, color: 'neutral' }]
+      : []
+    if (items.length === 0) return layers
+    const text = items.map((part) => part.text).join(' ')
+    if (layers.some((layer) => layer.text === text)) return layers
+    layers.push({ key, label, items, text })
+    return layers
+  }, [])
+
   return (
     <>
       <div
@@ -346,50 +371,31 @@ export function SentencePanel({
             </section>
           )}
 
-          {(interlinear.grammar?.tense || data.tense) && (
+          {structureLayers.length > 0 && (
             <section className="space-y-2.5 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
               <span className="text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
                 Susunan kalimat
               </span>
 
-              {[
-                { key: 'book', label: 'Bahasa buku', parts: interlinear.structure?.source, fallback: sentenceText },
-                { key: 'learning', label: 'Bahasa dipelajari', parts: interlinear.structure?.target, fallback: translation },
-                { key: 'mother', label: 'Bahasa induk', parts: interlinear.structure?.mother, fallback: state.motherText },
-              ].map(({ key, label, parts, fallback }) => {
-                const items = Array.isArray(parts) && parts.length > 0
-                  ? parts
-                  : fallback
-                  ? [{ label: 'Kalimat', text: fallback, color: 'neutral' }]
-                  : []
-                if (items.length === 0) return null
+              {structureLayers.map(({ key, label, items }) => (
+                <div key={key} data-structure-layer={key}>
+                  <p className="mb-1 text-[0.68em] font-bold text-[var(--cr-text-secondary)]">{label}</p>
+                  <p className="text-[max(12px,0.8em)] leading-relaxed">
+                    {items.map((part, index) => (
+                      <React.Fragment key={`${key}-${index}`}>
+                        {index > 0 && ' '}
+                        <span className={`font-bold ${colorFor(part.color)}`}>{part.text}</span>
+                      </React.Fragment>
+                    ))}
+                  </p>
+                </div>
+              ))}
 
-                const colorFor = (role) => {
-                  if (role === 'subject') return 'text-[var(--cr-text-accent)]'
-                  if (role === 'predicate') return 'text-[var(--cr-blue-text)]'
-                  if (role === 'object') return 'text-[var(--cr-yellow-text)]'
-                  if (role === 'adverbial') return 'text-[var(--cr-text-quaternary)]'
-                  return 'text-[var(--cr-text-primary)]'
-                }
-
-                return (
-                  <div key={key} data-structure-layer={key}>
-                    <p className="mb-1 text-[0.68em] font-bold text-[var(--cr-text-secondary)]">{label}</p>
-                    <p className="space-y-0.5">
-                      {items.map((part, index) => (
-                        <span key={`${key}-${part.label}-${index}`} className="block text-[max(12px,0.8em)] leading-snug">
-                          <span className={`font-bold ${colorFor(part.color)}`}>{part.text}</span>
-                          <span className="font-normal text-[var(--cr-text-secondary)]"> : {part.label}</span>
-                        </span>
-                      ))}
-                    </p>
-                  </div>
-                )
-              })}
-
-              <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">
-                {interlinear.grammar?.tense || data.tense}
-              </p>
+              {(interlinear.grammar?.tense || data.tense) && (
+                <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">
+                  {interlinear.grammar?.tense || data.tense}
+                </p>
+              )}
               {interlinear.grammar?.note && (
                 <p className="text-[0.72em] leading-relaxed text-[var(--cr-text-secondary)]">
                   {interlinear.grammar.note}
@@ -420,10 +426,10 @@ export function SentencePanel({
                   >
                     <span className="block text-[max(12px,0.8em)] font-bold leading-tight text-[var(--cr-text-primary)]">{row.source}</span>
                     <span className="block text-[max(12px,0.8em)] font-semibold leading-tight text-[var(--cr-text-accent)]">
-                      {row.target || '—'}
+                      {row.target || '-'}
                     </span>
                     {row.mother && row.mother !== row.target && (
-                      <span className="block text-[max(12px,0.8em)] font-normal leading-tight text-[var(--cr-text-secondary)]">
+                      <span className="block text-[max(12px,0.8em)] font-normal leading-tight text-[var(--cr-text-tertiary)]">
                         {row.mother}
                       </span>
                     )}
