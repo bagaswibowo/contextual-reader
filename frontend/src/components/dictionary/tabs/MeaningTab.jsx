@@ -41,9 +41,13 @@ function LayeredLines({ book = '', learning = '', mother = '' }) {
 
   if (layers.length === 0) return null
   return (
-    <span className="mt-1 block space-y-0.5">
+    <span data-layered="true" className="mt-1 block space-y-0.5">
       {layers.map((layer, index) => (
-        <span key={`${layer.key}-${index}`} className={`${LAYER_LINE} ${layer.className}`}>
+        <span
+          key={`${layer.key}-${index}`}
+          data-layer={index}
+          className={`${LAYER_LINE} ${layer.className}`}
+        >
           {layer.value}
         </span>
       ))}
