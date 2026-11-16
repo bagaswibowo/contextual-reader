@@ -27,7 +27,7 @@ export function SentencePanel({
   onClose,
 }) {
   const [lang, setLang] = useState(targetLang || 'id')
-  const [state, setState] = useState({ loading: false, error: null, data: null, motherText: '' })
+  const [state, setState] = useState({ loading: false, error: null, data: null, motherText: '', targetText: '' })
   const [attempt, setAttempt] = useState(0)
   const [interlinear, setInterlinear] = useState({ loading: false, words: [], structure: null, grammar: null })
   const languages = useLanguages()
@@ -69,35 +69,46 @@ export function SentencePanel({
   useEffect(() => {
     if (!isOpen || !sentenceId) return undefined
     let active = true
-    setState({ loading: true, error: null, data: null, motherText: '' })
+    setState({ loading: true, error: null, data: null, motherText: '', targetText: '' })
 
-    const targetRequest = translationsApi.sentence(sentenceId, lang, translationEngine, customConfig)
-    const motherRequest =
-      String(lang).toLowerCase() === String(motherLang).toLowerCase()
-        ? Promise.resolve(null)
-        : translationsApi
-            .sentence(sentenceId, motherLang, translationEngine, customConfig)
-            .catch(() => null)
-
-    Promise.all([targetRequest, motherRequest])
-      .then(([res, motherRes]) => {
+    translationsApi
+      .sentenceLayers(sentenceId, lang, motherLang, translationEngine, customConfig)
+      .then((res) => {
         if (!active) return
         const data = res.data || {}
-        setState({
-          loading: false,
-          error: null,
-          data,
-          motherText: motherRes?.data?.indonesian_text || '',
+        const layers = data.layers || null
+        if (layers) {
+          setState({
+            loading: false,
+            error: null,
+            data,
+            motherText: layers.mother?.text || '',
+            targetText: layers.target?.text || data.indonesian_text || '',
+          })
+          return
+        }
+        // Older backend: fall back to two calls.
+        const motherRequest =
+          String(lang).toLowerCase() === String(motherLang).toLowerCase()
+            ? Promise.resolve(null)
+            : translationsApi
+                .sentence(sentenceId, motherLang, translationEngine, customConfig)
+                .catch(() => null)
+        return motherRequest.then((motherRes) => {
+          if (!active) return
+          setState({
+            loading: false,
+            error: null,
+            data,
+            motherText: motherRes?.data?.indonesian_text || '',
+            targetText: data.indonesian_text || '',
+          })
         })
       })
       .catch((err) => {
         if (!active) return
-        setState({ loading: false, error: err.message || 'Gagal menerjemahkan kalimat', data: null, motherText: '' })
+        setState({ loading: false, error: err.message || 'Gagal menerjemahkan kalimat', data: null, motherText: '', targetText: '' })
       })
-
-    return () => {
-      active = false
-    }
   }, [isOpen, sentenceId, lang, motherLang, translationEngine, attempt])
 
   useEffect(() => {
@@ -133,7 +144,7 @@ export function SentencePanel({
 
   const data = state.data || {}
   const notesRaw = data.notes || ''
-  const translation = data.indonesian_text || ''
+  const translation = state.targetText || data.indonesian_text || ''
 
   return (
     <>

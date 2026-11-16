@@ -173,14 +173,20 @@ export function Reader() {
       
       // Load saved vocabulary for this book to reflect saved status
       try {
-        const vocabRes = await vocabularyApi.list({ book_id: bookId })
-        const list = vocabRes.data.results || vocabRes.data || []
         const savedSet = new Set()
-        if (Array.isArray(list)) {
-          list.forEach(v => {
-            if (v.word_translation?.id) savedSet.add(v.word_translation.id)
-            if (v.word_translation?.word) savedSet.add(v.word_translation.word.toLowerCase())
-          })
+        try {
+          const savedRes = await vocabularyApi.savedWords(bookId)
+          const keys = savedRes.data?.words || []
+          keys.forEach((key) => savedSet.add(String(key).toLowerCase()))
+        } catch (e) {
+          const vocabRes = await vocabularyApi.list({ book_id: bookId })
+          const list = vocabRes.data.results || vocabRes.data || []
+          if (Array.isArray(list)) {
+            list.forEach(v => {
+              if (v.word_translation?.id) savedSet.add(v.word_translation.id)
+              if (v.word_translation?.word) savedSet.add(v.word_translation.word.toLowerCase())
+            })
+          }
         }
         setSavedWords(savedSet)
       } catch (e) {

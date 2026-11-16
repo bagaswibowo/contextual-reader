@@ -83,6 +83,15 @@ export const translationsApi = {
       engine,
       ...customProviderFields(engine, customConfig)
     }),
+  sentenceLayers: (sentenceId, targetLang = 'id', motherLang = 'id', engine = 'google', customConfig = {}) =>
+    api.post('/translations/sentence/', {
+      sentence_id: sentenceId,
+      target_lang: targetLang,
+      mother_lang: motherLang,
+      engine,
+      layers: true,
+      ...customProviderFields(engine, customConfig)
+    }),
   sentence: (sentenceId, targetLang = 'id', engine = 'google', customConfig = {}) => 
     api.post('/translations/sentence/', {
       sentence_id: sentenceId,
@@ -137,6 +146,8 @@ export const vocabularyApi = {
   add: (wordTranslationId, userId = 'default') => api.post('/vocabulary/', { word_translation: wordTranslationId, user_id: userId }),
   delete: (id) => api.delete(`/vocabulary/${id}/`),
   byBook: (userId = 'default', bookId) => api.get('/vocabulary/by_book/', { params: { user_id: userId, book_id: bookId } }),
+  savedWords: (bookId, userId = 'default') =>
+    api.get('/vocabulary/saved_words/', { params: { user_id: userId, book_id: bookId } }),
   due: (userId = 'default') => api.get('/vocabulary/due_for_review/', { params: { user_id: userId } }),
   review: (id, quality) => api.post(`/vocabulary/${id}/review/`, { quality }),
   startSession: (userId = 'default', bookId) => api.post('/vocabulary/start_session/', { user_id: userId, book_id: bookId }),
