@@ -9,32 +9,33 @@ jobs:
   deploy:
     name: Deploy to SXZ
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VPS_HOST: ${{ secrets.VPS_HOST || '72.61.215.253' }}
-          VPS_USER: ${{ secrets.VPS_USER || 'bagas' }}
-          SXZ_HOST: ${{ secrets.SXZ_HOST || '100.127.103.9' }}
-          SXZ_USER: ${{ secrets.SXZ_USER || 'sxz' }}
+          VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST || '72.61.215.253' }}
+          VPS_USER: ${{ vars.VPS_USER || secrets.VPS_USER || 'bagas' }}
+          SXZ_HOST: ${{ vars.SXZ_HOST || secrets.SXZ_HOST || '100.127.103.9' }}
+          SXZ_USER: ${{ vars.SXZ_USER || secrets.SXZ_USER || 'sxz' }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
           cat << 'EOF' > ~/.ssh/config
           Host vps
             HostName ${{ env.VPS_HOST }}
             User ${{ env.VPS_USER }}
-            IdentityFile ~/.ssh/id_rsa
+            IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
 
           Host sxz
             HostName ${{ env.SXZ_HOST }}
             User ${{ env.SXZ_USER }}
-            IdentityFile ~/.ssh/id_rsa
+            IdentityFile ~/.ssh/deploy_key
             ProxyJump vps
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
