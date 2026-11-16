@@ -44,13 +44,13 @@ jobs:
 
       - name: Deploy on SXZ
         run: |
-          ssh -o ConnectTimeout=15 sxz << 'EOF'
+          ssh -o ConnectTimeout=20 sxz << 'EOF'
             set -e
             cd ~/projects/active/contextual-reader
             echo "Pulling latest changes on main..."
             git pull origin main
             echo "Rebuilding and restarting containers..."
-            sudo docker compose build
+            sudo docker compose build || (sleep 5 && sudo docker compose build)
             sudo docker compose up -d
             echo "Waiting for services to initialize..."
             sleep 5
@@ -59,7 +59,7 @@ jobs:
 
       - name: Verify health endpoint
         run: |
-          ssh -o ConnectTimeout=15 sxz << 'EOF'
+          ssh -o ConnectTimeout=20 sxz << 'EOF'
             set -e
             echo "Checking backend health..."
             curl -f -s http://127.0.0.1:8088/api/core/health/ || exit 1
