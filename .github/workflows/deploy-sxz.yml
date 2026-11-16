@@ -1,0 +1,67 @@
+name: Deploy to Server SXZ
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to SXZ
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '72.61.215.253' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'bagas' }}
+          SXZ_HOST: ${{ secrets.SXZ_HOST || '100.127.103.9' }}
+          SXZ_USER: ${{ secrets.SXZ_USER || 'sxz' }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          cat << 'EOF' > ~/.ssh/config
+          Host vps
+            HostName ${{ env.VPS_HOST }}
+            User ${{ env.VPS_USER }}
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+
+          Host sxz
+            HostName ${{ env.SXZ_HOST }}
+            User ${{ env.SXZ_USER }}
+            IdentityFile ~/.ssh/id_rsa
+            ProxyJump vps
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Deploy on SXZ
+        run: |
+          ssh -o ConnectTimeout=15 sxz << 'EOF'
+            set -e
+            cd ~/projects/active/contextual-reader
+            echo "Pulling latest changes on main..."
+            git pull origin main
+            echo "Rebuilding and restarting containers..."
+            sudo docker compose build
+            sudo docker compose up -d
+            echo "Waiting for services to initialize..."
+            sleep 5
+            sudo docker compose ps
+          EOF
+
+      - name: Verify health endpoint
+        run: |
+          ssh -o ConnectTimeout=15 sxz << 'EOF'
+            set -e
+            echo "Checking backend health..."
+            curl -f -s http://127.0.0.1:8088/api/core/health/ || exit 1
+            echo ""
+            echo "Deployment verification successful."
+          EOF
