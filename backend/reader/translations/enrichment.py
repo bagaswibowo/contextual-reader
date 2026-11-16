@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Dict, List
-
 import time
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, List
 
 import requests
 from django.core.cache import cache
@@ -214,24 +214,41 @@ def translate_texts(
     if not pending:
         return [cached[index] if cached[index] is not None else '' for index in range(len(wanted))]
 
-    joined = TRANSLATE_BATCH_MARKER.join(wanted[index] for index in pending)
-    payload = translate_query({
-        'sl': source_lang or 'auto', 'tl': mother_lang, 'dt': 't', 'q': joined,
-    })
-    parts = []
-    if is_translate_payload(payload):
-        translated = ''.join(
-            segment[0] for segment in payload[0]
-            if isinstance(segment, list) and segment and isinstance(segment[0], str)
-        )
-        parts = [part.strip() for part in translated.split('|||')]
+    # A batch is only safe for whole sentences: the engine reads a row of single
+    # words as one phrase and hands the words back out of order. A single word
+    # therefore keeps its own request.
+    sentences = [index for index in pending if ' ' in wanted[index].strip()]
+    words = [index for index in pending if index not in set(sentences)]
 
-    if len(parts) != len(pending):
-        # The split failed, so the batch is abandoned rather than mismatched.
-        parts = [_translate_text(wanted[index], source_lang, mother_lang) for index in pending]
+    values: Dict[int, str] = {}
+    if sentences:
+        joined = TRANSLATE_BATCH_MARKER.join(wanted[index] for index in sentences)
+        payload = translate_query({
+            'sl': source_lang or 'auto', 'tl': mother_lang, 'dt': 't', 'q': joined,
+        })
+        parts = []
+        if is_translate_payload(payload):
+            translated = ''.join(
+                segment[0] for segment in payload[0]
+                if isinstance(segment, list) and segment and isinstance(segment[0], str)
+            )
+            parts = [part.strip() for part in translated.split('|||')]
+        if len(parts) == len(sentences):
+            values.update(zip(sentences, parts))
+        else:
+            # The split failed, so the batch is abandoned rather than mismatched.
+            words.extend(sentences)
+
+    if words:
+        with ThreadPoolExecutor(max_workers=max(1, min(4, len(words)))) as executor:
+            for index, value in zip(words, executor.map(
+                lambda index: _translate_text(wanted[index], source_lang, mother_lang),
+                words,
+            )):
+                values[index] = value
 
     result = [cached[index] if cached[index] is not None else '' for index in range(len(wanted))]
-    for index, value in zip(pending, parts):
+    for index, value in values.items():
         if value:
             cache.set(keys[index], value, timeout=ENRICHMENT_CACHE_TTL)
         result[index] = value

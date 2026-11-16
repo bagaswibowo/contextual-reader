@@ -211,23 +211,45 @@ def serialize_entry(
     )
     from .pronunciation import build_pronunciation
 
+    from concurrent.futures import ThreadPoolExecutor
+
     senses = _rank_by_context(list(entry.senses or []), context)
-    try:
-        enrichment = fetch_word_enrichment(entry.word, entry.lang, mother_lang)
-    except Exception:
-        enrichment = {}
+
+    def mother_layer():
+        try:
+            return fetch_word_enrichment(entry.word, entry.lang, mother_lang)
+        except Exception:
+            return {}
+
+    def studied_layer():
+        if not target_lang or target_lang in {mother_lang, entry.lang}:
+            return {}
+        try:
+            return fetch_word_enrichment(entry.word, entry.lang, target_lang)
+        except Exception:
+            return {}
+
+    def context_line():
+        if not context:
+            return {'source_text': '', 'target_text': ''}
+        try:
+            return translate_sentence(context, entry.lang, mother_lang)
+        except Exception:
+            return {'source_text': context, 'target_text': ''}
+
+    # The mother-tongue layer, the studied layer and the clicked sentence each
+    # need their own upstream call, so they run together instead of in a queue.
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        enrichment_future = executor.submit(mother_layer)
+        studied_future = executor.submit(studied_layer)
+        context_future = executor.submit(context_line)
+        enrichment = enrichment_future.result()
+        target_layer = studied_future.result()
+        sentence_translation = context_future.result()
+
     pronunciation = enrichment.get('pronunciation') or {}
     translations = enrichment.get('translations') or []
     primary_meaning = enrichment.get('primary_meaning') or ''
-
-    try:
-        target_layer = (
-            fetch_word_enrichment(entry.word, entry.lang, target_lang)
-            if target_lang and target_lang not in {mother_lang, entry.lang}
-            else {}
-        )
-    except Exception:
-        target_layer = {}
     target_translations = target_layer.get('translations') or []
     target_primary = target_layer.get('primary_meaning') or ''
 
@@ -235,48 +257,46 @@ def serialize_entry(
     # only when a second translation layer was fetched. When the studied
     # language is the book language the dictionary senses are already in it;
     # otherwise Google Translate carries the meaning across.
-    try:
+    def studied_definitions():
         if not target_lang or target_lang == mother_lang:
-            target_definitions = []
-        elif target_lang == entry.lang:
-            target_definitions = source_definitions(senses, entry.part_of_speech)
-        else:
-            target_definitions = translate_definitions(
+            return []
+        if target_lang == entry.lang:
+            return source_definitions(senses, entry.part_of_speech)
+        try:
+            return translate_definitions(
                 senses,
                 entry.lang,
                 target_lang,
                 part_of_speech=entry.part_of_speech,
                 contextual_meaning=target_primary,
             )
-    except Exception:
-        target_definitions = []
-
-    try:
-        target_alternatives = (
-            build_alternative_meanings(
-                target_translations, senses, entry.lang, target_lang, target_primary
-            )
-            if target_layer
-            else []
-        )
-    except Exception:
-        target_alternatives = []
+        except Exception:
+            return []
 
     # Everyday sentences in the panel language: real usage of the studied
     # word, from Tatoeba's human-written corpus. Each alternative meaning gets
     # its own sentence too, so "Arti lainnya" is not stuck showing the source
     # language. Nothing is written by a model here: an empty list means the
     # corpus has no sentence for that word.
-    contoh_bahasa_pilihan = []
-    if target_layer and target_primary:
+    def studied_meanings():
+        try:
+            rows = (
+                build_alternative_meanings(
+                    target_translations, senses, entry.lang, target_lang, target_primary
+                )
+                if target_layer
+                else []
+            )
+        except Exception:
+            rows = []
+
+        if not (target_layer and target_primary):
+            return rows, []
+
         words = [target_primary]
-        words.extend(
-            item['makna'] for item in target_alternatives[:2] if item.get('makna')
-        )
+        words.extend(item['makna'] for item in rows[:2] if item.get('makna'))
         fetched = []
         try:
-            from concurrent.futures import ThreadPoolExecutor
-
             with ThreadPoolExecutor(max_workers=len(words)) as executor:
                 fetched = list(executor.map(
                     lambda value: fetch_tatoeba_examples(value, target_lang, mother_lang),
@@ -284,7 +304,7 @@ def serialize_entry(
                 ))
         except Exception:
             fetched = []
-        contoh_bahasa_pilihan = fetched[0] if fetched else []
+
         # Every corpus sentence needs its book-language reading, and they all go
         # out in one request instead of one per row.
         book_texts = {}
@@ -300,7 +320,7 @@ def serialize_entry(
             except Exception:
                 book_texts = {}
 
-        for index, item in enumerate(target_alternatives[:2]):
+        for index, item in enumerate(rows[:2]):
             if index + 1 >= len(fetched) or not fetched[index + 1]:
                 continue
             item['contoh_bahasa_pilihan'] = fetched[index + 1][:2]
@@ -321,93 +341,141 @@ def serialize_entry(
                 'text_mother': best['target_text'],
             }
 
-    # The studied-language example list is written in the studied language with
-    # a mother-tongue caption, so its book layer is a real translation of the
-    # same sentence, not a copy of another layer.
-    if contoh_bahasa_pilihan:
+        # Three language layers on every alternative meaning: the book-language
+        # sense, the studied-language word, and the mother-tongue reading. Each
+        # is a real source; a missing layer stays empty.
         try:
-            contoh_bahasa_pilihan = build_example_layers(
-                contoh_bahasa_pilihan, target_lang, target_lang, mother_lang,
+            rows = build_meaning_layers(
+                rows, entry.lang, mother_lang, target_lang,
             )
-            for item in contoh_bahasa_pilihan:
-                item['text_book'] = book_texts.get(item.get('source_text'), '')
         except Exception:
             pass
 
-    # Three language layers on every alternative meaning: the book-language
-    # sense, the studied-language word, and the mother-tongue reading. Each is
-    # a real source; a missing layer stays empty rather than being filled in.
-    try:
-        target_alternatives = build_meaning_layers(
-            target_alternatives, entry.lang, mother_lang, target_lang,
+        # The studied-language example list is written in the studied language
+        # with a mother-tongue caption, so its book layer is a real translation
+        # of the same sentence, not a copy of another layer.
+        studied_examples = fetched[0] if fetched else []
+        if studied_examples:
+            try:
+                studied_examples = build_example_layers(
+                    studied_examples, target_lang, target_lang, mother_lang,
+                )
+                for item in studied_examples:
+                    item['text_book'] = book_texts.get(item.get('source_text'), '')
+            except Exception:
+                pass
+        return rows, studied_examples
+
+    def everyday_examples():
+        source_examples = []
+        # The clicked sentence is the reading line, not an everyday example, so
+        # it does not join the example list. Dictionary and corpus examples only.
+        source_examples.extend(enrichment.get('google_examples') or [])
+        source_examples.extend(
+            example
+            for sense in senses
+            for example in (sense.get('examples') or [])
+            if isinstance(example, str) and example.strip()
         )
-    except Exception:
-        pass
+        try:
+            rows = build_examples(
+                source_examples,
+                entry.word,
+                entry.lang,
+                mother_lang,
+                meaning=primary_meaning,
+                part_of_speech=entry.part_of_speech,
+            )
+        except Exception:
+            rows = []
+
+        # Three language layers on every example: the book-language sentence,
+        # the studied-language translation, and the mother tongue. The studied
+        # reading is a real translation, never a model-written one.
+        try:
+            return build_example_layers(
+                rows,
+                entry.lang,
+                target_lang or mother_lang,
+                mother_lang,
+            )
+        except Exception:
+            return rows
+
+    def mother_meanings():
+        try:
+            rows = build_alternative_meanings(
+                translations, senses, entry.lang, mother_lang, primary_meaning
+            )
+        except Exception:
+            return []
+        # The mother-tongue list carries ``makna`` as the mother reading, so the
+        # studied layer is translated from the book sense, never copied over.
+        try:
+            return build_meaning_layers(
+                rows, entry.lang, mother_lang, target_lang, makna_layer='mother',
+            )
+        except Exception:
+            return rows
+
+    def mother_definitions():
+        try:
+            return translate_definitions(
+                senses,
+                entry.lang,
+                mother_lang,
+                part_of_speech=entry.part_of_speech,
+                contextual_meaning=primary_meaning,
+            )
+        except Exception:
+            return []
 
     # The studied language gets its own reading of the word's translation:
     # "divided" is read one way in English, "dividido" another in Spanish.
-    # The block carries the reading of the translated word plus its audio.
-    target_pronunciation = None
-    if target_layer and target_primary:
-        target_reading = {}
+    def studied_pronunciation():
+        if not (target_layer and target_primary):
+            return None
         try:
-            target_reading = fetch_word_enrichment(
+            reading = fetch_word_enrichment(
                 target_primary, target_lang, mother_lang
             ).get('pronunciation') or {}
         except Exception:
-            target_reading = {}
-        target_pronunciation = build_pronunciation(
-            target_reading.get('ipa') or '',
-            target_reading.get('guide') or '',
+            reading = {}
+        block = build_pronunciation(
+            reading.get('ipa') or '',
+            reading.get('guide') or '',
             # Google has no reading for every language; fall back to the
             # spelling so the tab still shows syllables, never a guess at IPA.
-            target_reading.get('romanization') or target_primary,
+            reading.get('romanization') or target_primary,
             target_lang,
         )
-        target_pronunciation['word'] = target_primary
-        target_pronunciation['audio_url'] = build_audio_url(target_primary, target_lang)
+        block['word'] = target_primary
+        block['audio_url'] = build_audio_url(target_primary, target_lang)
+        return block
 
-    source_examples = []
-    # The clicked sentence is the reading line, not an everyday example, so it
-    # does not join the example list. Dictionary and corpus examples only.
-    source_examples.extend(enrichment.get('google_examples') or [])
-    source_examples.extend(
-        example
-        for sense in senses
-        for example in (sense.get('examples') or [])
-        if isinstance(example, str) and example.strip()
-    )
-    try:
-        examples = build_examples(
-            source_examples,
-            entry.word,
-            entry.lang,
-            mother_lang,
-            meaning=primary_meaning,
-            part_of_speech=entry.part_of_speech,
-        )
-    except Exception:
-        examples = []
+    def resolved(future, default):
+        try:
+            return future.result()
+        except Exception:
+            return default
 
-    # Three language layers on every example: the book-language sentence, the
-    # studied-language translation, and the mother tongue. The studied reading
-    # is a real translation of that sentence, never a model-written one.
-    try:
-        examples = build_example_layers(
-            examples,
-            entry.lang,
-            target_lang or mother_lang,
-            mother_lang,
-        )
-    except Exception:
-        pass
+    # Every block below reads from the two layers and writes only its own part
+    # of the card, so the six run at once. A cold card is then as slow as its
+    # slowest block, not the sum of all of them.
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        studied_definitions_future = executor.submit(studied_definitions)
+        studied_meanings_future = executor.submit(studied_meanings)
+        examples_future = executor.submit(everyday_examples)
+        mother_meanings_future = executor.submit(mother_meanings)
+        mother_definitions_future = executor.submit(mother_definitions)
+        pronunciation_future = executor.submit(studied_pronunciation)
 
-    try:
-        sentence_translation = translate_sentence(context, entry.lang, mother_lang) if context else {
-            'source_text': '', 'target_text': ''
-        }
-    except Exception:
-        sentence_translation = {'source_text': context, 'target_text': ''}
+        target_definitions = resolved(studied_definitions_future, [])
+        target_alternatives, contoh_bahasa_pilihan = resolved(studied_meanings_future, ([], []))
+        examples = resolved(examples_future, [])
+        alternative_meanings = resolved(mother_meanings_future, [])
+        translated_definitions = resolved(mother_definitions_future, [])
+        target_pronunciation = resolved(pronunciation_future, None)
 
     phonetic_ipa = entry.phonetic_ipa or pronunciation.get('ipa') or ''
     if not is_latin_script(entry.lang):
@@ -422,34 +490,6 @@ def serialize_entry(
             continue
         pos = item.get('pos') or ''
         other_meanings.append(f'{pos}: {value}' if pos else value)
-
-    try:
-        alternative_meanings = build_alternative_meanings(
-            translations, senses, entry.lang, mother_lang, primary_meaning
-        )
-    except Exception:
-        alternative_meanings = []
-
-    # The mother-tongue list carries ``makna`` as the mother reading, so the
-    # studied layer is translated from the book sense and never copied over.
-    try:
-        alternative_meanings = build_meaning_layers(
-            alternative_meanings, entry.lang, mother_lang, target_lang,
-            makna_layer='mother',
-        )
-    except Exception:
-        pass
-
-    try:
-        translated_definitions = translate_definitions(
-            senses,
-            entry.lang,
-            mother_lang,
-            part_of_speech=entry.part_of_speech,
-            contextual_meaning=primary_meaning,
-        )
-    except Exception:
-        translated_definitions = []
 
     pronunciation_block = build_pronunciation(
         phonetic_ipa,

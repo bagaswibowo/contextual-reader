@@ -1511,6 +1511,63 @@ class AlternativeMeaningLayersTest(TestCase):
         self.assertNotEqual(rows[0]['meaning_learning'], rows[0]['meaning_mother'])
 
 
+class TranslateTextsTest(TestCase):
+    """A batch keeps sentence order and never joins single words."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _payload(self, text):
+        return [[[text, 'x', None, None, 10]]]
+
+    def test_sentences_are_translated_in_one_request(self):
+        from reader.translations.enrichment import translate_texts
+
+        with mock.patch(
+            'reader.translations.enrichment.translate_query',
+            return_value=self._payload('uno ||| dos'),
+        ) as query:
+            rows = translate_texts(
+                ['He broke the glass.', 'She took a break.'], 'en', 'id'
+            )
+
+        self.assertEqual(rows, ['uno', 'dos'])
+        self.assertEqual(query.call_count, 1)
+
+    def test_single_words_keep_their_own_request(self):
+        from reader.translations.enrichment import translate_texts
+
+        def fake(params):
+            # The engine returns the queried word itself, so a joined batch
+            # would come back as one phrase and be read as a wrong word.
+            return self._payload(params['q'])
+
+        with mock.patch('reader.translations.enrichment.translate_query', side_effect=fake) as query:
+            rows = translate_texts(['romper', 'descanso'], 'es', 'id')
+
+        self.assertEqual(rows, ['romper', 'descanso'])
+        self.assertEqual(query.call_count, 2)
+
+    def test_a_wrong_split_falls_back_to_single_requests(self):
+        from reader.translations.enrichment import translate_texts
+
+        calls = []
+
+        def fake(params):
+            calls.append(params['q'])
+            if '|||' in params['q']:
+                return self._payload('satu frase utuh')
+            return self._payload(f'translated {params["q"]}')
+
+        with mock.patch('reader.translations.enrichment.translate_query', side_effect=fake):
+            rows = translate_texts(['One sentence.', 'Two sentences.'], 'en', 'id')
+
+        self.assertEqual(rows, ['translated One sentence.', 'translated Two sentences.'])
+        self.assertEqual(len(calls), 3)
+
+
 class ExampleLayersTest(TestCase):
     """Contoh dalam Keseharian carries book, studied and mother-tongue text."""
 
