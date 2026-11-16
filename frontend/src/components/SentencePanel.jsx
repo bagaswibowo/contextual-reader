@@ -19,6 +19,7 @@ export function SentencePanel({
   sentenceText = '',
   sourceLang = 'en',
   targetLang = 'id',
+  motherLang = 'id',
   translationEngine = 'google',
   customConfig = {},
   onPlayAudio,
@@ -26,7 +27,7 @@ export function SentencePanel({
   onClose,
 }) {
   const [lang, setLang] = useState(targetLang || 'id')
-  const [state, setState] = useState({ loading: false, error: null, data: null })
+  const [state, setState] = useState({ loading: false, error: null, data: null, motherText: '' })
   const [attempt, setAttempt] = useState(0)
   const [interlinear, setInterlinear] = useState({ loading: false, words: [], structure: null, grammar: null })
   const languages = useLanguages()
@@ -68,24 +69,36 @@ export function SentencePanel({
   useEffect(() => {
     if (!isOpen || !sentenceId) return undefined
     let active = true
-    setState({ loading: true, error: null, data: null })
+    setState({ loading: true, error: null, data: null, motherText: '' })
 
-    translationsApi
-      .sentence(sentenceId, lang, translationEngine, customConfig)
-      .then((res) => {
+    const targetRequest = translationsApi.sentence(sentenceId, lang, translationEngine, customConfig)
+    const motherRequest =
+      String(lang).toLowerCase() === String(motherLang).toLowerCase()
+        ? Promise.resolve(null)
+        : translationsApi
+            .sentence(sentenceId, motherLang, translationEngine, customConfig)
+            .catch(() => null)
+
+    Promise.all([targetRequest, motherRequest])
+      .then(([res, motherRes]) => {
         if (!active) return
         const data = res.data || {}
-        setState({ loading: false, error: null, data })
+        setState({
+          loading: false,
+          error: null,
+          data,
+          motherText: motherRes?.data?.indonesian_text || '',
+        })
       })
       .catch((err) => {
         if (!active) return
-        setState({ loading: false, error: err.message || 'Gagal menerjemahkan kalimat', data: null })
+        setState({ loading: false, error: err.message || 'Gagal menerjemahkan kalimat', data: null, motherText: '' })
       })
 
     return () => {
       active = false
     }
-  }, [isOpen, sentenceId, lang, translationEngine, attempt])
+  }, [isOpen, sentenceId, lang, motherLang, translationEngine, attempt])
 
   useEffect(() => {
     if (!isOpen || !sentenceText) return undefined
@@ -183,7 +196,7 @@ export function SentencePanel({
             <div className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
                 <Languages className="h-3.5 w-3.5" aria-hidden="true" />
-                Terjemahan
+                Bahasa dipelajari ({languageName(lang, languages)})
               </span>
               <label className="sr-only" htmlFor="sentence-lang">Bahasa terjemahan</label>
               <select
@@ -233,6 +246,31 @@ export function SentencePanel({
               )}
             </div>
           </section>
+
+          {String(lang).toLowerCase() !== String(motherLang).toLowerCase() && (
+            <section className="space-y-2">
+              <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+                <Languages className="h-3.5 w-3.5" aria-hidden="true" />
+                Bahasa induk ({languageName(motherLang, languages)})
+              </span>
+              <div className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4">
+                {state.loading ? (
+                  <div className="space-y-2" aria-busy="true">
+                    <div className="cr-skeleton h-4 w-2/3 rounded" />
+                    <div className="cr-skeleton h-4 w-full rounded" />
+                  </div>
+                ) : state.motherText ? (
+                  <p className="font-heading text-base font-extrabold leading-relaxed text-[var(--cr-text-primary)]">
+                    {state.motherText}
+                  </p>
+                ) : (
+                  <p className="text-xs font-semibold text-[var(--cr-text-secondary)]">
+                    Terjemahan bahasa induk belum tersedia.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           {(interlinear.grammar?.tense || data.tense) && (
             <section className="space-y-2.5 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">

@@ -32,7 +32,7 @@ function renderCachedKaTeX(formula, displayMode = false) {
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, ChevronDown,
+  Globe, ArrowLeft, ChevronDown,
   BookOpen, Sun, Moon, Type,
   AlertTriangle, X, Play, Square,
   Target, PanelBottom, MessageSquare
@@ -44,6 +44,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary'
 import { DictionaryDrawer } from '../components/dictionary/DictionaryDrawer'
 import { BookLanguageBadge } from '../components/language/BookLanguageBadge'
 import { TargetLanguagePopover } from '../components/language/TargetLanguagePopover'
+import { SentencePanel } from '../components/SentencePanel'
 
 // OCR/MinerU formula delimiter token and precompiled regexes
 const MINERU_MATH_DELIMITER = '72809'
@@ -92,6 +93,7 @@ export function Reader() {
   const [drawerSentenceId, setDrawerSentenceId] = useState(null)
   const [drawerInitialTab, setDrawerInitialTab] = useState('meaning')
   const [drawerExtraExamples, setDrawerExtraExamples] = useState([])
+  const [sentencePanel, setSentencePanel] = useState(null)
   const [isLangPopoverOpen, setIsLangPopoverOpen] = useState(false)
 
   const openDictionaryDrawer = (wordToOpen, sId, sentText, tab = 'meaning') => {
@@ -257,6 +259,12 @@ export function Reader() {
   }
 
   // Handle sentence margin icon click -> full paragraph/sentence translation
+  const handleSentenceTranslate = (sentenceId, sentenceText) => {
+    setSelectedWord(null)
+    setIsDrawerOpen(false)
+    setSentencePanel({ sentenceId, text: sentenceText })
+  }
+
   // Save word to vocabulary list ("Pelajari")
   const handleSaveVocabulary = async (wordParam, contextSentenceParam) => {
     try {
@@ -499,7 +507,7 @@ export function Reader() {
 
   return (
     <div
-      className={`flex flex-col gap-6 pb-20 transition-[padding] duration-200 ${isDrawerOpen ? 'lg:pr-[392px]' : ''}`}
+      className={`flex flex-col gap-6 pb-20 transition-[padding] duration-200 ${isDrawerOpen || sentencePanel ? 'lg:pr-[392px]' : ''}`}
       style={{ '--cr-panel-font': `${Math.round(fontSize * 0.9)}px` }}
     >
       {/* Reading Toolbar - Mobile-First Responsive Design */}
@@ -844,6 +852,15 @@ export function Reader() {
                   })}
                 </p>
 
+                <button
+                  type="button"
+                  onClick={() => handleSentenceTranslate(sent.id, sent.text)}
+                  className="translate-icon mt-0.5 flex-shrink-0 rounded-full p-1.5 text-[var(--cr-blue-text)] transition-colors hover:bg-[var(--cr-highlight-word-hover)]"
+                  title="Terjemahkan kalimat utuh"
+                  aria-label="Terjemahkan kalimat utuh"
+                >
+                  <Globe className="h-4 w-4" aria-hidden="true" />
+                </button>
               </div>
             </div>
           )
@@ -1097,6 +1114,24 @@ export function Reader() {
         translationEngine={translationEngine || 'google'}
         motherLang={motherLanguage || 'id'}
         customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
+      />
+
+      <SentencePanel
+        isOpen={Boolean(sentencePanel)}
+        sentenceId={sentencePanel?.sentenceId || null}
+        sentenceText={sentencePanel?.text || ''}
+        sourceLang={book?.language || 'en'}
+        targetLang={targetLanguage || 'id'}
+        motherLang={motherLanguage || 'id'}
+        translationEngine={translationEngine || 'google'}
+        customConfig={{ customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }}
+        onPlayAudio={(text, lang, key) => speakText(text, lang, key)}
+        onOpenWord={(nextWord) => {
+          const current = sentencePanel
+          setSentencePanel(null)
+          openDictionaryDrawer(nextWord, current?.sentenceId, current?.text || '', 'meaning')
+        }}
+        onClose={() => setSentencePanel(null)}
       />
 
       {/* Target Language Popover (F3) */}

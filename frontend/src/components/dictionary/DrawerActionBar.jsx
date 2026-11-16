@@ -26,7 +26,7 @@ export function DrawerActionBar({
           aria-pressed={saved}
           aria-label={
             saved
-              ? `Kata ${word} sudah dipelajari`
+              ? `Kata ${word} tersimpan`
               : `Pelajari kata ${word} beserta kalimatnya`
           }
           className={`cr-press min-h-[48px] w-full rounded-2xl px-4 py-2.5 text-sm font-extrabold flex items-center justify-center gap-2 disabled:opacity-60 ${
@@ -38,7 +38,7 @@ export function DrawerActionBar({
           {saved ? (
             <>
               <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Sudah dipelajari</span>
+              <span>Tersimpan</span>
             </>
           ) : (
             <>
