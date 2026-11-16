@@ -129,6 +129,10 @@ jobs:
           cd contextual-reader
           docker compose version
 
+      - name: Create CI environment file
+        run: |
+          : > contextual-reader/.env
+
       - name: Start services
         env:
           SECRET_KEY: ci-dummy-sprint0
