@@ -157,14 +157,24 @@ def _uppercase_stressed_syllable(plain: str, consumed: int) -> str:
     return f'{plain[:start]}{plain[start:end].upper()}{plain[end:]}'
 
 
+# One translate request carries a whole card's worth of text when the texts are
+# joined by a marker the engine leaves alone, which keeps a cold card inside the
+# panel timeout instead of spending it on a queue of single sentences.
+TRANSLATE_BATCH_MARKER = ' ||| '
+
+
+def _translate_cache_key(text: str, source_lang: str, mother_lang: str) -> str:
+    return _cache_key(
+        'translate_text', normalize_lang(source_lang), normalize_lang(mother_lang), text
+    )
+
+
 def _translate_text(text: str, source_lang: str, mother_lang: str) -> str:
     if not text:
         return ''
     # The same sentence is translated for more than one layer and the card
     # rebuilds its layers on every open, so the result is kept per text.
-    cache_key = _cache_key(
-        'translate_text', normalize_lang(source_lang), normalize_lang(mother_lang), text
-    )
+    cache_key = _translate_cache_key(text, source_lang, mother_lang)
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -182,6 +192,51 @@ def _translate_text(text: str, source_lang: str, mother_lang: str) -> str:
     if translated:
         cache.set(cache_key, translated, timeout=ENRICHMENT_CACHE_TTL)
     return translated
+
+
+def translate_texts(
+    texts: List[str],
+    source_lang: str,
+    mother_lang: str,
+) -> List[str]:
+    """Translate several texts in one request, keeping their order.
+
+    Texts already cached are not sent. When the answer does not split back into
+    the same number of parts the whole batch is retried one text at a time, so a
+    wrong split can never put another sentence's words in a layer.
+    """
+    wanted = [str(text or '') for text in texts]
+    if not wanted:
+        return []
+
+    keys = [_translate_cache_key(text, source_lang, mother_lang) for text in wanted]
+    cached = [cache.get(key) for key in keys]
+    pending = [index for index, text in enumerate(wanted) if text and cached[index] is None]
+    if not pending:
+        return [cached[index] if cached[index] is not None else '' for index in range(len(wanted))]
+
+    joined = TRANSLATE_BATCH_MARKER.join(wanted[index] for index in pending)
+    payload = translate_query({
+        'sl': source_lang or 'auto', 'tl': mother_lang, 'dt': 't', 'q': joined,
+    })
+    parts = []
+    if is_translate_payload(payload):
+        translated = ''.join(
+            segment[0] for segment in payload[0]
+            if isinstance(segment, list) and segment and isinstance(segment[0], str)
+        )
+        parts = [part.strip() for part in translated.split('|||')]
+
+    if len(parts) != len(pending):
+        # The split failed, so the batch is abandoned rather than mismatched.
+        parts = [_translate_text(wanted[index], source_lang, mother_lang) for index in pending]
+
+    result = [cached[index] if cached[index] is not None else '' for index in range(len(wanted))]
+    for index, value in zip(pending, parts):
+        if value:
+            cache.set(keys[index], value, timeout=ENRICHMENT_CACHE_TTL)
+        result[index] = value
+    return result
 
 
 def _google_examples(payload) -> List[str]:
@@ -715,12 +770,19 @@ def build_alternative_meanings(
         for sense in senses
     ]
 
-    result = []
+    picked = []
     for index, item in enumerate(translations):
         value = str(item.get('target_word') or '').strip()
         if not value or value.lower() == (primary_meaning or '').strip().lower():
             continue
-        example = examples[index] if index < len(examples) else ''
+        picked.append((index, item, value))
+
+    example_texts = [examples[index] if index < len(examples) else '' for index, _, _ in picked]
+    translated_examples = translate_texts(example_texts, source_lang, mother_lang)
+
+    result = []
+    for position, (index, item, value) in enumerate(picked):
+        example = example_texts[position]
         result.append({
             'makna': value,
             'kelas_kata': item.get('pos') or '',
@@ -729,7 +791,7 @@ def build_alternative_meanings(
             'back_translations': item.get('back_translations') or [],
             'contoh': {
                 'source_text': example,
-                'target_text': _translate_text(example, source_lang, mother_lang),
+                'target_text': translated_examples[position] if position < len(translated_examples) else '',
             } if example else None,
         })
     return result
@@ -760,24 +822,33 @@ def build_meaning_layers(
     learning = normalize_lang(learning_lang) or ''
     has_learning = bool(learning) and learning != mother
 
-    def translate(text, from_lang, to_lang):
-        return _translate_text(text, from_lang, to_lang) if text and from_lang != to_lang else ''
+    words = [str(item.get('makna') or '').strip() for item in alternatives]
+    if makna_layer == 'mother':
+        # The word is already the mother tongue, so the studied reading is that
+        # same word translated. Without a studied language it stays empty.
+        others = (
+            translate_texts(words, mother, learning) if has_learning else [''] * len(words)
+        )
+    else:
+        # The word is the studied one; the mother reading is its translation.
+        others = translate_texts(words, learning or source, mother)
 
     layered = []
-    for item in alternatives:
+    for index, item in enumerate(alternatives):
         entry = dict(item)
-        word = str(entry.get('makna') or '').strip()
+        word = words[index]
         back = [
             str(value).strip() for value in (entry.get('back_translations') or [])
             if str(value).strip()
         ]
         entry['meaning_book'] = back[0] if back else ''
+        other = others[index] if index < len(others) else ''
         if makna_layer == 'mother':
-            entry['meaning_learning'] = translate(word, mother, learning) if has_learning else ''
+            entry['meaning_learning'] = other
             entry['meaning_mother'] = word
         else:
             entry['meaning_learning'] = word if has_learning else ''
-            entry['meaning_mother'] = translate(word, learning or source, mother)
+            entry['meaning_mother'] = other
         layered.append(entry)
     return layered
 
@@ -810,13 +881,21 @@ def build_example_layers(
             return mother_text
         if learning == source:
             return book_text
-        return _translate_text(book_text, source, learning) if book_text else ''
+        return ''
 
-    try:
-        with ThreadPoolExecutor(max_workers=max(1, min(4, len(examples)))) as executor:
-            learning_texts = list(executor.map(learning_text, examples))
-    except Exception:
-        learning_texts = []
+    learning_texts = [learning_text(example) for example in examples]
+    pending = [
+        index for index, value in enumerate(learning_texts)
+        if not value and str(examples[index].get('source_text') or '').strip()
+    ]
+    if pending:
+        translated = translate_texts(
+            [str(examples[index].get('source_text') or '').strip() for index in pending],
+            source,
+            learning,
+        )
+        for index, value in zip(pending, translated):
+            learning_texts[index] = value
 
     layered = []
     for index, item in enumerate(examples):

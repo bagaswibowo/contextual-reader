@@ -1461,8 +1461,10 @@ class AlternativeMeaningLayersTest(TestCase):
         ]
 
         with mock.patch(
-            'reader.translations.enrichment._translate_text',
-            side_effect=lambda text, src, dst: 'istirahat' if (text, src, dst) == ('descanso', 'es', 'id') else '',
+            'reader.translations.enrichment.translate_texts',
+            side_effect=lambda texts, src, dst: [
+                'istirahat' if text == 'descanso' else '' for text in texts
+            ],
         ):
             rows = build_meaning_layers(alternatives, 'en', 'id', 'es')
 
@@ -1497,8 +1499,10 @@ class AlternativeMeaningLayersTest(TestCase):
         alternatives = [{'makna': 'istirahat', 'back_translations': ['break']}]
 
         with mock.patch(
-            'reader.translations.enrichment._translate_text',
-            side_effect=lambda text, src, dst: 'descanso' if (text, src, dst) == ('istirahat', 'id', 'es') else '',
+            'reader.translations.enrichment.translate_texts',
+            side_effect=lambda texts, src, dst: [
+                'descanso' if text == 'istirahat' else '' for text in texts
+            ],
         ):
             rows = build_meaning_layers(alternatives, 'en', 'id', 'es', makna_layer='mother')
 
@@ -1526,8 +1530,8 @@ class ExampleLayersTest(TestCase):
         }]
 
         with mock.patch(
-            'reader.translations.enrichment._translate_text',
-            return_value='Ella tomó un descanso corto.',
+            'reader.translations.enrichment.translate_texts',
+            return_value=['Ella tomó un descanso corto.'],
         ):
             rows = build_example_layers(examples, 'en', 'es', 'id')
 
@@ -1540,7 +1544,7 @@ class ExampleLayersTest(TestCase):
 
         examples = [{'source_text': 'She took a break.', 'target_text': 'Dia istirahat.'}]
 
-        with mock.patch('reader.translations.enrichment._translate_text') as translate:
+        with mock.patch('reader.translations.enrichment.translate_texts') as translate:
             rows = build_example_layers(examples, 'en', 'en', 'id')
 
         translate.assert_not_called()
@@ -1551,7 +1555,7 @@ class ExampleLayersTest(TestCase):
 
         examples = [{'source_text': 'She took a break.', 'target_text': 'Dia istirahat.'}]
 
-        with mock.patch('reader.translations.enrichment._translate_text') as translate:
+        with mock.patch('reader.translations.enrichment.translate_texts') as translate:
             rows = build_example_layers(examples, 'en', 'id', 'id')
 
         translate.assert_not_called()
