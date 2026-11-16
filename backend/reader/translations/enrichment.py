@@ -65,7 +65,7 @@ TATOEBA_LANG_CODES = {
 
 # Bump when the shape or the derivation of cached values changes, so entries
 # written by an older release are not served after a deploy.
-CACHE_VERSION = 'v3'
+CACHE_VERSION = 'v4'
 
 
 def _cache_key(prefix: str, *parts: str) -> str:
