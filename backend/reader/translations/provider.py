@@ -9,6 +9,7 @@ means one place to fix when the upstream changes.
 from __future__ import annotations
 
 import json
+import time
 from typing import Dict, Optional
 
 import requests
@@ -87,18 +88,26 @@ def translate_query_via_reader(params: Dict) -> Optional[list]:
 
     attempt = dict(params)
     attempt.setdefault('client', CLIENT_NAMES[0])
-    try:
-        response = requests.get(
-            proxy.rstrip('/') + '/' + GOOGLE_TRANSLATE_URL,
-            params=attempt,
-            headers=REQUEST_HEADERS,
-            timeout=20,
-        )
-        if response.status_code != 200:
+    body = ''
+    for try_index in range(2):
+        try:
+            response = requests.get(
+                proxy.rstrip('/') + '/' + GOOGLE_TRANSLATE_URL,
+                params=attempt,
+                headers=REQUEST_HEADERS,
+                timeout=20,
+            )
+            if response.status_code != 200:
+                return None
+            body = response.text
+        except Exception:
             return None
-        body = response.text
-    except Exception:
-        return None
+        if 'Markdown Content:' in body or body.strip().startswith('['):
+            break
+        # A burst of parallel lookups can come back as the block page; one
+        # retry after a short pause fills the layer instead of leaving it empty.
+        if try_index == 0:
+            time.sleep(0.5)
 
     marker = 'Markdown Content:'
     raw = body.split(marker, 1)[1].strip() if marker in body else body.strip()
