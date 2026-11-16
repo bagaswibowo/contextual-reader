@@ -32,10 +32,10 @@ CLIENT_NAMES = ('gtx', 'tw-ob', 'dict-chrome-ex')
 PROXY_ATTEMPTS = 3
 PROXY_RETRY_DELAY = 0.6
 
-# The proxy blocks a burst of parallel requests, and the card builds its layers
-# in parallel, so proxy calls take a slot instead of all leaving at once. Direct
-# Google calls stay unlimited.
-_PROXY_SLOTS = threading.Semaphore(2)
+# The card builds its layers in parallel and the proxy holds up under a burst,
+# so a few calls may run at once while the rest wait for a slot. Direct Google
+# calls stay unlimited.
+_PROXY_SLOTS = threading.Semaphore(8)
 
 # Languages written in Latin script: Google's reading field is an IPA-style
 # respelling there, while for other scripts it is a romanization.
