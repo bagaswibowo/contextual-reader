@@ -200,6 +200,11 @@ OMNIROUTE_URL = OMNIROUTE_BASE_URL
 OMNIROUTE_MODEL = env('OMNIROUTE_MODEL', 'auto/best-free')
 OMNIROUTE_API_KEY = env('OMNIROUTE_API_KEY', '')
 
+# When Google answers 429 to this server's whole address, repeat the same
+# translate query through a reading proxy from its own address. Empty means off,
+# because the proxy sees the text being translated.
+TRANSLATE_READER_PROXY = env('TRANSLATE_READER_PROXY', '')
+
 # Server-side allowlist for client supplied LLM endpoints. Empty means "only the
 # host of OMNIROUTE_BASE_URL", which is derived below.
 LLM_ALLOWED_HOSTS = env_list('LLM_ALLOWED_HOSTS')

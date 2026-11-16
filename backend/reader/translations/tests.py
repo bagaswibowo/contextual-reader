@@ -1651,3 +1651,55 @@ class DictionaryThreeLayerTest(TestCase):
         self.assertEqual(row['text_learning'], 'Uso real de romper')
         self.assertEqual(row['text_mother'], 'Pemakaian nyata romper')
         self.assertIn('text_book', row)
+
+
+class TranslateReaderProxyTest(TestCase):
+    """A blocked server repeats the query through the reading proxy."""
+
+    def _blocked(self):
+        response = mock.Mock()
+        response.status_code = 429
+        return response
+
+    @mock.patch('reader.translations.provider.requests.get')
+    def test_proxy_payload_is_parsed_when_google_blocks(self, get):
+        from django.test import override_settings
+        from reader.translations.provider import translate_query
+
+        blocked = self._blocked()
+        proxied = mock.Mock()
+        proxied.status_code = 200
+        proxied.text = (
+            'Title: \n\nMarkdown Content:\n'
+            '[[["merusak","break",null,null,10]],[]]'
+        )
+        get.side_effect = [blocked, blocked, blocked, proxied]
+
+        with override_settings(TRANSLATE_READER_PROXY='https://reader.example'):
+            payload = translate_query({'sl': 'en', 'tl': 'id', 'dt': 't', 'q': 'break'})
+
+        self.assertEqual(payload[0][0][0], 'merusak')
+
+    @mock.patch('reader.translations.provider.requests.get')
+    def test_no_proxy_configured_returns_none(self, get):
+        from django.test import override_settings
+        from reader.translations.provider import translate_query
+
+        get.return_value = self._blocked()
+
+        with override_settings(TRANSLATE_READER_PROXY=''):
+            self.assertIsNone(translate_query({'sl': 'en', 'tl': 'id', 'q': 'break'}))
+
+    @mock.patch('reader.translations.provider.requests.get')
+    def test_proxy_block_page_is_not_mistaken_for_a_translation(self, get):
+        from django.test import override_settings
+        from reader.translations.provider import translate_query
+
+        blocked = self._blocked()
+        blocked_page = mock.Mock()
+        blocked_page.status_code = 200
+        blocked_page.text = 'Markdown Content:\nOur systems have detected unusual traffic'
+        get.side_effect = [blocked, blocked, blocked, blocked_page]
+
+        with override_settings(TRANSLATE_READER_PROXY='https://reader.example'):
+            self.assertIsNone(translate_query({'sl': 'en', 'tl': 'id', 'q': 'break'}))
