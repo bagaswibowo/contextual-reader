@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
 
 import time
@@ -405,11 +404,7 @@ def build_examples(
     if cached:
         return cached
 
-    with ThreadPoolExecutor(max_workers=max(1, len(sentences))) as executor:
-        translated = list(executor.map(
-            lambda text: _translate_text(text, source_lang, mother_lang),
-            sentences,
-        )) if sentences else []
+    translated = translate_texts(sentences, source_lang, mother_lang) if sentences else []
 
     examples = [
         {'source_text': source, 'target_text': target, 'keyword': word, 'origin': 'corpus'}
@@ -612,15 +607,13 @@ def fetch_tatoeba_examples(
         if len(candidates) >= max(limit * 2, 6):
             break
 
-    # Rows without a corpus translation are translated in parallel: one call
-    # each, so a batch of ten would otherwise stall the card for seconds.
+    # Rows without a corpus translation go out in one request, so a page of ten
+    # sentences does not stall the card on a queue of single calls.
     missing = [item for item in candidates if not item['target_text']]
     if missing:
-        with ThreadPoolExecutor(max_workers=min(4, len(missing))) as executor:
-            translated = list(executor.map(
-                lambda item: _translate_text(item['source_text'], source, target),
-                missing,
-            ))
+        translated = translate_texts(
+            [item['source_text'] for item in missing], source, target
+        )
         for item, text in zip(missing, translated):
             item['target_text'] = text
 
@@ -712,30 +705,35 @@ def translate_definitions(
     if cached:
         return cached
 
-    def build(sense: Dict) -> Dict:
-        definition = str(sense.get('meaning') or '').strip()
-        if not definition:
-            return {}
-        translated = _translate_text(definition, source_lang, mother_lang) or definition
-        example = next(
+    definitions = [str(sense.get('meaning') or '').strip() for sense in senses]
+    examples = [
+        next(
             (text for text in (sense.get('examples') or []) if isinstance(text, str) and text.strip()),
             '',
         )
+        for sense in senses
+    ]
+    # One request carries the definitions and their examples together, so the
+    # Definition tab does not pay for a separate call per sense.
+    texts = list(dict.fromkeys([text for text in definitions + examples if text]))
+    translated = dict(zip(texts, translate_texts(texts, source_lang, mother_lang)))
+
+    result = []
+    for definition, example in zip(definitions, examples):
+        if not definition:
+            continue
         example_pair = None
         if example:
             example_pair = {
                 'source_text': example,
-                'target_text': _translate_text(example, source_lang, mother_lang),
+                'target_text': translated.get(example, ''),
             }
-        return {
-            'makna': translated,
+        result.append({
+            'makna': translated.get(definition) or definition,
             'kelas_kata': part_of_speech or '',
             'contoh': example_pair,
             'sesuai_konteks': False,
-        }
-
-    with ThreadPoolExecutor(max_workers=max(1, len(senses))) as executor:
-        result = [item for item in executor.map(build, senses) if item]
+        })
 
     # Senses arrive ranked by context overlap, so the first one is the sense
     # the sentence uses. Marking it is a ranking fact, not a guess.

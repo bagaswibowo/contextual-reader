@@ -207,6 +207,7 @@ def serialize_entry(
         source_definitions,
         translate_definitions,
         translate_sentence,
+        translate_texts,
     )
     from .pronunciation import build_pronunciation
 
@@ -284,6 +285,21 @@ def serialize_entry(
         except Exception:
             fetched = []
         contoh_bahasa_pilihan = fetched[0] if fetched else []
+        # Every corpus sentence needs its book-language reading, and they all go
+        # out in one request instead of one per row.
+        book_texts = {}
+        if target_lang and target_lang != entry.lang:
+            wanted = [
+                row['source_text']
+                for group in fetched
+                for row in (group or [])[:2]
+                if row.get('source_text')
+            ]
+            try:
+                book_texts = dict(zip(wanted, translate_texts(wanted, target_lang, entry.lang)))
+            except Exception:
+                book_texts = {}
+
         for index, item in enumerate(target_alternatives[:2]):
             if index + 1 >= len(fetched) or not fetched[index + 1]:
                 continue
@@ -297,18 +313,10 @@ def serialize_entry(
             # studied layer; the corpus translation is the mother tongue. The
             # book-language layer is a real translation of the same sentence,
             # kept empty when the studied language is the book language.
-            book_text = ''
-            if target_lang and target_lang != entry.lang:
-                try:
-                    book_text = translate_sentence(
-                        best['source_text'], target_lang, entry.lang
-                    ).get('target_text', '')
-                except Exception:
-                    book_text = ''
             item['contoh'] = {
                 'source_text': best['source_text'],
                 'target_text': best['target_text'],
-                'text_book': book_text,
+                'text_book': book_texts.get(best['source_text'], ''),
                 'text_learning': best['source_text'],
                 'text_mother': best['target_text'],
             }
@@ -322,12 +330,7 @@ def serialize_entry(
                 contoh_bahasa_pilihan, target_lang, target_lang, mother_lang,
             )
             for item in contoh_bahasa_pilihan:
-                book_text = ''
-                if entry.lang != target_lang and item.get('source_text'):
-                    book_text = translate_sentence(
-                        item['source_text'], target_lang, entry.lang
-                    ).get('target_text', '')
-                item['text_book'] = book_text
+                item['text_book'] = book_texts.get(item.get('source_text'), '')
         except Exception:
             pass
 
