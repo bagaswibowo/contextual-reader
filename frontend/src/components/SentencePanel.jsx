@@ -29,6 +29,11 @@ export function SentencePanel({
   const [lang, setLang] = useState(targetLang || 'id')
   const [state, setState] = useState({ loading: false, error: null, data: null, motherText: '', targetText: '' })
   const [attempt, setAttempt] = useState(0)
+  const [fontSize, setFontSize] = useState(() => {
+    if (typeof window === 'undefined') return 16
+    const saved = Number(localStorage.getItem('cr_sentence_font'))
+    return saved >= 13 && saved <= 22 ? saved : 16
+  })
   const [interlinear, setInterlinear] = useState({ loading: false, words: [], structure: null, grammar: null })
   const languages = useLanguages()
   const panelRef = useRef(null)
@@ -39,6 +44,10 @@ export function SentencePanel({
   useEffect(() => {
     setLang(targetLang || 'id')
   }, [targetLang, sentenceId])
+
+  useEffect(() => {
+    try { localStorage.setItem('cr_sentence_font', String(fontSize)) } catch (e) {}
+  }, [fontSize])
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -113,7 +122,7 @@ export function SentencePanel({
 
   useEffect(() => {
     if (!isOpen || !sentenceText) return undefined
-    const cacheKey = `cr_interlinear_v2:${sourceLang}:${lang}:${sentenceText}`
+    const cacheKey = `cr_interlinear_v3:${sourceLang}:${lang}:${motherLang}:${sentenceText}`
     try {
       const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null')
       if (cached && Array.isArray(cached.words)) {
@@ -124,13 +133,24 @@ export function SentencePanel({
 
     let active = true
     setInterlinear({ loading: true, words: [], structure: null, grammar: null })
-    translationsApi
-      .interlinear(sentenceText, sourceLang, lang)
-      .then((res) => {
+    const sameLanguage = String(lang).toLowerCase() === String(motherLang).toLowerCase()
+    const targetRequest = translationsApi.interlinear(sentenceText, sourceLang, lang)
+    const motherRequest = sameLanguage
+      ? Promise.resolve(null)
+      : translationsApi.interlinear(sentenceText, sourceLang, motherLang).catch(() => null)
+
+    Promise.all([targetRequest, motherRequest])
+      .then(([res, motherRes]) => {
         if (!active) return
         const data = res.data || {}
-        setInterlinear({ loading: false, ...data })
-        try { localStorage.setItem(cacheKey, JSON.stringify(data)) } catch (e) {}
+        const motherWords = motherRes?.data?.words || []
+        const words = (data.words || []).map((row, index) => ({
+          ...row,
+          mother: motherWords[index]?.target || '',
+        }))
+        const merged = { ...data, words }
+        setInterlinear({ loading: false, ...merged })
+        try { localStorage.setItem(cacheKey, JSON.stringify(merged)) } catch (e) {}
       })
       .catch(() => {
         if (!active) return
@@ -138,7 +158,7 @@ export function SentencePanel({
       })
 
     return () => { active = false }
-  }, [isOpen, sentenceId, sentenceText, lang, sourceLang])
+  }, [isOpen, sentenceId, sentenceText, lang, motherLang, sourceLang])
 
   if (!isOpen) return null
 
@@ -159,29 +179,40 @@ export function SentencePanel({
         tabIndex={-1}
         aria-modal={isNarrow ? 'true' : undefined}
         aria-labelledby="cr-sentence-panel-title"
+        style={{ fontSize: `${fontSize}px` }}
         className="cr-drawer-enter fixed inset-x-0 bottom-0 z-[61] flex h-[72dvh] max-h-[72dvh] flex-col rounded-t-3xl border-t border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] text-[var(--cr-text-primary)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-full md:w-[380px] md:rounded-none md:border-l md:border-t-0"
       >
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-4 py-3">
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+            <p className="flex items-center gap-1.5 text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
               <Globe className="h-3.5 w-3.5" aria-hidden="true" />
               Terjemahan kalimat
             </p>
-            <h2 id="cr-sentence-panel-title" className="mt-1 font-heading text-lg font-extrabold leading-tight">
+            <h2 id="cr-sentence-panel-title" className="mt-1 font-heading text-[1.1em] font-extrabold leading-tight">
               Kalimat utuh
             </h2>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            {onPlayAudio && (
+            <div className="flex items-center rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] p-0.5">
               <button
                 type="button"
-                onClick={() => onPlayAudio(sentenceText, sourceLang, `sentence_panel_${sentenceId}`)}
-                aria-label="Dengarkan kalimat asli"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--cr-text-secondary)] hover:bg-[var(--cr-bg-surface)]"
+                onClick={() => setFontSize((value) => Math.max(13, value - 1))}
+                disabled={fontSize <= 13}
+                aria-label="Perkecil teks panel"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[0.8em] font-extrabold text-[var(--cr-text-secondary)] disabled:opacity-40"
               >
-                <Volume2 className="h-4 w-4" />
+                A-
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => setFontSize((value) => Math.min(22, value + 1))}
+                disabled={fontSize >= 22}
+                aria-label="Perbesar teks panel"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[0.9em] font-extrabold text-[var(--cr-text-secondary)] disabled:opacity-40"
+              >
+                A+
+              </button>
+            </div>
             <button
               type="button"
               onClick={onClose}
@@ -195,26 +226,48 @@ export function SentencePanel({
 
         <div className="cr-scroll-contain flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <section className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
-              Kalimat asli ({languageName(sourceLang, languages)})
-            </span>
-            <p className="mt-1.5 font-body text-[15px] italic leading-relaxed text-[var(--cr-text-primary)]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+                Kalimat asli ({languageName(sourceLang, languages)})
+              </span>
+              {onPlayAudio && (
+                <button
+                  type="button"
+                  onClick={() => onPlayAudio(sentenceText, sourceLang, `sentence_book_${sentenceId}`)}
+                  aria-label="Dengarkan kalimat bahasa buku"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--cr-text-secondary)] hover:bg-[var(--cr-bg-surface)]"
+                >
+                  <Volume2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <p className="mt-1.5 font-body text-[0.95em] italic leading-relaxed text-[var(--cr-text-primary)]">
               &ldquo;{sentenceText}&rdquo;
             </p>
           </section>
 
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+              <span className="flex items-center gap-1.5 text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
                 <Languages className="h-3.5 w-3.5" aria-hidden="true" />
                 Bahasa dipelajari ({languageName(lang, languages)})
               </span>
+              {onPlayAudio && translation && (
+                <button
+                  type="button"
+                  onClick={() => onPlayAudio(translation, lang, `sentence_target_${sentenceId}_${lang}`)}
+                  aria-label="Dengarkan kalimat bahasa yang dipelajari"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--cr-text-secondary)] hover:bg-[var(--cr-bg-surface)]"
+                >
+                  <Volume2 className="h-4 w-4" />
+                </button>
+              )}
               <label className="sr-only" htmlFor="sentence-lang">Bahasa terjemahan</label>
               <select
                 id="sentence-lang"
                 value={lang}
                 onChange={(event) => setLang(event.target.value)}
-                className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-2 text-xs font-extrabold text-[var(--cr-text-primary)]"
+                className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] px-2 text-[0.8em] font-extrabold text-[var(--cr-text-primary)]"
               >
                 {languages.map((item) => (
                   <option key={item.code} value={item.code}>
@@ -233,25 +286,25 @@ export function SentencePanel({
                 </div>
               ) : state.error ? (
                 <div className="space-y-2" role="alert">
-                  <p className="flex items-center gap-1.5 text-xs font-bold text-[var(--cr-text-danger)]">
+                  <p className="flex items-center gap-1.5 text-[0.8em] font-bold text-[var(--cr-text-danger)]">
                     <AlertCircle className="h-4 w-4" aria-hidden="true" />
                     {state.error}
                   </p>
                   <button
                     type="button"
                     onClick={() => setAttempt((value) => value + 1)}
-                    className="btn-outline px-3 py-2 text-xs"
+                    className="btn-outline px-3 py-2 text-[0.8em]"
                   >
                     <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                     Coba lagi
                   </button>
                 </div>
               ) : translation ? (
-                <p className="font-heading text-lg font-extrabold leading-relaxed text-[var(--cr-text-primary)]">
+                <p className="font-heading text-[1.1em] font-extrabold leading-relaxed text-[var(--cr-text-primary)]">
                   {translation}
                 </p>
               ) : (
-                <p className="text-xs font-semibold text-[var(--cr-text-secondary)]">
+                <p className="text-[0.8em] font-semibold text-[var(--cr-text-secondary)]">
                   Terjemahan belum tersedia untuk kalimat ini.
                 </p>
               )}
@@ -260,10 +313,20 @@ export function SentencePanel({
 
           {String(lang).toLowerCase() !== String(motherLang).toLowerCase() && (
             <section className="space-y-2">
-              <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+              <span className="flex items-center gap-1.5 text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
                 <Languages className="h-3.5 w-3.5" aria-hidden="true" />
                 Bahasa induk ({languageName(motherLang, languages)})
               </span>
+              {onPlayAudio && state.motherText && (
+                <button
+                  type="button"
+                  onClick={() => onPlayAudio(state.motherText, motherLang, `sentence_mother_${sentenceId}_${motherLang}`)}
+                  aria-label="Dengarkan kalimat bahasa induk"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--cr-text-secondary)] hover:bg-[var(--cr-bg-surface)]"
+                >
+                  <Volume2 className="h-4 w-4" />
+                </button>
+              )}
               <div className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4">
                 {state.loading ? (
                   <div className="space-y-2" aria-busy="true">
@@ -271,11 +334,11 @@ export function SentencePanel({
                     <div className="cr-skeleton h-4 w-full rounded" />
                   </div>
                 ) : state.motherText ? (
-                  <p className="font-heading text-base font-extrabold leading-relaxed text-[var(--cr-text-primary)]">
+                  <p className="font-heading text-[1em] font-extrabold leading-relaxed text-[var(--cr-text-primary)]">
                     {state.motherText}
                   </p>
                 ) : (
-                  <p className="text-xs font-semibold text-[var(--cr-text-secondary)]">
+                  <p className="text-[0.8em] font-semibold text-[var(--cr-text-secondary)]">
                     Terjemahan bahasa induk belum tersedia.
                   </p>
                 )}
@@ -285,19 +348,19 @@ export function SentencePanel({
 
           {(interlinear.grammar?.tense || data.tense) && (
             <section className="space-y-2.5 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+              <span className="text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
                 Susunan kalimat
               </span>
 
               {[['Bahasa buku', interlinear.structure?.source], ['Bahasa terjemahan', interlinear.structure?.target]].map(([label, parts]) =>
                 Array.isArray(parts) && parts.length > 0 ? (
                   <div key={label}>
-                    <p className="mb-1 text-[10px] font-bold text-[var(--cr-text-secondary)]">{label}</p>
+                    <p className="mb-1 text-[0.68em] font-bold text-[var(--cr-text-secondary)]">{label}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {parts.map((part, index) => (
                         <span
                           key={`${label}-${part.label}-${index}`}
-                          className={`rounded-lg border px-2 py-1 text-[11px] font-bold ${
+                          className={`rounded-lg border px-2 py-1 text-[0.72em] font-bold ${
                             index % 3 === 0
                               ? 'border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] text-[var(--cr-text-accent)]'
                               : index % 3 === 1
@@ -314,14 +377,14 @@ export function SentencePanel({
               )}
 
               {!interlinear.structure?.source?.length && data.structure && (
-                <p className="text-[12px] font-bold text-[var(--cr-text-primary)]">{data.structure}</p>
+                <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">{data.structure}</p>
               )}
 
-              <p className="text-[12px] font-bold text-[var(--cr-text-primary)]">
+              <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">
                 {interlinear.grammar?.tense || data.tense}
               </p>
               {interlinear.grammar?.note && (
-                <p className="text-[11px] leading-relaxed text-[var(--cr-text-secondary)]">
+                <p className="text-[0.72em] leading-relaxed text-[var(--cr-text-secondary)]">
                   {interlinear.grammar.note}
                 </p>
               )}
@@ -329,7 +392,7 @@ export function SentencePanel({
           )}
 
           <section className="space-y-2 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+            <span className="text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
               Terjemahan per kata
             </span>
             {interlinear.loading ? (
@@ -348,19 +411,24 @@ export function SentencePanel({
                     className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 py-1 text-left hover:border-[var(--cr-text-accent)]"
                     title={row.alternatives?.length ? `Arti lain: ${row.alternatives.join(', ')}` : row.source}
                   >
-                    <span className="block text-[12px] font-bold text-[var(--cr-text-primary)]">{row.source}</span>
-                    <span className="block text-[10px] font-semibold text-[var(--cr-text-secondary)]">
+                    <span className="block text-[0.8em] font-bold text-[var(--cr-text-primary)]">{row.source}</span>
+                    <span className="block text-[0.72em] font-semibold text-[var(--cr-text-secondary)]">
                       {row.target || '—'}
                     </span>
+                    {row.mother && row.mother !== row.target && (
+                      <span className="block text-[0.68em] font-medium text-[var(--cr-text-secondary)] opacity-80">
+                        {row.mother}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="text-[12px] text-[var(--cr-text-secondary)]">
+              <p className="text-[0.8em] text-[var(--cr-text-secondary)]">
                 Terjemahan per kata belum tersedia untuk kalimat ini.
               </p>
             )}
-            <p className="text-[10px] text-[var(--cr-text-secondary)]">
+            <p className="text-[0.68em] text-[var(--cr-text-secondary)]">
               Ketuk kata untuk membuka panel kata; arti alternatif ada di tab Arti.
             </p>
           </section>
@@ -369,10 +437,10 @@ export function SentencePanel({
             <section className="flex gap-2 rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3.5">
               <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-[var(--cr-yellow-text)]" aria-hidden="true" />
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
+                <span className="text-[0.68em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-secondary)]">
                   Catatan konteks
                 </span>
-                <p className="mt-1 text-[12px] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
+                <p className="mt-1 text-[0.8em] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
                   {notesRaw}
                 </p>
               </div>
