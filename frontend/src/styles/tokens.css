@@ -11,6 +11,8 @@
   --cr-bg-surface-elevated: #FFFFFF;
   --cr-text-primary: #1B2A32;
   --cr-text-secondary: #52606D;
+  /* Third text level for per-word translations, AA on every surface */
+  --cr-text-tertiary: #5B6B77;
   /* 5.14:1 on white */
   --cr-text-accent: #2E6E02;
   /* 6.28:1 on --cr-bg-surface */
@@ -64,6 +66,7 @@ html.sepia {
   --cr-bg-surface-elevated: #FDF7EC;
   --cr-text-primary: #2E1E11;
   --cr-text-secondary: #684F38;
+  --cr-text-tertiary: #6E5A45;
   --cr-text-accent: #1E6328;
   /* 7.67:1 on --cr-bg-surface */
   --cr-text-danger: #8A1C12;
@@ -112,6 +115,7 @@ html.dark {
   --cr-bg-surface-elevated: #202F36;
   --cr-text-primary: #F1F7FB;
   --cr-text-secondary: #A9BEC9;
+  --cr-text-tertiary: #8FA6B2;
   /* Bright duo green reads well on dark surfaces */
   --cr-text-accent: #89E919;
   /* 8.31:1 on --cr-bg-surface */
