@@ -28,18 +28,18 @@ jobs:
           if [ -n "$VPS_HOST" ]; then echo "::add-mask::$VPS_HOST"; fi
           if [ -n "$SXZ_HOST" ]; then echo "::add-mask::$SXZ_HOST"; fi
 
-          cat << 'EOF' > ~/.ssh/config
+          cat << EOF > ~/.ssh/config
           Host vps
-            HostName ${{ env.VPS_HOST }}
-            User ${{ env.VPS_USER }}
+            HostName $VPS_HOST
+            User $VPS_USER
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             LogLevel ERROR
 
           Host sxz
-            HostName ${{ env.SXZ_HOST }}
-            User ${{ env.SXZ_USER }}
+            HostName $SXZ_HOST
+            User $SXZ_USER
             IdentityFile ~/.ssh/deploy_key
             ProxyJump vps
             StrictHostKeyChecking no
