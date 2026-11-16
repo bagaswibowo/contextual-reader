@@ -19,6 +19,38 @@ function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
  * Arti tab. Reads the fixed card contract from the dictionary response:
  * arti_konteks, definisi, arti_lain, sinonim and terjemahan_lain.
  */
+
+const LAYER_LINE = 'block text-[max(12px,0.8em)] leading-tight break-words'
+
+/**
+ * Three language layers with one size. The hierarchy comes from colour and
+ * weight only; empty or repeated layers are hidden.
+ */
+function LayeredLines({ book = '', learning = '', mother = '' }) {
+  const layers = []
+  const push = (text, className) => {
+    const value = String(text || '').trim()
+    if (!value) return
+    const key = value.toLowerCase()
+    if (layers.length > 0 && layers[layers.length - 1].key === key) return
+    layers.push({ value, className, key })
+  }
+  push(book, 'font-bold text-[var(--cr-text-primary)]')
+  push(learning, 'font-semibold text-[var(--cr-text-accent)]')
+  push(mother, 'font-normal text-[var(--cr-text-secondary)]')
+
+  if (layers.length === 0) return null
+  return (
+    <span className="mt-1 block space-y-0.5">
+      {layers.map((layer, index) => (
+        <span key={`${layer.key}-${index}`} className={`${LAYER_LINE} ${layer.className}`}>
+          {layer.value}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function MeaningTab({
   word = '',
   entry = null,
@@ -104,16 +136,21 @@ export function MeaningTab({
                       {posLabel(item.kelas_kata)}
                     </span>
                   )}
-                  <span className="text-[0.92em] font-bold leading-snug text-[var(--cr-text-primary)]">
-                    {item.makna}
+                  <span className="min-w-0 flex-1">
+                    <LayeredLines
+                      book={item.meaning_book}
+                      learning={item.meaning_learning || item.makna}
+                      mother={item.meaning_mother}
+                    />
                   </span>
                 </div>
                 {item.contoh && (
-                  <div className="mt-1 text-[0.78em] italic leading-relaxed text-[var(--cr-text-secondary)]">
-                    <p>“{typeof item.contoh === 'string' ? item.contoh : item.contoh.source_text}”</p>
-                    {typeof item.contoh === 'object' && item.contoh.target_text && (
-                      <p className="not-italic">{item.contoh.target_text}</p>
-                    )}
+                  <div className="mt-1.5 border-t border-[var(--cr-border-subtle)] pt-1.5">
+                    <LayeredLines
+                      book={typeof item.contoh === 'string' ? item.contoh : item.contoh.source_text}
+                      learning={typeof item.contoh === 'object' ? item.contoh.text_learning : ''}
+                      mother={typeof item.contoh === 'object' ? item.contoh.text_mother || item.contoh.target_text : ''}
+                    />
                   </div>
                 )}
               </li>
@@ -175,41 +212,30 @@ export function MeaningTab({
             Contoh dalam keseharian
           </BlockLabel>
           <div className="space-y-2">
-            {bookExamples.slice(0, 3).map((item, idx) => {
-              const text = typeof item === 'string' ? item : item.text
-              const translation = typeof item === 'string' ? '' : item.translation
-              return (
-                <div
-                  key={`book-${idx}`}
-                  className="rounded-xl border border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] p-3"
-                >
-                  <span className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-accent)]">
-                    Dari buku ini
-                  </span>
-                  <p className="mt-1 text-[0.92em] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
-                    {text}
-                  </p>
-                  {translation && (
-                    <p className="mt-0.5 text-[0.85em] italic leading-relaxed text-[var(--cr-text-secondary)]">
-                      {translation}
-                    </p>
-                  )}
-                </div>
-              )
-            })}
+            {bookExamples.slice(0, 3).map((item, idx) => (
+              <div
+                key={`book-${idx}`}
+                className="rounded-xl border border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] p-3"
+              >
+                <span className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-accent)]">
+                  Dari buku ini
+                </span>
+                <LayeredLines
+                  book={typeof item === 'string' ? item : item.text}
+                  learning={typeof item === 'string' ? '' : item.translation}
+                />
+              </div>
+            ))}
             {examples.slice(0, 3).map((example, idx) => (
               <div
                 key={`example-${idx}`}
                 className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3"
               >
-                <p className="text-[0.92em] font-semibold leading-relaxed text-[var(--cr-text-primary)]">
-                  {example.source_text}
-                </p>
-                {example.target_text && (
-                  <p className="mt-0.5 text-[0.85em] leading-relaxed text-[var(--cr-text-secondary)]">
-                    {example.target_text}
-                  </p>
-                )}
+                <LayeredLines
+                  book={example.text_book || example.source_text}
+                  learning={example.text_learning}
+                  mother={example.text_mother || example.target_text}
+                />
               </div>
             ))}
           </div>
