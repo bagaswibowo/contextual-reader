@@ -2452,6 +2452,24 @@ class DictionaryCardCacheTest(TestCase):
         self.assertEqual(serialize_entry.call_count, 2)
 
     @mock.patch('reader.translations.dictionary.serialize_entry')
+    def test_a_cached_card_with_a_blank_layer_is_rebuilt(self, serialize_entry):
+        from django.core.cache import cache
+        from reader.translations.dictionary import _card_cache_key, lookup
+
+        cache.set(_card_cache_key(self.entry, 'id', 'de', ''), {
+            'bahasa_pilihan': 'de',
+            'arti_bahasa_pilihan': 'Wanderlust',
+            'examples': [
+                {'text_book': 'peanut brittle', 'text_learning': '', 'text_mother': ''},
+            ],
+        })
+        serialize_entry.return_value = {'bahasa_pilihan': 'de', 'arti_bahasa_pilihan': 'Wanderlust'}
+
+        lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+
+        self.assertEqual(serialize_entry.call_count, 1)
+
+    @mock.patch('reader.translations.dictionary.serialize_entry')
     def test_an_empty_studied_layer_is_not_kept(self, serialize_entry):
         from reader.translations.dictionary import lookup
 

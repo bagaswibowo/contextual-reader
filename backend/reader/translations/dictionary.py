@@ -717,7 +717,10 @@ def _serialized_card(
 
     key = _card_cache_key(entry, mother_lang, target_lang, context)
     cached = cache.get(key)
-    if cached is not None:
+    # A card kept before a rule change may hold a blank layer or a long quote.
+    # Checking on read means those cards heal without a version bump, while a
+    # complete card is still served straight from the cache.
+    if cached is not None and _is_cacheable(cached):
         return cached
 
     payload = serialize_entry(
