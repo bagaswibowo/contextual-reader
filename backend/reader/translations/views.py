@@ -130,9 +130,22 @@ class TranslationViewSet(viewsets.ViewSet):
                          custom_base_url, custom_api_key, custom_model):
         """Return the book, studied, and mother-tongue layers in one response."""
         book_lang = (sentence.chapter.book.language or 'en').lower()
+        book_text = (sentence.text or '').strip()
+
+        def layer_text(text, lang):
+            value = (text or '').strip()
+            # The provider echoes the source when it has no translation; an
+            # echoed line is not a translation, so the layer stays empty.
+            if value and value == book_text and str(lang).lower() != book_lang:
+                return ''
+            return value
+
         layers = {
             'book': {'lang': book_lang, 'text': sentence.text},
-            'target': {'lang': target_lang, 'text': target_translation.indonesian_text},
+            'target': {
+                'lang': target_lang,
+                'text': layer_text(target_translation.indonesian_text, target_lang),
+            },
         }
         if str(mother_lang).lower() == str(target_lang).lower():
             layers['mother'] = dict(layers['target'])
@@ -141,7 +154,10 @@ class TranslationViewSet(viewsets.ViewSet):
                 sentence, target_lang=mother_lang, mother_lang=mother_lang, engine=engine,
                 custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
             )
-            layers['mother'] = {'lang': mother_lang, 'text': mother_translation.indonesian_text}
+            layers['mother'] = {
+                'lang': mother_lang,
+                'text': layer_text(mother_translation.indonesian_text, mother_lang),
+            }
         # Same three names the word card uses for its examples, so the book
         # examples render through one contract on the client.
         layers['text_book'] = layers['book']['text']

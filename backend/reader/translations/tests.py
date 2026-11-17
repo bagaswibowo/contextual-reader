@@ -1463,6 +1463,27 @@ class SentenceAudioUrlTest(TestCase):
         self.assertEqual(layers['text_learning'], 'Hola mundo.')
         self.assertEqual(layers['text_mother'], 'Halo dunia.')
 
+    @mock.patch('reader.translations.services.GoogleTranslateClient.translate_sentence')
+    def test_echoed_source_is_not_sent_as_a_translation(self, translate):
+        translate.side_effect = lambda text, target_lang='id', mother_lang='id': {
+            'indonesian_text': 'Hello world.' if target_lang == 'es' else 'Halo dunia.',
+            'transliteration': '', 'tense': '', 'structure': '', 'grammar_details': {}, 'notes': '',
+        }
+        response = self.client.post(
+            '/api/translations/sentence/',
+            {
+                'sentence_id': self.sentence.id, 'target_lang': 'es',
+                'mother_lang': 'id', 'engine': 'google', 'layers': True,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        layers = response.data['layers']
+        self.assertEqual(layers['target'], {'lang': 'es', 'text': ''})
+        self.assertEqual(layers['text_learning'], '')
+        self.assertEqual(layers['text_mother'], 'Halo dunia.')
+        self.assertEqual(response.data['audio']['target'], '')
+
 
 class AlternativeMeaningLayersTest(TestCase):
     """Arti Lainnya carries book, studied and mother-tongue readings."""
