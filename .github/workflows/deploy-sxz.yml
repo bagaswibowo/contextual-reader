@@ -14,19 +14,28 @@ jobs:
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST || '72.61.215.253' }}
-          VPS_USER: ${{ vars.VPS_USER || secrets.VPS_USER || 'bagas' }}
-          SXZ_HOST: ${{ vars.SXZ_HOST || secrets.SXZ_HOST || '100.127.103.9' }}
-          SXZ_USER: ${{ vars.SXZ_USER || secrets.SXZ_USER || 'sxz' }}
+          VPS_HOST: ${{ secrets.VPS_HOST || vars.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER || vars.VPS_USER || 'bagas' }}
+          SXZ_HOST: ${{ secrets.SXZ_HOST || vars.SXZ_HOST }}
+          SXZ_USER: ${{ secrets.SXZ_USER || vars.SXZ_USER || 'sxz' }}
         run: |
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::SSH_PRIVATE_KEY is not configured in GitHub Secrets."
+            exit 1
+          fi
+          if [ -z "$VPS_HOST" ] || [ -z "$SXZ_HOST" ]; then
+            echo "::error::VPS_HOST or SXZ_HOST is not configured in GitHub Secrets or Variables."
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
           # Mask host IPs so they never appear in console logs
-          if [ -n "$VPS_HOST" ]; then echo "::add-mask::$VPS_HOST"; fi
-          if [ -n "$SXZ_HOST" ]; then echo "::add-mask::$SXZ_HOST"; fi
+          echo "::add-mask::$VPS_HOST"
+          echo "::add-mask::$SXZ_HOST"
 
           cat << EOF > ~/.ssh/config
           Host vps

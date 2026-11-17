@@ -2,12 +2,12 @@
 set -e
 
 # Configuration (override via environment variables)
-SERVER="${SERVER:-sxz@100.127.103.9}"
+SERVER="${SERVER:-}"
 REMOTE_DIR="${REMOTE_DIR:-/home/sxz/projects/active/contextual-reader}"
 LOCAL_DIR="${LOCAL_DIR:-/opt/data/contextual-reader}"
 
 # Required environment variables (must be set before running)
-REQUIRED_VARS=("SECRET_KEY" "ALLOWED_HOSTS")
+REQUIRED_VARS=("SERVER" "SECRET_KEY" "ALLOWED_HOSTS")
 MISSING_VARS=()
 for var in "${REQUIRED_VARS[@]}"; do
   if [ -z "${!var:-}" ]; then
