@@ -458,7 +458,7 @@ def build_examples(
     sentences = _shortest_first(list(dict.fromkeys(spoken)))[:MAX_EXAMPLES]
 
     cache_key = _cache_key(
-        'dict_examples_short',
+        'dict_examples_v3',
         normalize_lang(source_lang),
         normalize_lang(mother_lang),
         word.lower(),
