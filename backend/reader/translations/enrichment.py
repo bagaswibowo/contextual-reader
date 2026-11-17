@@ -39,6 +39,12 @@ from .provider import (
 
 ENRICHMENT_CACHE_TTL = 86400 * 7
 MAX_EXAMPLES = 4
+# Everyday examples are for speaking, so a line that runs past a short spoken
+# sentence is not an everyday example: it is a dictionary fragment or a
+# literature quote. Both are dropped rather than shortened.
+MAX_EXAMPLE_WORDS = 9
+MAX_EXAMPLE_CHARS = 70
+MIN_EXAMPLE_WORDS = 2
 MAX_TRANSLATIONS = 8
 
 TATOEBA_SEARCH_URL = 'https://tatoeba.org/en/api_v0/search'
@@ -74,6 +80,33 @@ def _cache_key(prefix: str, *parts: str) -> str:
     """Hash the variable part so the key is safe for any cache backend."""
     digest = hashlib.sha256('|'.join(parts).encode()).hexdigest()[:32]
     return f'{prefix}:{CACHE_VERSION}:{digest}'
+
+
+def _clean_text(value) -> str:
+    """Collapse whitespace so a line from a corpus reads as one row."""
+    if not isinstance(value, str):
+        return ''
+    return ' '.join(value.split())
+
+
+def _is_short_spoken(text: str) -> bool:
+    """Whether a line reads like something a person says, not a book quote."""
+    clean = _clean_text(text)
+    if not clean:
+        return False
+    words = clean.split()
+    if not (MIN_EXAMPLE_WORDS <= len(words) <= MAX_EXAMPLE_WORDS):
+        return False
+    if len(clean) > MAX_EXAMPLE_CHARS:
+        return False
+    # A dictionary fragment ends without a full stop or a question mark; a
+    # spoken line almost always closes one.
+    return clean[-1] in '.!?"'
+
+
+def _shortest_first(sentences: List[str]) -> List[str]:
+    """Order examples by length so the card opens with the easiest line."""
+    return sorted(sentences, key=lambda text: (len(text.split()), len(text)))
 
 # Multi-character IPA symbols must be replaced before their single-character
 # parts, otherwise "tʃ" would become "c" plus a stray "sy".
@@ -403,14 +436,18 @@ def build_examples(
     part_of_speech: str = '',
     minimum: int = 3,
 ) -> List[Dict]:
-    """Return example sentences, topping up with model-written everyday usage.
+    """Return short everyday example sentences for the card.
 
-    Real sentences from the reader's book or the dictionary come first. When
-    there are too few, the configured model writes short everyday sentences so
-    the card never opens with an empty example block.
+    Only lines that read like something a person says are kept: a long quote or
+    a dictionary fragment is not everyday usage, and showing it teaches the
+    wrong register. The shortest lines come first. When the corpus has too few,
+    the configured model writes short conversational ones, never a long one.
     """
-    sentences = [text.strip() for text in source_sentences if isinstance(text, str) and text.strip()]
-    sentences = list(dict.fromkeys(sentences))[:MAX_EXAMPLES]
+    spoken = [
+        text.strip() for text in source_sentences
+        if isinstance(text, str) and _is_short_spoken(text)
+    ]
+    sentences = _shortest_first(list(dict.fromkeys(spoken)))[:MAX_EXAMPLES]
 
     cache_key = _cache_key(
         'dict_examples',
@@ -453,14 +490,15 @@ def build_examples(
 
 
 _EXAMPLE_PROMPT = (
-    'You write short example sentences for a language learner.\n'
+    'You write example sentences for a language learner who wants to speak.\n'
     'Target word: "{word}"\n'
     'Language of the word: "{source}"\n'
     'Meaning in "{mother}": "{meaning}"\n'
     'Part of speech: "{pos}"\n'
-    'Write 3 short, natural, everyday sentences in "{source}" that use the word '
-    'exactly in the given form, the kind of sentence a person says or reads in '
-    'daily life. Then give the "{mother}" translation of each sentence.\n'
+    'Write 3 very short sentences in "{source}" that use the word exactly in the '
+    'given form. Each sentence is 3 to 6 words, the length of a line in a daily '
+    'conversation, never a literary sentence and never a dictionary definition. '
+    'Then give the "{mother}" translation of each sentence.\n'
     'Output ONLY JSON: '
     '{{"examples": [{{"source": "...", "target": "..."}}]}}'
 )
@@ -519,7 +557,9 @@ def _parse_example_response(response: str, word: str, source_lang: str) -> List[
             continue
         source = str(item.get('source') or '').strip()
         target = str(item.get('target') or '').strip()
-        if not source or not target or len(source) > 240 or len(target) > 240:
+        # A model that ignores the length instruction must not slip a long
+        # sentence into the everyday list: the same spoken-line rule applies.
+        if not source or not target or not _is_short_spoken(source):
             continue
         lowered = source.lower()
         if word_lower not in lowered and stem not in lowered:
@@ -616,6 +656,10 @@ def fetch_tatoeba_examples(
         sentence = ' '.join(str(row.get('text') or '').split())
         if not sentence or not pattern.search(sentence) or sentence in seen:
             continue
+        # Tatoeba carries literature quotes beside chat lines; only a line short
+        # enough to say out loud belongs in the everyday examples.
+        if not _is_short_spoken(sentence):
+            continue
         seen.add(sentence)
         translation = ''
         for group in row.get('translations') or []:
@@ -628,8 +672,15 @@ def fetch_tatoeba_examples(
             if translation:
                 break
         candidates.append({'source_text': sentence, 'target_text': translation})
-        if len(candidates) >= max(limit * 2, 6):
+        if len(candidates) >= max(limit * 3, 9):
             break
+
+    # The shortest lines are the ones a learner can actually say, so they win
+    # the row even when the corpus ranked a longer line higher.
+    candidates = sorted(
+        candidates,
+        key=lambda item: (len(item['source_text'].split()), len(item['source_text'])),
+    )
 
     # Rows without a corpus translation go out in one request, so a page of ten
     # sentences does not stall the card on a queue of single calls.

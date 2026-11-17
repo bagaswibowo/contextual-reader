@@ -56,59 +56,88 @@ class UniversalWordTokenizer:
             
         pairs = []
         min_len = 1 if clean_lang in ['zh-cn', 'zh', 'ja'] else 2
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
         grouped = grouped[:8]
 
-        def fetch_pair(token):
-            clean_tok = re.sub(r'[\u060c\u061b,\.!\?\s"\'“”]', '', token).strip()
-            if not clean_tok or len(clean_tok) < min_len:
-                return None
-            
-            c_key = f"tok_pair:{clean_lang}:{mother_lang}:{clean_tok.lower()}"
-            cached_pair = cache.get(c_key)
-            if cached_pair:
-                return cached_pair
+        from .provider import translate_query
 
-            res = None
-            for client_name in ["gtx", "tw-ob"]:
-                params = {
-                    "client": client_name,
-                    "sl": clean_lang,
-                    "tl": mother_lang,
-                    "dt": ["t", "rm"],
-                    "q": clean_tok
-                }
-                try:
-                    resp = requests.get("https://translate.googleapis.com/translate_a/single", params=params, headers=headers, timeout=1.0)
-                    if resp.status_code == 200:
-                        res = resp.json()
-                        break
-                except Exception:
-                    pass
+        def clean_token(token):
+            return re.sub(r'[\u060c\u061b,\.!\?\s"\'“”]', '', token).strip()
 
-            meaning = ""
-            romaji = ""
-            if res and isinstance(res, list) and len(res) > 0 and res[0]:
-                if len(res[0]) > 0 and res[0][0] and len(res[0][0]) > 0:
-                    meaning = res[0][0][0]
-                if len(res[0]) > 1 and res[0][1] and isinstance(res[0][1], list):
-                    if len(res[0][1]) > 3 and res[0][1][3]:
-                        romaji = res[0][1][3]
-                    elif len(res[0][1]) > 2 and res[0][1][2]:
-                        romaji = res[0][1][2]
-                elif len(res[0][0]) > 2 and res[0][0][2]:
-                    romaji = res[0][0][2]
+        wanted = []
+        for token in grouped:
+            clean_tok = clean_token(token)
+            if clean_tok and len(clean_tok) >= min_len and clean_tok not in wanted:
+                wanted.append(clean_tok)
 
-            final_latin = romaji.strip() if romaji else clean_tok.lower()
-            final_meaning = meaning.strip() if meaning else clean_tok
-            item = {"word": clean_tok, "latin": final_latin, "meaning": final_meaning}
-            cache.set(c_key, item, timeout=86400 * 7)
-            return item
+        def pair_key(clean_tok):
+            return f"tok_pair:{clean_lang}:{mother_lang}:{clean_tok.lower()}"
 
-        with ThreadPoolExecutor(max_workers=6) as executor:
-            results = list(executor.map(fetch_pair, grouped))
+        results = {}
+        pending = []
+        for clean_tok in wanted:
+            hit = cache.get(pair_key(clean_tok))
+            if hit:
+                results[clean_tok] = hit
+            else:
+                pending.append(clean_tok)
 
-        return [r for r in results if r is not None]
+        # One request carries the whole sentence: every token's reading comes
+        # back in order. A call per token spent the panel's time on eight
+        # separate requests that the provider mostly answered with a 429.
+        if pending:
+            payload = translate_query({
+                'sl': clean_lang, 'tl': mother_lang, 'dt': ['t', 'rm'],
+                'q': ' ||| '.join(pending),
+            })
+            readings = []
+            if payload and isinstance(payload, list) and payload[0]:
+                joined = ''.join(
+                    str(segment[0]) for segment in payload[0]
+                    if isinstance(segment, list) and segment and segment[0]
+                )
+                readings = [part.strip() for part in joined.split('|||')]
+            if len(readings) == len(pending):
+                for clean_tok, meaning in zip(pending, readings):
+                    item = {
+                        'word': clean_tok,
+                        'latin': clean_tok.lower(),
+                        'meaning': meaning or clean_tok,
+                    }
+                    results[clean_tok] = item
+                    cache.set(pair_key(clean_tok), item, timeout=86400 * 7)
+            else:
+                # The engine sometimes merges the separator into one phrase.
+                # Falling back to a request per token keeps the chips filled;
+                # a token with no answer stays out rather than showing a guess.
+                def fetch_pair(clean_tok):
+                    single = translate_query({
+                        'sl': clean_lang, 'tl': mother_lang, 'dt': ['t', 'rm'],
+                        'q': clean_tok,
+                    })
+                    meaning = ''
+                    if single and isinstance(single, list) and single[0]:
+                        first = single[0][0]
+                        if isinstance(first, list) and first and first[0]:
+                            meaning = str(first[0]).strip()
+                    if not meaning:
+                        return clean_tok, None
+                    return clean_tok, {
+                        'word': clean_tok,
+                        'latin': clean_tok.lower(),
+                        'meaning': meaning,
+                    }
+
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    for clean_tok, item in executor.map(fetch_pair, pending):
+                        if item:
+                            results[clean_tok] = item
+                            cache.set(pair_key(clean_tok), item, timeout=86400 * 7)
+
+        for token in grouped:
+            clean_tok = clean_token(token)
+            if clean_tok and clean_tok in results:
+                pairs.append(results[clean_tok])
+        return pairs
 
 
 class GrammarAnalyzer:
@@ -180,62 +209,51 @@ class GoogleTranslateClient:
     
     @staticmethod
     def translate_word(word: str, target_lang: str = "id", mother_lang: str = "id") -> Dict:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        }
+        # translate_query is the only path that knows Google blocks this server
+        # and repeats the query through the reading proxy. Calling the endpoint
+        # directly cost three doomed 5s attempts before anything came back.
+        from .provider import translate_query
+
+        def meanings_query(lang: str):
+            return translate_query({
+                "sl": "auto", "tl": lang, "dt": ["t", "bd", "rm"], "q": word,
+            })
+
         res = None
-        for client_name in ["tw-ob", "dict-chrome-ex", "gtx"]:
-            params = {
-                "client": client_name,
-                "sl": "auto",
-                "tl": target_lang,
-                "dt": ["t", "bd", "rm"],
-                "q": word
-            }
-            try:
-                resp = requests.get(GoogleTranslateClient.BASE_URL, params=params, headers=headers, timeout=5)
-                if resp.status_code == 200:
-                    res = resp.json()
-                    break
-            except Exception:
-                pass
+        mother_res = None
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            res_future = executor.submit(meanings_query, target_lang)
+            mother_future = (
+                executor.submit(meanings_query, mother_lang)
+                if target_lang.lower() != mother_lang.lower() else None
+            )
+            res = res_future.result()
+            mother_res = mother_future.result() if mother_future is not None else None
 
         try:
             if not res:
-                raise ValueError("All translation clients failed or rate limited")
+                raise ValueError("translation provider returned no payload")
 
             primary = ""
             ipa = ""
             transliteration = ""
-            
+
             if res and len(res) > 0 and res[0] and len(res[0]) > 0 and res[0][0]:
                 primary = res[0][0][0]
-            
+
             if len(res[0]) > 1 and res[0][1]:
                 if len(res[0][1]) > 2 and res[0][1][2]:
                     transliteration = res[0][1][2]
                 if len(res[0][1]) > 3 and res[0][1][3]:
                     ipa = res[0][1][3] or ""
 
-            # Fetch mother-tongue meaning if target_lang is different from mother_lang
             indonesian_meaning = ""
-            if target_lang.lower() != mother_lang.lower():
-                for client_name in ["tw-ob", "dict-chrome-ex", "gtx"]:
-                    try:
-                        id_params = {"client": client_name, "sl": "auto", "tl": mother_lang, "dt": ["t"], "q": word}
-                        id_resp = requests.get(GoogleTranslateClient.BASE_URL, params=id_params, headers=headers, timeout=4)
-                        if id_resp.status_code == 200:
-                            id_res = id_resp.json()
-                            if id_res and isinstance(id_res, list) and len(id_res) > 0 and id_res[0]:
-                                meanings = []
-                                for item in id_res[0]:
-                                    if isinstance(item, list) and len(item) > 0 and item[0]:
-                                        meanings.append(item[0].strip())
-                                indonesian_meaning = ' '.join(meanings).strip()
-                                if indonesian_meaning:
-                                    break
-                    except Exception:
-                        pass
+            if mother_res and isinstance(mother_res, list) and len(mother_res) > 0 and mother_res[0]:
+                meanings = []
+                for item in mother_res[0]:
+                    if isinstance(item, list) and len(item) > 0 and item[0]:
+                        meanings.append(item[0].strip())
+                indonesian_meaning = ' '.join(meanings).strip()
 
             other_meanings = []
             if len(res) > 1 and res[1]:
@@ -274,44 +292,29 @@ class GoogleTranslateClient:
 
     @staticmethod
     def translate_sentence(text: str, target_lang: str = "id", mother_lang: str = "id") -> Dict:
+        from .provider import translate_query
+
         cleaned_text = re.sub(r'\s+', ' ', text).strip()
-        params = {
-            "client": "gtx",
-            "sl": "auto",
-            "tl": target_lang,
-            "dt": ["t", "rm"],
-            "q": cleaned_text
-        }
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        }
         try:
-            response = requests.get(GoogleTranslateClient.BASE_URL, params=params, headers=headers, timeout=10)
+            res = translate_query({
+                "client": "gtx",
+                "sl": "auto",
+                "tl": target_lang,
+                "dt": ["t", "rm"],
+                "q": cleaned_text,
+            })
             translated_text = ""
             transliteration = ""
-            
-            if response.status_code == 200:
-                res = response.json()
-                if res and isinstance(res, list) and len(res) > 0 and isinstance(res[0], list):
-                    for item in res[0]:
-                        if isinstance(item, list):
-                            if len(item) > 0 and item[0]:
-                                translated_text += item[0] + " "
-                            if len(item) > 2 and item[2]:
-                                transliteration += item[2] + " "
-                            elif len(item) > 3 and item[3]:
-                                transliteration += item[3] + " "
-            else:
-                # Fallback to secondary m.translate endpoint if 429
-                try:
-                    m_url = f"https://translate.google.com/m?sl=auto&tl={target_lang}&q={requests.utils.quote(cleaned_text)}"
-                    m_res = requests.get(m_url, headers=headers, timeout=5)
-                    if m_res.status_code == 200:
-                        m_match = re.search(r'class="result-container">(.*?)</div>', m_res.text, re.S)
-                        if m_match:
-                            translated_text = m_match.group(1).strip()
-                except Exception:
-                    pass
+
+            if res and isinstance(res, list) and len(res) > 0 and isinstance(res[0], list):
+                for item in res[0]:
+                    if isinstance(item, list):
+                        if len(item) > 0 and item[0]:
+                            translated_text += item[0] + " "
+                        if len(item) > 2 and item[2]:
+                            transliteration += item[2] + " "
+                        elif len(item) > 3 and item[3]:
+                            transliteration += item[3] + " "
 
             grammar = GrammarAnalyzer.analyze(cleaned_text)
             token_pairs = UniversalWordTokenizer.get_token_pairs(translated_text.strip(), target_lang, mother_lang=mother_lang) if translated_text.strip() else []

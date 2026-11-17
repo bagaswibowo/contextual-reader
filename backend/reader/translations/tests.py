@@ -85,14 +85,52 @@ class GoogleTranslateClientTest(TestCase):
 
 
 class UniversalWordTokenizerTest(TestCase):
-    @mock.patch('reader.translations.services.requests.get')
-    def test_token_pairs(self, mock_get):
-        mock_get.return_value = fake_response([[['hello', 'halo']]])
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    @mock.patch('reader.translations.provider.translate_query')
+    def test_token_pairs_come_from_one_batched_call(self, translate_query):
+        translate_query.return_value = [[['halo ||| dunia', 'hello ||| world', None, None, 10]]]
+
         pairs = UniversalWordTokenizer.get_token_pairs(
             "hello world", target_lang="en", mother_lang="id"
         )
-        self.assertIsInstance(pairs, list)
-        self.assertTrue(all('word' in pair for pair in pairs))
+
+        self.assertEqual([pair['word'] for pair in pairs], ['hello', 'world'])
+        self.assertEqual([pair['meaning'] for pair in pairs], ['halo', 'dunia'])
+        self.assertEqual(translate_query.call_count, 1)
+        self.assertIn(' ||| ', translate_query.call_args[0][0]['q'])
+
+    @mock.patch('reader.translations.provider.translate_query')
+    def test_a_mismatched_split_falls_back_to_one_call_per_token(self, translate_query):
+        def fake_query(params):
+            if ' ||| ' in str(params.get('q') or ''):
+                return [[['halo dunia', 'hello world', None, None, 10]]]
+            meaning = {'hello': 'halo', 'world': 'dunia'}.get(params['q'], '')
+            return [[[meaning, params['q'], None, None, 10]]]
+
+        translate_query.side_effect = fake_query
+
+        pairs = UniversalWordTokenizer.get_token_pairs(
+            "hello world", target_lang="en", mother_lang="id"
+        )
+
+        self.assertEqual([pair['word'] for pair in pairs], ['hello', 'world'])
+        self.assertEqual([pair['meaning'] for pair in pairs], ['halo', 'dunia'])
+        self.assertEqual(translate_query.call_count, 3)
+
+    @mock.patch('reader.translations.provider.translate_query')
+    def test_a_token_without_an_answer_is_left_out(self, translate_query):
+        translate_query.return_value = [[['', 'hello world', None, None, 10]]]
+
+        pairs = UniversalWordTokenizer.get_token_pairs(
+            "hello world", target_lang="en", mother_lang="id"
+        )
+
+        # An empty layer is honest; the token name alone would be a guess.
+        self.assertEqual(pairs, [])
 
 
 class TranslationServiceOfflineTest(TestCase):
@@ -483,6 +521,47 @@ class EverydayExampleTest(TestCase):
             'Orang tuaku bercerai saat aku berusia empat tahun.',
         )
         self.assertEqual(result['source_text'], 'My parents divorced when I was four.')
+
+    def test_long_book_lines_are_not_everyday_examples(self):
+        from reader.translations import enrichment
+
+        corpus = [
+            'older men whose experience could be called upon',
+            'The cavern was gloomy.',
+            'She felt gloomy all day long after the letter arrived from abroad.',
+            'a gloomy temper or countenance',
+        ]
+        with mock.patch(
+            'reader.translations.services.LLMClient.get_completion_text',
+            side_effect=RuntimeError('no endpoint'),
+        ), mock.patch(
+            'reader.translations.enrichment._translate_text',
+            return_value='terjemahan',
+        ):
+            examples = enrichment.build_examples(corpus, 'gloomy', 'en', 'id')
+
+        self.assertEqual(
+            [item['source_text'] for item in examples],
+            ['The cavern was gloomy.'],
+        )
+
+    def test_the_shortest_line_opens_the_example_list(self):
+        from reader.translations import enrichment
+
+        corpus = ['Gloomy weather again today.', 'It is gloomy.']
+        with mock.patch(
+            'reader.translations.services.LLMClient.get_completion_text',
+            side_effect=RuntimeError('no endpoint'),
+        ), mock.patch(
+            'reader.translations.enrichment._translate_text',
+            return_value='terjemahan',
+        ):
+            examples = enrichment.build_examples(corpus, 'gloomy', 'en', 'id')
+
+        self.assertEqual(
+            [item['source_text'] for item in examples],
+            ['It is gloomy.', 'Gloomy weather again today.'],
+        )
 
     def test_google_example_bank_is_used_before_writing_our_own(self):
         from reader.translations import enrichment
@@ -1182,6 +1261,35 @@ class TatoebaExampleTest(TestCase):
         self.assertEqual(examples[0]['source_text'], 'Ella rompió el vaso sin querer.')
         self.assertEqual(examples[0]['target_text'], 'Dia memecahkan gelas itu tanpa sengaja.')
         self.assertEqual(examples[0]['origin'], 'tatoeba')
+
+    @mock.patch('reader.translations.enrichment.requests.get')
+    def test_long_corpus_lines_are_dropped(self, get):
+        from reader.translations.enrichment import fetch_tatoeba_examples
+
+        response = mock.Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            'results': [
+                {
+                    'text': 'Ella rompió el vaso sin querer.',
+                    'lang': 'spa',
+                    'translations': [[{'text': 'Dia memecahkan gelas itu.', 'lang': 'ind'}]],
+                },
+                {
+                    'text': 'El viento rompió las ventanas de la vieja casa abandonada aquella noche.',
+                    'lang': 'spa',
+                    'translations': [[{'text': 'Angin memecahkan jendela rumah tua itu malam itu.', 'lang': 'ind'}]],
+                },
+            ],
+        }
+        get.return_value = response
+
+        examples = fetch_tatoeba_examples('romper', 'es', 'id')
+
+        self.assertEqual(
+            [item['source_text'] for item in examples],
+            ['Ella rompió el vaso sin querer.'],
+        )
 
     @mock.patch('reader.translations.enrichment.requests.get')
     def test_missing_corpus_language_returns_nothing(self, get):
