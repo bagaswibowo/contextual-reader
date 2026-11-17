@@ -1,6 +1,7 @@
 import React from 'react'
 import { Sparkles, Languages, MessageSquare, Link2 } from 'lucide-react'
 import { posLabel } from './MeaningTabShared'
+import { HighlightedText, LayeredLines } from '../widgets/ExampleLayers'
 
 function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
   return (
@@ -20,40 +21,6 @@ function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
  * arti_konteks, definisi, arti_lain, sinonim and terjemahan_lain.
  */
 
-const LAYER_LINE = 'block text-[max(12px,0.8em)] leading-tight break-words'
-
-/**
- * Three language layers with one size. The hierarchy comes from colour and
- * weight only; empty or repeated layers are hidden.
- */
-function LayeredLines({ book = '', learning = '', mother = '' }) {
-  const layers = []
-  const push = (text, className) => {
-    const value = String(text || '').trim()
-    if (!value) return
-    const key = value.toLowerCase()
-    if (layers.length > 0 && layers[layers.length - 1].key === key) return
-    layers.push({ value, className, key })
-  }
-  push(book, 'font-bold text-[var(--cr-text-primary)]')
-  push(learning, 'font-semibold text-[var(--cr-text-accent)]')
-  push(mother, 'font-normal text-[var(--cr-text-secondary)]')
-
-  if (layers.length === 0) return null
-  return (
-    <span data-layered="true" className="mt-1 block space-y-0.5">
-      {layers.map((layer, index) => (
-        <span
-          key={`${layer.key}-${index}`}
-          data-layer={index}
-          className={`${LAYER_LINE} ${layer.className}`}
-        >
-          {layer.value}
-        </span>
-      ))}
-    </span>
-  )
-}
 
 export function MeaningTab({
   word = '',
@@ -100,7 +67,7 @@ export function MeaningTab({
         )}
         {contextSentence && (
           <blockquote className="mt-2 border-l-2 border-[var(--cr-text-accent)] pl-2.5 text-[0.85em] italic leading-relaxed text-[var(--cr-text-primary)] line-clamp-3">
-            &ldquo;{contextSentence}&rdquo;
+            &ldquo;<HighlightedText text={contextSentence} word={word} onOpenWord={onOpenWord} />&rdquo;
           </blockquote>
         )}
       </section>
@@ -151,9 +118,11 @@ export function MeaningTab({
                 {item.contoh && (
                   <div className="mt-1.5 border-t border-[var(--cr-border-subtle)] pt-1.5">
                     <LayeredLines
-                      book={typeof item.contoh === 'string' ? item.contoh : item.contoh.source_text}
+                      book={typeof item.contoh === 'string' ? item.contoh : item.contoh.text_book || item.contoh.source_text}
                       learning={typeof item.contoh === 'object' ? item.contoh.text_learning : ''}
                       mother={typeof item.contoh === 'object' ? item.contoh.text_mother || item.contoh.target_text : ''}
+                      highlightWord={word}
+                      onOpenWord={onOpenWord}
                     />
                   </div>
                 )}
@@ -216,20 +185,6 @@ export function MeaningTab({
             Contoh dalam keseharian
           </BlockLabel>
           <div className="space-y-2">
-            {bookExamples.slice(0, 3).map((item, idx) => (
-              <div
-                key={`book-${idx}`}
-                className="rounded-xl border border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] p-3"
-              >
-                <span className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-accent)]">
-                  Dari buku ini
-                </span>
-                <LayeredLines
-                  book={typeof item === 'string' ? item : item.text}
-                  learning={typeof item === 'string' ? '' : item.translation}
-                />
-              </div>
-            ))}
             {examples.slice(0, 3).map((example, idx) => (
               <div
                 key={`example-${idx}`}
@@ -239,6 +194,25 @@ export function MeaningTab({
                   book={example.text_book || example.source_text}
                   learning={example.text_learning}
                   mother={example.text_mother || example.target_text}
+                  highlightWord={word}
+                  onOpenWord={onOpenWord}
+                />
+              </div>
+            ))}
+            {bookExamples.slice(0, 3).map((item, idx) => (
+              <div
+                key={`book-${idx}`}
+                className="rounded-xl border border-[var(--cr-btn-primary-shadow)] bg-[var(--cr-highlight-word-hover)] p-3"
+              >
+                <span className="text-[0.72em] font-extrabold uppercase tracking-[0.12em] text-[var(--cr-text-accent)]">
+                  Dari buku ini
+                </span>
+                <LayeredLines
+                  book={typeof item === 'string' ? item : item.text_book || item.text}
+                  learning={typeof item === 'string' ? '' : item.text_learning || item.translation}
+                  mother={typeof item === 'string' ? '' : item.text_mother}
+                  highlightWord={word}
+                  onOpenWord={onOpenWord}
                 />
               </div>
             ))}

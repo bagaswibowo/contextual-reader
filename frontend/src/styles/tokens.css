@@ -45,6 +45,13 @@
   --cr-highlight-word-hover: rgba(88, 204, 2, 0.12);
   --cr-highlight-word-active: rgba(88, 204, 2, 0.28);
 
+  /* Reading canvas: warm paper, soft ink, AAA on every reading surface */
+  --cr-reading-bg: #FAF6EC;
+  --cr-reading-surface: #FFFDF7;
+  --cr-reading-text: #2A2118;
+  --cr-reading-border: #E7DCC8;
+  --cr-reading-hover: rgba(120, 90, 40, 0.06);
+
   /* Book cover tints, one per format family. Ink stays readable on each. */
   --cr-cover-1-bg: rgba(58, 134, 2, 0.12);
   --cr-cover-1-border: rgba(58, 134, 2, 0.45);
@@ -95,6 +102,13 @@ html.sepia {
   --cr-highlight-sentence: rgba(235, 213, 160, 0.70);
   --cr-highlight-word-hover: rgba(88, 204, 2, 0.16);
   --cr-highlight-word-active: rgba(88, 204, 2, 0.32);
+
+  /* Reading canvas: warm paper, soft ink, AAA on every reading surface */
+  --cr-reading-bg: #F4E8D1;
+  --cr-reading-surface: #FBF3E4;
+  --cr-reading-text: #2E1E11;
+  --cr-reading-border: #E5D5BF;
+  --cr-reading-hover: rgba(90, 60, 20, 0.07);
 
   --cr-cover-1-bg: rgba(58, 134, 2, 0.16);
   --cr-cover-1-border: rgba(44, 110, 2, 0.45);
@@ -147,6 +161,13 @@ html.dark {
   --cr-highlight-sentence: rgba(30, 58, 95, 0.65);
   --cr-highlight-word-hover: rgba(137, 233, 25, 0.18);
   --cr-highlight-word-active: rgba(137, 233, 25, 0.34);
+
+  /* Reading canvas: warm paper, soft ink, AAA on every reading surface */
+  --cr-reading-bg: #1A242B;
+  --cr-reading-surface: #202F36;
+  --cr-reading-text: #F1F7FB;
+  --cr-reading-border: #37464F;
+  --cr-reading-hover: rgba(255, 255, 255, 0.06);
 
   --cr-cover-1-bg: rgba(137, 233, 25, 0.16);
   --cr-cover-1-border: rgba(137, 233, 25, 0.45);

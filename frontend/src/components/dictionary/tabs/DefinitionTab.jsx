@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { BookOpen, GraduationCap, Languages } from 'lucide-react'
 import { posLabel } from './MeaningTabShared'
+import { LayeredLines } from '../widgets/ExampleLayers'
 
 const LANGUAGE_NAMES = {
   id: 'Indonesia',
@@ -19,7 +20,7 @@ function languageName(code) {
   return LANGUAGE_NAMES[(code || '').toLowerCase()] || (code || '').toUpperCase()
 }
 
-function DictionaryList({ items, emptyText, contextKey }) {
+function DictionaryList({ items, emptyText, contextKey, word, onOpenWord }) {
   if (!Array.isArray(items) || items.length === 0) {
     return (
       <p className="rounded-2xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-4 text-[0.85em] text-[var(--cr-text-secondary)]">
@@ -61,10 +62,13 @@ function DictionaryList({ items, emptyText, contextKey }) {
             </p>
             {item.contoh && (
               <div className="mt-1 text-[0.78em] italic leading-relaxed text-[var(--cr-text-secondary)]">
-                <p>“{typeof item.contoh === 'string' ? item.contoh : item.contoh.source_text}”</p>
-                {typeof item.contoh === 'object' && item.contoh.target_text && (
-                  <p className="not-italic">{item.contoh.target_text}</p>
-                )}
+                <LayeredLines
+                  book={typeof item.contoh === 'string' ? item.contoh : item.contoh.text_book || item.contoh.source_text}
+                  learning={typeof item.contoh === 'object' ? item.contoh.text_learning : ''}
+                  mother={typeof item.contoh === 'object' ? item.contoh.text_mother || item.contoh.target_text : ''}
+                  highlightWord={word}
+                  onOpenWord={onOpenWord}
+                />
               </div>
             )}
           </li>
@@ -83,6 +87,7 @@ export function DefinitionTab({
   word = '',
   motherLang = 'id',
   targetLang = 'id',
+  onOpenWord,
   className = '',
 }) {
   const [view, setView] = useState('mother')
@@ -149,6 +154,8 @@ export function DefinitionTab({
       <DictionaryList
         items={activeDefinitions}
         contextKey={activeMeaning}
+        word={word}
+        onOpenWord={onOpenWord}
         emptyText={
           view === 'target' && sameLanguage
             ? 'Bahasa yang dipelajari sama dengan bahasa induk. Pilih bahasa lain di dropdown untuk melihat kamusnya.'

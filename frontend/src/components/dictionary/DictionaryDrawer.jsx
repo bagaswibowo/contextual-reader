@@ -125,6 +125,40 @@ export function DictionaryDrawer({
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   )
+  const [layeredExtraExamples, setLayeredExtraExamples] = useState(extraExamples)
+
+  useEffect(() => {
+    setLayeredExtraExamples(extraExamples)
+    const items = Array.isArray(extraExamples) ? extraExamples.filter((item) => item && item.id) : []
+    if (items.length === 0) return undefined
+    let active = true
+    items.forEach((item) => {
+      translationsApi
+        .sentenceLayers(item.id, targetLang, motherLang, translationEngine, customConfig)
+        .then((res) => {
+          if (!active) return
+          const layers = res?.data?.layers
+          if (!layers) return
+          setLayeredExtraExamples((current) =>
+            current.map((row) =>
+              row.id === item.id
+                ? {
+                    ...row,
+                    text_book: layers.book?.text || row.text_book || row.text,
+                    text_learning: layers.target?.text || '',
+                    text_mother: layers.mother?.text || '',
+                    translation: layers.target?.text || '',
+                  }
+                : row
+            )
+          )
+        })
+        .catch(() => {})
+    })
+    return () => {
+      active = false
+    }
+  }, [extraExamples, targetLang, motherLang, translationEngine])
 
   const drawerRef = useRef(null)
   const prevTargetLangRef = useRef(targetLang)
@@ -592,7 +626,7 @@ export function DictionaryDrawer({
                   word={entry?.word || word}
                   entry={entry}
                   contextSentence={contextSentence}
-                  extraExamples={extraExamples}
+                  extraExamples={layeredExtraExamples}
                   onOpenWord={onOpenWord}
                 />
               )}
@@ -613,6 +647,7 @@ export function DictionaryDrawer({
                   entry={entry}
                   motherLang={motherLang}
                   targetLang={targetLang}
+                  onOpenWord={onOpenWord}
                 />
               )}
             </div>

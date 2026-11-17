@@ -211,23 +211,13 @@ export function Reader() {
     const extraItems = (chapter?.sentences || [])
       .filter((item) => item.id !== sentenceId && pattern.test(item.text || ''))
       .slice(0, 3)
-    setDrawerExtraExamples(extraItems)
-    const exampleConfig = { customBaseUrl, customApiKey, customModel, mother_lang: motherLanguage || 'id' }
-    Promise.allSettled(
-      extraItems.map((item) =>
-        translationsApi.sentence(item.id, targetLanguage || 'id', translationEngine || 'google', exampleConfig)
-      )
-    ).then((results) => {
-      setDrawerExtraExamples(
-        extraItems.map((item, index) => ({
-          text: item.text,
-          translation:
-            results[index]?.status === 'fulfilled'
-              ? results[index].value?.data?.indonesian_text || ''
-              : '',
-        }))
-      )
-    })
+    setDrawerExtraExamples(
+      extraItems.map((item) => ({
+        id: item.id,
+        text: item.text,
+        text_book: item.text,
+      }))
+    )
     setSelectedWord({ sentenceId, wIdx })
     openDictionaryDrawer(cleanedWord, sentenceId, sentText, 'meaning')
   }
@@ -646,10 +636,10 @@ export function Reader() {
       </div>
 
       {/* Main Reading Canvas */}
-      <div className="card-duo p-3 sm:p-8 md:p-12 relative max-w-4xl mx-auto w-full min-h-[70vh] overflow-x-hidden sm:overflow-x-visible">
+      <div className="reading-canvas card-duo p-4 sm:p-8 md:p-10 relative max-w-3xl mx-auto w-full min-h-[70vh] overflow-x-hidden sm:overflow-x-visible">
         {/* Chapter Header */}
-        <div className="border-b-2 border-gray-100 dark:border-dark-border pb-4 sm:pb-6 mb-6 sm:mb-8 text-center">
-          <span className="badge-green mb-2 text-[11px] sm:text-xs">
+        <div className="border-b-2 border-[var(--cr-reading-border)] pb-4 sm:pb-6 mb-6 sm:mb-8 text-center">
+          <span className="reading-badge mb-2 text-[11px] sm:text-xs">
             Bab {chapterIndex + 1} dari {toc.length || 1}
           </span>
           <h1 className="heading-1 text-xl sm:text-3xl md:text-4xl mt-1 break-words">
@@ -664,7 +654,7 @@ export function Reader() {
 
         {/* Sentences & Paragraphs Rendering */}
         <div 
-          className={`reading-text space-y-4 sm:space-y-6 ${fontFamily === 'serif' ? 'font-body' : 'font-sans'}`}
+          className={`reading-measure reading-text space-y-5 sm:space-y-7 ${fontFamily === 'serif' ? 'font-body' : 'font-sans'}`}
           style={{ fontSize: `${fontSize}px`, lineHeight: lineHeight }}
         >
           {chapter?.sentences?.map((sent, sIdx) => {
@@ -812,7 +802,7 @@ export function Reader() {
                 <div 
                   onMouseUp={(e) => handleTextSelection(e, sent.id)}
                   onTouchEnd={(e) => handleTextSelection(e, sent.id)}
-                  className="group relative flex items-start justify-between gap-2 p-1 sm:p-1.5 rounded-duo hover:bg-gray-50 dark:hover:bg-dark-border/40 transition-colors"
+                  className="group relative flex items-start justify-between gap-2 p-1 sm:p-1.5 rounded-duo hover:bg-[var(--cr-reading-hover)] transition-colors"
                 >
                   {/* Sentence text with clickable words & KaTeX inline math */}
                   <p className="flex-1 leading-relaxed break-words min-w-0">
@@ -828,7 +818,7 @@ export function Reader() {
                               className="px-1 text-indigo-700 dark:text-indigo-300 font-semibold select-none"
                             />
                           ) : (
-                            <code className="font-mono text-xs text-indigo-600">{token.raw}</code>
+                            <code className="font-mono text-xs text-indigo-700 dark:text-indigo-300">{token.raw}</code>
                           )}
                           {!isLast && ' '}
                         </span>
@@ -846,7 +836,7 @@ export function Reader() {
                           data-selected-word={isSelected ? "true" : undefined}
                           className={`word-clickable rounded transition-all ${
                             isSelected
-                              ? 'bg-duo-green/30 font-extrabold text-eel dark:text-dark-text ring-2 ring-duo-green shadow-sm px-1'
+                              ? 'bg-[var(--cr-highlight-sentence)] font-extrabold text-[var(--cr-reading-text)] ring-2 ring-[var(--cr-text-accent)] shadow-sm px-1'
                               : 'hover:bg-duo-green/10 px-0.5'
                           }`}
                         >
