@@ -97,6 +97,7 @@ export function Reader() {
   const [isLangPopoverOpen, setIsLangPopoverOpen] = useState(false)
 
   const openDictionaryDrawer = (wordToOpen, sId, sentText, tab = 'meaning') => {
+    setSentencePanel(null)
     setDrawerWord(wordToOpen)
     setDrawerSentenceId(sId)
     setDrawerContext(sentText || '')

@@ -122,7 +122,7 @@ export function SentencePanel({
 
   useEffect(() => {
     if (!isOpen || !sentenceText) return undefined
-    const cacheKey = `cr_interlinear_v3:${sourceLang}:${lang}:${motherLang}:${sentenceText}`
+    const cacheKey = `cr_interlinear_v4:${sourceLang}:${lang}:${motherLang}:${sentenceText}`
     try {
       const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null')
       if (cached && Array.isArray(cached.words)) {
@@ -150,7 +150,9 @@ export function SentencePanel({
         }))
         const merged = { ...data, words }
         setInterlinear({ loading: false, ...merged })
-        try { localStorage.setItem(cacheKey, JSON.stringify(merged)) } catch (e) {}
+        if (words.length > 0) {
+          try { localStorage.setItem(cacheKey, JSON.stringify(merged)) } catch (e) {}
+        }
       })
       .catch(() => {
         if (!active) return
@@ -167,12 +169,34 @@ export function SentencePanel({
   const translation = state.targetText || data.indonesian_text || ''
 
   const colorFor = (role) => {
-    if (role === 'subject') return 'text-[var(--cr-text-accent)]'
-    if (role === 'predicate') return 'text-[var(--cr-blue-text)]'
+    if (role === 'subject') return 'text-[var(--cr-blue-text)]'
+    if (role === 'predicate') return 'text-[var(--cr-text-accent)]'
     if (role === 'object') return 'text-[var(--cr-yellow-text)]'
     if (role === 'adverbial') return 'text-[var(--cr-text-quaternary)]'
     return 'text-[var(--cr-text-primary)]'
   }
+
+  const letterFor = (role) => {
+    if (role === 'subject') return 'S'
+    if (role === 'predicate') return 'P'
+    if (role === 'object') return 'O'
+    if (role === 'adverbial') return 'K'
+    return ''
+  }
+
+  const verbFormFor = (tense) => {
+    const value = String(tense || '').toLowerCase()
+    if (!value) return ''
+    if (value.includes('perfect')) return 'V3'
+    if (value.includes('continuous')) return 'V-ing'
+    if (value.includes('past')) return 'V2'
+    if (value.includes('future')) return 'V1'
+    if (value.includes('present')) return 'V1'
+    return ''
+  }
+
+  const tense = interlinear.grammar?.tense || data.tense || ''
+  const verbForm = verbFormFor(tense)
 
   const structureLayers = [
     { key: 'book', label: 'Bahasa buku', parts: interlinear.structure?.source, fallback: sentenceText },
@@ -379,22 +403,46 @@ export function SentencePanel({
 
               {structureLayers.map(({ key, label, items }) => (
                 <div key={key} data-structure-layer={key}>
-                  <p className="mb-1 text-[0.68em] font-bold text-[var(--cr-text-secondary)]">{label}</p>
-                  <p className="text-[max(12px,0.8em)] leading-relaxed">
-                    {items.map((part, index) => (
-                      <React.Fragment key={`${key}-${index}`}>
-                        {index > 0 && ' '}
-                        <span className={`font-bold ${colorFor(part.color)}`}>{part.text}</span>
-                      </React.Fragment>
-                    ))}
-                  </p>
+                  <p className="mb-1.5 text-[0.68em] font-bold text-[var(--cr-text-secondary)]">{label}</p>
+                  <div className="flex flex-wrap items-end gap-x-2 gap-y-2">
+                    {items.map((part, index) => {
+                      const letter = letterFor(part.color)
+                      const isPredicate = part.color === 'predicate'
+                      return (
+                        <span key={`${key}-${index}`} className="inline-flex flex-col items-center">
+                          <span
+                            className={`text-[max(12px,0.8em)] font-bold leading-snug ${
+                              letter
+                                ? `underline decoration-2 underline-offset-4 ${colorFor(part.color)}`
+                                : 'text-[var(--cr-text-primary)]'
+                            }`}
+                          >
+                            {part.text}
+                          </span>
+                          {letter && (
+                            <span
+                              className={`mt-0.5 text-[max(12px,0.7em)] font-extrabold leading-none ${colorFor(part.color)}`}
+                            >
+                              {letter}
+                              {isPredicate && verbForm ? ` · ${verbForm}` : ''}
+                            </span>
+                          )}
+                        </span>
+                      )
+                    })}
+                  </div>
                 </div>
               ))}
 
-              {(interlinear.grammar?.tense || data.tense) && (
-                <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">
-                  {interlinear.grammar?.tense || data.tense}
-                </p>
+              <p className="text-[max(12px,0.68em)] leading-relaxed text-[var(--cr-text-secondary)]">
+                <span className="font-extrabold text-[var(--cr-blue-text)]">S</span> = Subjek ·{' '}
+                <span className="font-extrabold text-[var(--cr-text-accent)]">P</span> = Predikat ·{' '}
+                <span className="font-extrabold text-[var(--cr-yellow-text)]">O</span> = Objek ·{' '}
+                <span className="font-extrabold text-[var(--cr-text-quaternary)]">K</span> = Keterangan
+              </p>
+
+              {tense && (
+                <p className="text-[0.8em] font-bold text-[var(--cr-text-primary)]">{tense}</p>
               )}
               {interlinear.grammar?.note && (
                 <p className="text-[0.72em] leading-relaxed text-[var(--cr-text-secondary)]">
