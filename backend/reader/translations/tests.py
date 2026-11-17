@@ -700,6 +700,111 @@ class LanguageCatalogueTest(TestCase):
         self.assertEqual(tts_voice('id'), 'id')
 
 
+class InterlinearBatchTest(TestCase):
+    """Per-word layers go out in one newline-joined call, in token order."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+
+        cache.clear()
+        self.client = APIClient()
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_tokens_come_back_in_order_from_one_call(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'She reads books now.', 'target_text': 'Dia membaca buku sekarang.'}
+
+        german = {'She': 'Sie', 'reads': 'liest', 'books': 'Bücher', 'now': 'jetzt'}
+
+        def fake_query(params):
+            if '\n' in str(params.get('q') or ''):
+                tokens = str(params['q']).split('\n')
+                segments = [[german.get(token, token) + '\n', token, None, None, 10] for token in tokens]
+                return [segments]
+            if (params.get('dt') or '') == 'bd':
+                return [[['x', 'x', None, None, 10]], [['noun', ['das Buch'], []]]]
+            return [[[german.get(params['q'], params['q']), params['q'], None, None, 10]], []]
+
+        translate_query.side_effect = fake_query
+
+        response = self.client.post(
+            '/api/translations/interlinear/',
+            {'text': 'She reads books now.', 'source_lang': 'en', 'target_lang': 'de', 'mother_lang': 'de'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        words = response.json()['words']
+        self.assertEqual(
+            [word['target'] for word in words],
+            ['Sie', 'liest', 'Bücher', 'jetzt'],
+        )
+        # One batched call for the whole layer, not one per token.
+        batch_calls = [
+            call for call in translate_query.call_args_list
+            if '\n' in str(call.kwargs.get('q') or call.args[0].get('q') or '')
+        ]
+        self.assertEqual(len(batch_calls), 1)
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_an_incomplete_layer_is_not_cached(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'She reads books.', 'target_text': ''}
+
+        def empty_first_segment(params):
+            return [[['', params.get('q'), None, None, 10]]]
+
+        translate_query.side_effect = empty_first_segment
+
+        first = self.client.post(
+            '/api/translations/interlinear/',
+            {'text': 'She reads books.', 'source_lang': 'en', 'target_lang': 'id'},
+            format='json',
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(all(word['target'] == '' for word in first.json()['words']))
+
+        calls_after_first = translate_query.call_count
+        self.client.post(
+            '/api/translations/interlinear/',
+            {'text': 'She reads books.', 'source_lang': 'en', 'target_lang': 'id'},
+            format='json',
+        )
+
+        # Nothing was translatable, so the second open retries the provider
+        # instead of serving the same dashes for a week.
+        self.assertGreater(translate_query.call_count, calls_after_first)
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
+    def test_alternatives_are_fetched_only_for_content_words(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'It was silent wood.', 'target_text': 'Hutan sunyi.'}
+
+        def fake_query(params):
+            if '\n' in str(params.get('q') or ''):
+                tokens = str(params['q']).split('\n')
+                return [[[token + '\n', token, None, None, 10] for token in tokens]]
+            if (params.get('dt') or '') == 'bd':
+                token = params['q']
+                return [[['x', 'x', None, None, 10]], [['noun', ['alt for ' + token], []]]]
+            return [[[params['q'], params['q'], None, None, 10]], []]
+
+        translate_query.side_effect = fake_query
+
+        response = self.client.post(
+            '/api/translations/interlinear/',
+            {'text': 'It was silent wood.', 'source_lang': 'en', 'target_lang': 'de'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        words = {word['source']: word for word in response.json()['words']}
+        # "It" is too short for the alternatives pass; "silent" gets its list.
+        self.assertEqual(words['It']['alternatives'], [])
+        self.assertEqual(words['silent']['alternatives'], ['alt for silent'])
+
+
 class InterlinearEndpointTest(TestCase):
     def setUp(self):
         from django.core.cache import cache

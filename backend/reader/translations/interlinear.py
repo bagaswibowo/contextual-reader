@@ -24,7 +24,7 @@ from django.core.cache import cache
 from .provider import is_translate_payload, normalize_lang, translate_query
 
 CACHE_TTL = 86400 * 7
-CACHE_VERSION = 'v2'
+CACHE_VERSION = 'v3'
 MAX_TOKENS = 60
 MAX_ALTERNATIVES = 3
 
@@ -139,8 +139,122 @@ def _translate_token(clean: str, source: str, target: str) -> Dict:
     ][:MAX_ALTERNATIVES]
 
     result = {'target': target_text, 'alternatives': alternatives}
-    cache.set(cache_key, result, timeout=CACHE_TTL)
+    if target_text:
+        cache.set(cache_key, result, timeout=CACHE_TTL)
     return result
+
+def _batch_targets(tokens: List[str], source: str, target: str) -> Dict[str, str]:
+    """Translate every token in one newline-joined request.
+
+    The provider keeps one line per segment, so the answer splits back into the
+    same tokens in the same order. A sentence of twenty tokens is then one call
+    instead of twenty, which is what used to leave half of the tokens empty when
+    the proxy throttled the burst.
+    """
+    if not tokens:
+        return {}
+
+    payload = translate_query({
+        'sl': source, 'tl': target, 'dt': 't', 'q': '\n'.join(tokens),
+    })
+    if not is_translate_payload(payload):
+        return {}
+
+    segments = [
+        str(segment[0]).replace('\n', ' ').strip()
+        for segment in payload[0]
+        if isinstance(segment, list) and segment and isinstance(segment[0], str)
+    ]
+    if len(segments) != len(tokens):
+        # The split did not come back one line per token, so nothing here can be
+        # trusted to its row: the caller falls back to per-token calls.
+        return {}
+
+    return dict(zip(tokens, segments))
+
+def _translate_targets(tokens: List[str], source: str, target: str) -> Dict[str, Dict]:
+    """One card layer: token -> {'target', 'alternatives'} for every token."""
+    results: Dict[str, Dict] = {}
+    missing = []
+    for token in tokens:
+        cached = cache.get(_cache_key('interlinear_token', source, target, token.lower()))
+        if cached and cached.get('target'):
+            results[token] = cached
+        else:
+            missing.append(token)
+
+    batched = _batch_targets(missing, source, target)
+    unresolved = []
+    for token in missing:
+        text = batched.get(token, '')
+        if text:
+            result = {'target': text, 'alternatives': []}
+            results[token] = result
+            cache.set(_cache_key('interlinear_token', source, target, token.lower()), result, timeout=CACHE_TTL)
+        else:
+            unresolved.append(token)
+
+    if unresolved:
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            fallback = list(executor.map(
+                lambda token: _translate_token(token, source, target),
+                unresolved,
+            ))
+        results.update(zip(unresolved, fallback))
+    return results
+
+# Alternative readings only matter for content words, and each one costs its own
+# dictionary request, so only the first few real words get that pass.
+_ALTERNATIVE_TOKENS = 8
+_ALTERNATIVE_PATTERN = re.compile(r'[^\W\d_]{3,}', re.UNICODE)
+
+def _token_alternatives(token: str, source: str, target: str) -> List[str]:
+    cache_key = _cache_key('interlinear_token', source, target, token.lower())
+    cached = cache.get(cache_key) or {}
+    if cached.get('alternatives'):
+        return cached['alternatives']
+
+    payload = translate_query({
+        'sl': source, 'tl': target, 'dt': 'bd', 'q': token,
+    })
+    alternatives: List[str] = []
+    if payload and len(payload) > 1 and isinstance(payload[1], list):
+        for group in payload[1]:
+            if not isinstance(group, list) or len(group) < 2:
+                continue
+            for option in group[1] or []:
+                value = option[0] if isinstance(option, list) and option else option
+                if isinstance(value, str) and value.strip():
+                    alternatives.append(value.strip())
+
+    alternatives = [
+        value for value in dict.fromkeys(alternatives)
+        if value and value.lower() != str(cached.get('target') or '').lower()
+    ][:MAX_ALTERNATIVES]
+    if alternatives:
+        merged = {'target': cached.get('target') or '', 'alternatives': alternatives}
+        cache.set(cache_key, merged, timeout=CACHE_TTL)
+    return alternatives
+
+def _attach_alternatives(results: Dict[str, Dict], source: str, target: str) -> None:
+    """Fill in the swap list for the first few content words, in one burst."""
+    wanted = [
+        token for token, result in results.items()
+        if not result.get('alternatives')
+        and _ALTERNATIVE_PATTERN.fullmatch(token)
+    ][:_ALTERNATIVE_TOKENS]
+    if not wanted:
+        return
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        fetched = list(executor.map(
+            lambda token: _token_alternatives(token, source, target),
+            wanted,
+        ))
+    for token, alternatives in zip(wanted, fetched):
+        if alternatives:
+            # Mutate in place: the words list holds these same dicts.
+            results[token]['alternatives'] = alternatives
 
 
 def _find_verb_index(tokens: List[str], lang: str) -> Optional[int]:
@@ -277,26 +391,28 @@ def build_interlinear(text: str, source_lang: str, target_lang: str, mother_lang
     target_text = sentence.get('target_text', '')
 
     tokens = tokenize(cleaned, source)[:MAX_TOKENS]
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        translated = list(executor.map(
-            lambda token: _translate_token(token['clean'], source, target),
-            tokens,
-        ))
+    clean_list = [token['clean'] for token in tokens]
 
-    mother_results = None
-    if mother != target:
-        # The per-word layer carries the same token in the mother tongue, so
-        # the reader sees the studied meaning and the native meaning at once.
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            mother_results = list(executor.map(
-                lambda token: _translate_token(token['clean'], source, mother),
-                tokens,
-            ))
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        sentence_future = executor.submit(translate_sentence, cleaned, source, target)
+        target_future = executor.submit(_translate_targets, clean_list, source, target)
+        if mother != target:
+            mother_future = executor.submit(_translate_targets, clean_list, source, mother)
+        sentence = sentence_future.result()
+        target_results = target_future.result()
+        mother_results = mother_future.result() if mother != target else None
+
+    translated = [target_results[token['clean']] for token in tokens]
+    mother_layer = [mother_results[token['clean']] for token in tokens] if mother_results is not None else None
+
+    _attach_alternatives(target_results, source, target)
+    if mother_layer is not None:
+        _attach_alternatives(mother_results, source, mother)
 
     words = []
     for index, token in enumerate(tokens):
         result = translated[index]
-        mother_result = mother_results[index] if mother_results is not None else None
+        mother_result = mother_layer[index] if mother_layer is not None else None
         word = {
             'index': token['index'],
             'source': token['source'],
@@ -319,5 +435,18 @@ def build_interlinear(text: str, source_lang: str, target_lang: str, mother_lang
         'structure': analyze_structure(cleaned, source, target, target_text),
         'grammar': analyze_grammar(cleaned, source),
     }
-    cache.set(cache_key, result, timeout=CACHE_TTL)
+
+    # A sentence with missing tokens is the shape a throttled provider leaves
+    # behind. Serving it for a week would pin the dashes in place, so it is
+    # rebuilt on the next open instead of being cached incomplete.
+    complete = (
+        bool(target_text)
+        and all(target_results[token]['target'] for token in clean_list if re.search(r'\w', token))
+        and (
+            mother == target
+            or all(mother_results[token]['target'] for token in clean_list if re.search(r'\w', token))
+        )
+    )
+    if complete:
+        cache.set(cache_key, result, timeout=CACHE_TTL)
     return result
