@@ -317,9 +317,11 @@ class GoogleTranslateClient:
                             transliteration += item[3] + " "
 
             grammar = GrammarAnalyzer.analyze(cleaned_text)
-            token_pairs = UniversalWordTokenizer.get_token_pairs(translated_text.strip(), target_lang, mother_lang=mother_lang) if translated_text.strip() else []
             grammar_details = grammar["grammar_details"]
-            grammar_details["token_pairs"] = token_pairs
+            # The per-word layer is served by /api/translations/interlinear/ in
+            # one batched call. Building it here again cost two more proxy calls
+            # on every sentence request for a list the reader never rendered.
+            grammar_details["token_pairs"] = []
 
             return {
                 "indonesian_text": translated_text.strip() or cleaned_text,
@@ -506,9 +508,10 @@ class TranslationService:
                     {'role': 'user', 'content': sentence.text}
                 ])
                 parsed = json.loads(response)
-                token_pairs = UniversalWordTokenizer.get_token_pairs(parsed.get('indonesian_text', sentence.text), target_lang, mother_lang=mother_lang)
                 grammar_details = grammar['grammar_details']
-                grammar_details['token_pairs'] = token_pairs
+                # Same as the provider path: the word layer comes from the
+                # interlinear endpoint, not from a second translation round.
+                grammar_details['token_pairs'] = []
                 data = {
                     'indonesian_text': parsed.get('indonesian_text', sentence.text),
                     'transliteration': parsed.get('transliteration', ''),
