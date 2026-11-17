@@ -35,9 +35,10 @@ PROXY_RETRY_DELAY = 0.6
 PROXY_MAX_WAIT = 5.0
 
 # The proxy throttles a burst and asks for a pause between requests, so only a
-# couple may be in flight; the rest wait for a slot. Direct Google calls stay
-# unlimited.
-_PROXY_SLOTS = threading.Semaphore(2)
+# few may be in flight; the rest wait for a slot. Three keeps a cold card's
+# parallel calls inside two proxy waves, and four or more starts getting
+# throttled replies. Direct Google calls stay unlimited.
+_PROXY_SLOTS = threading.Semaphore(3)
 
 # Google answers 429 to the data-centre address this app runs on, so every
 # client name fails the same way. The block is remembered for a few minutes:

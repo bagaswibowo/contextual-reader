@@ -652,6 +652,23 @@ def _card_cache_key(
     return f'dict_card:{CACHE_VERSION}:{digest}'
 
 
+def _is_cacheable(payload: dict) -> bool:
+    """Whether a built card is worth keeping.
+
+    A card that shows nothing at all in the studied language is the shape a
+    throttled provider leaves behind, so it is rebuilt on the next open instead
+    of being served empty for a day.
+    """
+    if not payload.get('bahasa_pilihan'):
+        return True
+    return bool(
+        payload.get('arti_bahasa_pilihan')
+        or payload.get('arti_lain_bahasa_pilihan')
+        or payload.get('definisi_bahasa_pilihan')
+        or payload.get('contoh_bahasa_pilihan')
+    )
+
+
 def _serialized_card(
     entry: DictionaryEntry,
     context: str,
@@ -675,7 +692,8 @@ def _serialized_card(
     payload = serialize_entry(
         entry, context=context, mother_lang=mother_lang, target_lang=target_lang
     )
-    cache.set(key, payload, timeout=DICTIONARY_CARD_TTL)
+    if _is_cacheable(payload):
+        cache.set(key, payload, timeout=DICTIONARY_CARD_TTL)
     return payload
 
 

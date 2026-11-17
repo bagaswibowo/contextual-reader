@@ -2129,3 +2129,22 @@ class DictionaryCardCacheTest(TestCase):
         self.assertEqual(german_again, {'target': 'de'})
         self.assertEqual(serialize_entry.call_count, 2)
 
+    @mock.patch('reader.translations.dictionary.serialize_entry')
+    def test_an_empty_studied_layer_is_not_kept(self, serialize_entry):
+        from reader.translations.dictionary import lookup
+
+        serialize_entry.return_value = {
+            'bahasa_pilihan': 'de',
+            'arti_bahasa_pilihan': '',
+            'arti_lain_bahasa_pilihan': [],
+            'definisi_bahasa_pilihan': [],
+            'contoh_bahasa_pilihan': [],
+        }
+
+        lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+        lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+
+        # Nothing came back from the provider, so the next open retries it
+        # instead of serving an empty card for a day.
+        self.assertEqual(serialize_entry.call_count, 2)
+

@@ -45,7 +45,7 @@ TATOEBA_SEARCH_URL = 'https://tatoeba.org/en/api_v0/search'
 # Tatoeba is the slowest upstream and answers nothing for most words, so one
 # short attempt keeps the card inside its budget. The empty answer is cached, so
 # the next open pays nothing.
-TATOEBA_TIMEOUT = (1.5, 2.5)
+TATOEBA_TIMEOUT = (1.5, 2.0)
 TATOEBA_CACHE_TTL = 86400
 # Tatoeba's bot filter rejects generic browser user agents from servers; an
 # honest, descriptive agent gets through and is the polite thing to send.
