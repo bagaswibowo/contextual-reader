@@ -40,11 +40,13 @@ from .provider import (
 ENRICHMENT_CACHE_TTL = 86400 * 7
 MAX_EXAMPLES = 4
 # Everyday examples are for speaking, so a line that runs past a short spoken
-# sentence is not an everyday example: it is a dictionary fragment or a
-# literature quote. Both are dropped rather than shortened.
+# sentence is not an everyday example: it is a literature quote. A short
+# dictionary phrase ("a stubborn stain") is kept, because the panel has no model
+# endpoint to write a replacement and an empty example list teaches nothing.
 MAX_EXAMPLE_WORDS = 9
 MAX_EXAMPLE_CHARS = 70
 MIN_EXAMPLE_WORDS = 2
+MAX_PHRASE_WORDS = 6
 MAX_TRANSLATIONS = 8
 
 TATOEBA_SEARCH_URL = 'https://tatoeba.org/en/api_v0/search'
@@ -90,7 +92,7 @@ def _clean_text(value) -> str:
 
 
 def _is_short_spoken(text: str) -> bool:
-    """Whether a line reads like something a person says, not a book quote."""
+    """Whether a line is short enough to say in a conversation."""
     clean = _clean_text(text)
     if not clean:
         return False
@@ -99,8 +101,10 @@ def _is_short_spoken(text: str) -> bool:
         return False
     if len(clean) > MAX_EXAMPLE_CHARS:
         return False
-    # A dictionary fragment ends without a full stop or a question mark; a
-    # spoken line almost always closes one.
+    if len(words) <= MAX_PHRASE_WORDS:
+        return True
+    # Past a short phrase, a line without a closing mark is a cut-off book
+    # sentence, not something a person says.
     return clean[-1] in '.!?"'
 
 
@@ -450,7 +454,7 @@ def build_examples(
     sentences = _shortest_first(list(dict.fromkeys(spoken)))[:MAX_EXAMPLES]
 
     cache_key = _cache_key(
-        'dict_examples',
+        'dict_examples_short',
         normalize_lang(source_lang),
         normalize_lang(mother_lang),
         word.lower(),

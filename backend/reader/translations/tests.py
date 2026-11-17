@@ -542,7 +542,7 @@ class EverydayExampleTest(TestCase):
 
         self.assertEqual(
             [item['source_text'] for item in examples],
-            ['The cavern was gloomy.'],
+            ['The cavern was gloomy.', 'a gloomy temper or countenance'],
         )
 
     def test_the_shortest_line_opens_the_example_list(self):

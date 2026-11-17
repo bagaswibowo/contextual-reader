@@ -34,6 +34,9 @@ DICTIONARY_CACHE_TTL = timedelta(days=7)
 # A built card is reused as-is: every layer inside it already came from an
 # upstream call, so a repeat open costs no provider request at all.
 DICTIONARY_CARD_TTL = 86400
+# Bump when the card's content rules change (example filter, layer shape) so a
+# card built by an older release is not served for a day.
+CARD_CACHE_VERSION = 'v2'
 FREE_DICTIONARY_URL = 'https://api.dictionaryapi.dev/api/v2/entries/{lang}/{word}'
 MAX_SENSES = 8
 MAX_SYNONYMS = 12
@@ -652,7 +655,9 @@ def _card_cache_key(
     """Key for one built card, so the same panel view never rebuilds it.
 
     The entry's ``fetched_at`` is part of the key: when a provider refresh
-    replaces the senses, the old card must not answer for the new entry.
+    replaces the senses, the old card must not answer for the new entry. The
+    card version covers the rules that shape the card itself, such as which
+    examples count as everyday usage.
     """
     from .enrichment import CACHE_VERSION
 
@@ -666,7 +671,7 @@ def _card_cache_key(
             context or '',
         ]).encode()
     ).hexdigest()[:32]
-    return f'dict_card:{CACHE_VERSION}:{digest}'
+    return f'dict_card:{CARD_CACHE_VERSION}:{CACHE_VERSION}:{digest}'
 
 
 def _is_cacheable(payload: dict) -> bool:
