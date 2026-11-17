@@ -1,4 +1,4 @@
-name: Deploy to Server SXZ
+name: Deploy to Production Server
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to SXZ
+    name: Deploy Application
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -15,9 +15,9 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST || vars.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER || vars.VPS_USER || 'bagas' }}
+          VPS_USER: ${{ secrets.VPS_USER || vars.VPS_USER }}
           SXZ_HOST: ${{ secrets.SXZ_HOST || vars.SXZ_HOST }}
-          SXZ_USER: ${{ secrets.SXZ_USER || vars.SXZ_USER || 'sxz' }}
+          SXZ_USER: ${{ secrets.SXZ_USER || vars.SXZ_USER }}
         run: |
           if [ -z "$SSH_PRIVATE_KEY" ]; then
             echo "::error::SSH_PRIVATE_KEY is not configured in GitHub Secrets."
@@ -27,18 +27,24 @@ jobs:
             echo "::error::VPS_HOST or SXZ_HOST is not configured in GitHub Secrets or Variables."
             exit 1
           fi
+          if [ -z "$VPS_USER" ] || [ -z "$SXZ_USER" ]; then
+            echo "::error::VPS_USER or SXZ_USER is not configured in GitHub Secrets or Variables."
+            exit 1
+          fi
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          # Mask host IPs so they never appear in console logs
+          # Mask host IPs and usernames so they never appear in console logs
           echo "::add-mask::$VPS_HOST"
           echo "::add-mask::$SXZ_HOST"
+          echo "::add-mask::$VPS_USER"
+          echo "::add-mask::$SXZ_USER"
 
           cat << EOF > ~/.ssh/config
-          Host vps
+          Host jumpbox
             HostName $VPS_HOST
             User $VPS_USER
             IdentityFile ~/.ssh/deploy_key
@@ -46,20 +52,20 @@ jobs:
             UserKnownHostsFile /dev/null
             LogLevel ERROR
 
-          Host sxz
+          Host target
             HostName $SXZ_HOST
             User $SXZ_USER
             IdentityFile ~/.ssh/deploy_key
-            ProxyJump vps
+            ProxyJump jumpbox
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             LogLevel ERROR
           EOF
           chmod 600 ~/.ssh/config
 
-      - name: Deploy on SXZ
+      - name: Deploy Application
         run: |
-          ssh -q -o LogLevel=ERROR -o ConnectTimeout=20 sxz << 'EOF'
+          ssh -q -o LogLevel=ERROR -o ConnectTimeout=20 target << 'EOF'
             set -e
             cd ~/projects/active/contextual-reader
             echo "Pulling latest changes on main..."
@@ -74,7 +80,7 @@ jobs:
 
       - name: Verify health endpoint
         run: |
-          ssh -q -o LogLevel=ERROR -o ConnectTimeout=20 sxz << 'EOF'
+          ssh -q -o LogLevel=ERROR -o ConnectTimeout=20 target << 'EOF'
             set -e
             echo "Checking backend health..."
             curl -f -s http://127.0.0.1:8088/api/core/health/ || exit 1

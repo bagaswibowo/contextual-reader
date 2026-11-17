@@ -3,7 +3,7 @@ set -e
 
 # Configuration (override via environment variables)
 SERVER="${SERVER:-}"
-REMOTE_DIR="${REMOTE_DIR:-/home/sxz/projects/active/contextual-reader}"
+REMOTE_DIR="${REMOTE_DIR:-projects/active/contextual-reader}"
 LOCAL_DIR="${LOCAL_DIR:-/opt/data/contextual-reader}"
 
 # Required environment variables (must be set before running)
@@ -46,13 +46,13 @@ tar -czf /tmp/contextual-reader.tar.gz \
   .
 
 echo "📤 Uploading to server $SERVER..."
-ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SERVER" "mkdir -p $REMOTE_DIR /home/sxz/projects/tokens"
-scp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts /tmp/contextual-reader.tar.gz "$SERVER:$REMOTE_DIR/"
+ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SERVER" "mkdir -p ~/$REMOTE_DIR ~/projects/tokens"
+scp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts /tmp/contextual-reader.tar.gz "$SERVER:~/$REMOTE_DIR/"
 
 echo "🔧 Deploying Docker services on server..."
 ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SERVER" << 'ENDSSH'
 set -e
-cd /home/sxz/projects/active/contextual-reader
+cd ~/projects/active/contextual-reader
 tar -xzf contextual-reader.tar.gz
 rm contextual-reader.tar.gz
 
@@ -62,10 +62,10 @@ if [ -f .env ]; then
 fi
 
 # Check for tunnel token in projects/tokens/
-if [ -f /home/sxz/projects/tokens/contextual-reader-tunnel.token ]; then
-  export TUNNEL_TOKEN=$(cat /home/sxz/projects/tokens/contextual-reader-tunnel.token)
-elif [ -f /home/sxz/projects/tokens/cftunnel.token ]; then
-  export TUNNEL_TOKEN=$(cat /home/sxz/projects/tokens/cftunnel.token)
+if [ -f ~/projects/tokens/contextual-reader-tunnel.token ]; then
+  export TUNNEL_TOKEN=$(cat ~/projects/tokens/contextual-reader-tunnel.token)
+elif [ -f ~/projects/tokens/cftunnel.token ]; then
+  export TUNNEL_TOKEN=$(cat ~/projects/tokens/cftunnel.token)
 fi
 
 echo "🐳 Building Docker images..."
