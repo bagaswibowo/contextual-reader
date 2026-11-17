@@ -33,6 +33,10 @@ CLIENT_NAMES = ('gtx', 'tw-ob', 'dict-chrome-ex')
 PROXY_ATTEMPTS = 4
 PROXY_RETRY_DELAY = 0.6
 PROXY_MAX_WAIT = 5.0
+# One call may retry, but not for longer than this: the card is built from a
+# handful of calls at once, and a single throttled one must not hold the whole
+# card for half a minute.
+PROXY_BUDGET_SECONDS = 3.0
 
 # The proxy throttles a burst and asks for a pause between requests, so only a
 # few may be in flight; the rest wait for a slot. Three keeps a cold card's
@@ -154,12 +158,20 @@ def translate_query_via_reader(params: Dict) -> Optional[list]:
     attempt = dict(params)
     attempt.setdefault('client', CLIENT_NAMES[0])
     url = proxy.rstrip('/') + '/' + GOOGLE_TRANSLATE_URL
+    started = time.monotonic()
+
+    def remaining() -> float:
+        return PROXY_BUDGET_SECONDS - (time.monotonic() - started)
 
     for try_index in range(PROXY_ATTEMPTS):
+        budget = remaining()
+        if budget <= 0:
+            return None
         try:
             with _PROXY_SLOTS:
                 response = requests.get(
-                    url, params=attempt, headers=REQUEST_HEADERS, timeout=20,
+                    url, params=attempt, headers=REQUEST_HEADERS,
+                    timeout=min(20, max(0.5, budget)),
                 )
             if response.status_code != 200:
                 return None
@@ -173,8 +185,9 @@ def translate_query_via_reader(params: Dict) -> Optional[list]:
             # A burst of lookups makes the proxy answer with its own throttle
             # reply, which states how long to wait. Waiting less than that just
             # burns the remaining attempts and leaves the layer empty.
-            if try_index < PROXY_ATTEMPTS - 1:
-                time.sleep(_proxy_wait(body, try_index))
+            wait = min(_proxy_wait(body, try_index), remaining())
+            if try_index < PROXY_ATTEMPTS - 1 and wait > 0:
+                time.sleep(wait)
                 continue
             return None
         try:

@@ -2070,6 +2070,27 @@ class TranslateReaderProxyTest(TestCase):
             self.assertIsNone(translate_query({'sl': 'en', 'tl': 'id', 'q': 'break'}))
 
     @mock.patch('reader.translations.provider.requests.get')
+    def test_a_throttled_proxy_gives_up_inside_its_budget(self, get):
+        import time
+
+        from django.core.cache import cache
+        from django.test import override_settings
+        from reader.translations import provider
+
+        cache.set(provider.DIRECT_BLOCK_KEY, 1, timeout=60)
+        get.return_value = mock.Mock(
+            status_code=200, text='{"data":null,"retryAfter":30}'
+        )
+        started = time.monotonic()
+
+        with override_settings(TRANSLATE_READER_PROXY='https://reader.example'), \
+                mock.patch.object(provider, 'PROXY_BUDGET_SECONDS', 0.3):
+            self.assertIsNone(provider.translate_query({'sl': 'en', 'tl': 'id', 'q': 'break'}))
+
+        # The stated wait is 30s, but one layer may not hold the card that long.
+        self.assertLess(time.monotonic() - started, 2.0)
+
+    @mock.patch('reader.translations.provider.requests.get')
     def test_proxy_block_page_is_not_mistaken_for_a_translation(self, get):
         from django.test import override_settings
         from reader.translations.provider import translate_query
