@@ -107,6 +107,7 @@ export function DictionaryDrawer({
   initialTab = 'meaning',
   onClose,
   onSaveWord,
+  onRemoveWord,
   onOpenWord,
   onLanguageChange,
   isSaved = false,
@@ -654,12 +655,13 @@ export function DictionaryDrawer({
           )}
         </div>
 
-        {/* Sticky action bar: the single Pelajari control */}
+        {/* Sticky action bar: Pelajari, then Hapus once the word is saved */}
         <DrawerActionBar
           word={entry?.word || word}
           saved={isSaved}
           saving={saving}
           onToggleSave={() => onSaveWord && onSaveWord(entry?.word || word, contextSentence)}
+          onRemove={() => onRemoveWord && onRemoveWord(entry?.word || word)}
         />
       </aside>
     </>

@@ -295,6 +295,37 @@ export function Reader() {
     }
   }
 
+  // Remove a saved word from the vocabulary list ("Hapus")
+  const handleRemoveVocabulary = async (wordParam) => {
+    const w = wordParam || drawerWord
+    if (!w || !bookId) return
+    try {
+      setSavingVocab(true)
+      const res = await vocabularyApi.byBook('default', bookId)
+      const groups = Array.isArray(res.data) ? res.data : []
+      const target = groups
+        .flatMap((group) => group.entries || [])
+        .find(
+          (item) =>
+            String(item.word_translation?.word || '').toLowerCase() === w.toLowerCase()
+        )
+      if (target?.id) {
+        await vocabularyApi.delete(target.id)
+        const translationId = target.word_translation?.id
+        setSavedWords((prev) => {
+          const next = new Set(prev)
+          next.delete(w.toLowerCase())
+          if (translationId) next.delete(translationId)
+          return next
+        })
+      }
+      setSavingVocab(false)
+    } catch (err) {
+      setSavingVocab(false)
+      console.error('Gagal menghapus kosakata', err)
+    }
+  }
+
   const getSpeechLangCode = (langCode) => {
     const code = (langCode || 'en').toLowerCase()
     const map = {
@@ -1104,6 +1135,7 @@ export function Reader() {
         initialTab={drawerInitialTab}
         onClose={() => setIsDrawerOpen(false)}
         onSaveWord={(w, ctx) => handleSaveVocabulary(w, ctx)}
+        onRemoveWord={(w) => handleRemoveVocabulary(w)}
         onOpenWord={(nextWord) => openDictionaryDrawer(nextWord, drawerSentenceId, drawerContext, 'meaning')}
         onLanguageChange={(code) => setTargetLanguage(code)}
         isSaved={drawerWord ? (savedWords.has(drawerWord.toLowerCase()) || false) : false}

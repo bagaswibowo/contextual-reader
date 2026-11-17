@@ -1,7 +1,34 @@
 import React from 'react'
 import { Sparkles, Languages, MessageSquare, Link2 } from 'lucide-react'
 import { posLabel } from './MeaningTabShared'
-import { HighlightedText, LayeredLines } from '../widgets/ExampleLayers'
+import { HighlightedText, LayeredLines, wordPattern } from '../widgets/ExampleLayers'
+
+/**
+ * Keep example sentences short. Long book sentences are cut to a window around
+ * the studied word so the sidebar stays scannable.
+ */
+function shortExcerpt(text, word, maxWords = 14) {
+  const value = String(text || '').trim()
+  if (!value) return ''
+  const words = value.split(/\s+/)
+  if (words.length <= maxWords) return value
+  const pattern = wordPattern(word)
+  let matchIndex = -1
+  if (pattern) {
+    for (let index = 0; index < words.length; index += 1) {
+      pattern.lastIndex = 0
+      if (pattern.test(words[index])) {
+        matchIndex = index
+        break
+      }
+    }
+  }
+  const half = Math.floor(maxWords / 2)
+  let start = matchIndex >= 0 ? Math.max(0, matchIndex - half) : 0
+  let end = Math.min(words.length, start + maxWords)
+  if (end === words.length) start = Math.max(0, end - maxWords)
+  return `${start > 0 ? '… ' : ''}${words.slice(start, end).join(' ')}${end < words.length ? ' …' : ''}`
+}
 
 function BlockLabel({ icon: Icon, children, tone = 'muted' }) {
   return (
@@ -118,9 +145,18 @@ export function MeaningTab({
                 {item.contoh && (
                   <div className="mt-1.5 border-t border-[var(--cr-border-subtle)] pt-1.5">
                     <LayeredLines
-                      book={typeof item.contoh === 'string' ? item.contoh : item.contoh.text_book || item.contoh.source_text}
-                      learning={typeof item.contoh === 'object' ? item.contoh.text_learning : ''}
-                      mother={typeof item.contoh === 'object' ? item.contoh.text_mother || item.contoh.target_text : ''}
+                      book={shortExcerpt(
+                        typeof item.contoh === 'string'
+                          ? item.contoh
+                          : item.contoh.text_book || item.contoh.source_text,
+                        word
+                      )}
+                      learning={typeof item.contoh === 'object' ? shortExcerpt(item.contoh.text_learning, word) : ''}
+                      mother={
+                        typeof item.contoh === 'object'
+                          ? shortExcerpt(item.contoh.text_mother || item.contoh.target_text, word)
+                          : ''
+                      }
                       highlightWord={word}
                       onOpenWord={onOpenWord}
                     />
@@ -191,9 +227,9 @@ export function MeaningTab({
                 className="rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface-elevated)] p-3"
               >
                 <LayeredLines
-                  book={example.text_book || example.source_text}
-                  learning={example.text_learning}
-                  mother={example.text_mother || example.target_text}
+                  book={shortExcerpt(example.text_book || example.source_text, word)}
+                  learning={shortExcerpt(example.text_learning, word)}
+                  mother={shortExcerpt(example.text_mother || example.target_text, word)}
                   highlightWord={word}
                   onOpenWord={onOpenWord}
                 />
@@ -208,9 +244,13 @@ export function MeaningTab({
                   Dari buku ini
                 </span>
                 <LayeredLines
-                  book={typeof item === 'string' ? item : item.text_book || item.text}
-                  learning={typeof item === 'string' ? '' : item.text_learning || item.translation}
-                  mother={typeof item === 'string' ? '' : item.text_mother}
+                  book={shortExcerpt(typeof item === 'string' ? item : item.text_book || item.text, word)}
+                  learning={
+                    typeof item === 'string'
+                      ? ''
+                      : shortExcerpt(item.text_learning || item.translation, word)
+                  }
+                  mother={typeof item === 'string' ? '' : shortExcerpt(item.text_mother, word)}
                   highlightWord={word}
                   onOpenWord={onOpenWord}
                 />
