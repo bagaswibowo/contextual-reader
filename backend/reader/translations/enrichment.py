@@ -273,6 +273,10 @@ def translate_texts(
                 if isinstance(segment, list) and segment and isinstance(segment[0], str)
             )
             parts = [part.strip() for part in translated.split('|||')]
+            # The engine sometimes repeats the marker after the last text, which
+            # leaves an empty part and made every batch look like a bad split.
+            if parts and not parts[-1]:
+                parts.pop()
         if len(parts) == len(sentences):
             values.update(zip(sentences, parts))
         else:

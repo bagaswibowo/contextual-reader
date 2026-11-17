@@ -679,8 +679,17 @@ def _is_cacheable(payload: dict) -> bool:
 
     A card that shows nothing at all in the studied language is the shape a
     throttled provider leaves behind, so it is rebuilt on the next open instead
-    of being served empty for a day.
+    of being served empty for a day. The same goes for an example row whose
+    translation came back empty: keeping it would pin a blank layer for a day.
     """
+    for row in payload.get('examples') or []:
+        book = str(row.get('text_book') or '').strip()
+        if not book:
+            continue
+        if not str(row.get('text_learning') or '').strip():
+            return False
+        if not str(row.get('text_mother') or '').strip():
+            return False
     if not payload.get('bahasa_pilihan'):
         return True
     return bool(

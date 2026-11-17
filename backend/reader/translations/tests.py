@@ -1862,6 +1862,20 @@ class TranslateTextsTest(TestCase):
         self.assertEqual(rows, ['romper', 'descanso'])
         self.assertEqual(query.call_count, 2)
 
+    def test_a_trailing_marker_keeps_the_batch_together(self):
+        from reader.translations.enrichment import translate_texts
+
+        with mock.patch(
+            'reader.translations.enrichment.translate_query',
+            return_value=self._payload('uno ||| dos ||| '),
+        ) as query:
+            rows = translate_texts(
+                ['He broke the glass.', 'She took a break.'], 'en', 'id'
+            )
+
+        self.assertEqual(rows, ['uno', 'dos'])
+        self.assertEqual(query.call_count, 1)
+
     def test_a_wrong_split_falls_back_to_single_requests(self):
         from reader.translations.enrichment import translate_texts
 
@@ -2412,6 +2426,29 @@ class DictionaryCardCacheTest(TestCase):
         self.assertEqual(german, {'target': 'de'})
         self.assertEqual(vietnamese, {'target': 'vi'})
         self.assertEqual(german_again, {'target': 'de'})
+        self.assertEqual(serialize_entry.call_count, 2)
+
+    @mock.patch('reader.translations.dictionary.serialize_entry')
+    def test_a_card_with_a_blank_example_layer_is_not_kept(self, serialize_entry):
+        from reader.translations.dictionary import lookup
+
+        serialize_entry.return_value = {
+            'bahasa_pilihan': 'de',
+            'arti_bahasa_pilihan': 'Wanderlust',
+            'examples': [
+                {
+                    'text_book': 'peanut brittle',
+                    'text_learning': '',
+                    'text_mother': '',
+                },
+            ],
+        }
+
+        lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+        lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+
+        # The blank layer is the shape of a failed translation, so the card is
+        # rebuilt instead of being pinned for a day.
         self.assertEqual(serialize_entry.call_count, 2)
 
     @mock.patch('reader.translations.dictionary.serialize_entry')
