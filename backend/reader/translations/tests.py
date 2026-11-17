@@ -828,6 +828,40 @@ class InterlinearBatchTest(TestCase):
 
     @mock.patch('reader.translations.enrichment.translate_sentence')
     @mock.patch('reader.translations.interlinear.translate_query')
+    def test_a_trailing_marker_keeps_the_batch_whole(self, translate_query, sentence):
+        sentence.return_value = {'source_text': 'She reads books.', 'target_text': 'Dia membaca buku.'}
+
+        def fake_query(params):
+            query = str(params.get('q') or '')
+            if ' ||| ' in query:
+                german = {'She': 'Sie', 'reads': 'liest', 'books': 'Bücher'}
+                # The real answer repeats the marker after the last token too.
+                return [[
+                    [german.get(token, token) + ' ||| ', token + ' ||| ', None, None, 10]
+                    for token in query.split(' ||| ')
+                ]]
+            return [[[params['q'], params['q'], None, None, 10]], []]
+
+        translate_query.side_effect = fake_query
+
+        with mock.patch('reader.translations.interlinear._translate_token') as per_token:
+            response = self.client.post(
+                '/api/translations/interlinear/',
+                {'text': 'She reads books.', 'source_lang': 'en', 'target_lang': 'de', 'mother_lang': 'de'},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [word['target'] for word in response.json()['words']],
+            ['Sie', 'liest', 'Bücher'],
+        )
+        # The trailing marker used to look like an extra token, which sent every
+        # word back through its own request.
+        per_token.assert_not_called()
+
+    @mock.patch('reader.translations.enrichment.translate_sentence')
+    @mock.patch('reader.translations.interlinear.translate_query')
     def test_an_incomplete_layer_is_not_cached(self, translate_query, sentence):
         sentence.return_value = {'source_text': 'She reads books.', 'target_text': ''}
 

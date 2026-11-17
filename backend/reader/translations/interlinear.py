@@ -165,6 +165,11 @@ def _batch_targets(tokens: List[str], source: str, target: str) -> Dict[str, str
         if isinstance(segment, list) and segment and isinstance(segment[0], str)
     )
     parts = [part.strip() for part in translated.split('|||')]
+    # The provider keeps the marker after the last token too, which leaves one
+    # empty part at the end. Dropping it is what makes the count match, and the
+    # whole batch worth sending.
+    if parts and not parts[-1]:
+        parts.pop()
     if len(parts) != len(tokens):
         # The split did not come back one reading per token, so nothing here
         # can be trusted to its row: the caller falls back to per-token calls.
@@ -204,8 +209,9 @@ def _translate_targets(tokens: List[str], source: str, target: str) -> Dict[str,
     return results
 
 # Alternative readings only matter for content words, and each one costs its own
-# dictionary request, so only the first few real words get that pass.
-_ALTERNATIVE_TOKENS = 8
+# dictionary request. Three fits one proxy wave: the swap list is a tooltip, so
+# spending three more waves on the rest of the sentence is the wrong trade.
+_ALTERNATIVE_TOKENS = 3
 _ALTERNATIVE_PATTERN = re.compile(r'[^\W\d_]{3,}', re.UNICODE)
 
 def _token_alternatives(token: str, source: str, target: str) -> List[str]:

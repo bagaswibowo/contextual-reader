@@ -96,6 +96,10 @@ class UniversalWordTokenizer:
                     if isinstance(segment, list) and segment and segment[0]
                 )
                 readings = [part.strip() for part in joined.split('|||')]
+                # The provider keeps the marker after the last token, so one
+                # empty part trails the answer.
+                if readings and not readings[-1]:
+                    readings.pop()
             if len(readings) == len(pending):
                 for clean_tok, meaning in zip(pending, readings):
                     item = {
