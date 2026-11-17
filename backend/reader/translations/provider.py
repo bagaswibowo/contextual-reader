@@ -24,9 +24,10 @@ REQUEST_HEADERS = {
     )
 }
 
-# Google rate-limits one client name at a time; these are the public names the
-# app has always relied on.
-CLIENT_NAMES = ('gtx', 'tw-ob', 'dict-chrome-ex')
+# The public client name the app sends. The endpoint accepts a few names, but
+# the throttle is applied to the calling address, so rotating them gains
+# nothing and only spends a timeout per name.
+DEFAULT_CLIENT = 'gtx'
 
 # The reading proxy answers with Google's block page when it is hit in a burst,
 # so a retry backs off before giving up on a layer.
@@ -50,6 +51,10 @@ _PROXY_SLOTS = threading.Semaphore(3)
 # three doomed attempts per call cost more than the proxy call they replace.
 DIRECT_BLOCK_KEY = 'translate:direct-blocked'
 DIRECT_BLOCK_SECONDS = 600
+# One direct attempt may hang instead of answering 429. Two seconds is long
+# enough for a healthy answer and short enough that a hang does not become the
+# wait the reader sees before the proxy is even tried.
+DIRECT_TIMEOUT_SECONDS = 2.0
 
 # Languages written in Latin script: Google's reading field is an IPA-style
 # respelling there, while for other scripts it is a romanization.
@@ -92,32 +97,29 @@ def _remember_direct_block() -> None:
 
 
 def translate_query(params: Dict) -> Optional[list]:
-    """Call the translate endpoint, rotating client names; never raises."""
+    """Call the translate endpoint, then the reading proxy; never raises."""
     if _direct_blocked():
         return translate_query_via_reader(params)
 
-    throttled = False
-    for client_name in CLIENT_NAMES:
-        attempt = dict(params)
-        attempt['client'] = client_name
-        try:
-            response = requests.get(
-                GOOGLE_TRANSLATE_URL,
-                params=attempt,
-                headers=REQUEST_HEADERS,
-                timeout=5,
-            )
-        except Exception:
-            continue
-        if response.status_code == 200:
-            return response.json()
-        if response.status_code == 429:
-            # One client name is throttled for the whole address, so the other
-            # names would only spend their own timeout on the same answer.
-            throttled = True
-            break
-    if throttled:
+    attempt = dict(params)
+    attempt.setdefault('client', DEFAULT_CLIENT)
+    response = None
+    try:
+        response = requests.get(
+            GOOGLE_TRANSLATE_URL,
+            params=attempt,
+            headers=REQUEST_HEADERS,
+            timeout=DIRECT_TIMEOUT_SECONDS,
+        )
+    except Exception:
+        response = None
+
+    if response is not None and response.status_code == 200:
+        return response.json()
+    if response is not None and response.status_code == 429:
         _remember_direct_block()
+    # A throttle or a hang is answered by the whole address, not by one client
+    # name, so the next name would only spend its own timeout on the same wall.
     return translate_query_via_reader(params)
 
 
@@ -157,7 +159,7 @@ def translate_query_via_reader(params: Dict) -> Optional[list]:
         return None
 
     attempt = dict(params)
-    attempt.setdefault('client', CLIENT_NAMES[0])
+    attempt.setdefault('client', DEFAULT_CLIENT)
     url = proxy.rstrip('/') + '/' + GOOGLE_TRANSLATE_URL
     started = time.monotonic()
 

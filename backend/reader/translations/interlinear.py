@@ -387,9 +387,6 @@ def build_interlinear(text: str, source_lang: str, target_lang: str, mother_lang
 
     from .enrichment import translate_sentence
 
-    sentence = translate_sentence(cleaned, source, target)
-    target_text = sentence.get('target_text', '')
-
     tokens = tokenize(cleaned, source)[:MAX_TOKENS]
     clean_list = [token['clean'] for token in tokens]
 
@@ -402,12 +399,12 @@ def build_interlinear(text: str, source_lang: str, target_lang: str, mother_lang
         target_results = target_future.result()
         mother_results = mother_future.result() if mother != target else None
 
+    target_text = sentence.get('target_text', '')
+
     translated = [target_results[token['clean']] for token in tokens]
     mother_layer = [mother_results[token['clean']] for token in tokens] if mother_results is not None else None
 
     _attach_alternatives(target_results, source, target)
-    if mother_layer is not None:
-        _attach_alternatives(mother_results, source, mother)
 
     words = []
     for index, token in enumerate(tokens):
