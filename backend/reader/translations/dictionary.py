@@ -204,6 +204,7 @@ def serialize_entry(
     in one response so switching the panel language costs no new lookup.
     """
     from .enrichment import (
+        MAX_EXAMPLES,
         build_alternative_meanings,
         build_example_layers,
         build_examples,
@@ -413,8 +414,20 @@ def serialize_entry(
             for example in (sense.get('examples') or [])
             if isinstance(example, str) and example.strip()
         )
-        try:
-            rows = build_examples(
+
+        studied_lang = target_lang or mother_lang
+        # The source sentences are known before any call, so the studied reading
+        # goes out beside the mother-tongue one instead of after it. Without
+        # this the layer waits for the mother-tongue answer first, and a cold
+        # card pays two round trips in a row.
+        sentences = list(dict.fromkeys(
+            text.strip() for text in source_examples
+            if isinstance(text, str) and text.strip()
+        ))[:MAX_EXAMPLES]
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            rows_future = executor.submit(
+                build_examples,
                 source_examples,
                 entry.word,
                 entry.lang,
@@ -422,8 +435,12 @@ def serialize_entry(
                 meaning=primary_meaning,
                 part_of_speech=entry.part_of_speech,
             )
-        except Exception:
-            rows = []
+            if sentences and studied_lang not in {mother_lang, entry.lang}:
+                executor.submit(translate_texts, sentences, entry.lang, studied_lang)
+            try:
+                rows = rows_future.result()
+            except Exception:
+                rows = []
 
         # Three language layers on every example: the book-language sentence,
         # the studied-language translation, and the mother tongue. The studied
@@ -432,7 +449,7 @@ def serialize_entry(
             return build_example_layers(
                 rows,
                 entry.lang,
-                target_lang or mother_lang,
+                studied_lang,
                 mother_lang,
             )
         except Exception:
