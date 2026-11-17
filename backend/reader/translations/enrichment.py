@@ -953,3 +953,86 @@ def build_example_layers(
         row['text_mother'] = str(item.get('target_text') or '').strip()
         layered.append(row)
     return layered
+
+
+def build_nested_example_layers(
+    rows: List[Dict],
+    source_lang: str,
+    learning_lang: str,
+    mother_lang: str,
+    target_layer: str = 'mother',
+) -> List[Dict]:
+    """Add three text layers to each row's nested ``contoh`` in place.
+
+    ``contoh`` carries ``source_text`` (the book-language sentence). ``target_text``
+    is the layer named by ``target_layer``: ``'mother'`` for the mother-tongue
+    list, where it already holds the mother reading, or ``'learning'`` for the
+    panel-language list, where it holds the studied reading. The third layer is a
+    real translation of the book sentence, sent in one request; when the studied
+    language equals the book or mother language the same text is reused, and a
+    layer that is unavailable stays empty. Rows that already carry all three text
+    layers (corpus-sourced examples) are left untouched. ``source_text`` and
+    ``target_text`` stay, so older clients keep working.
+    """
+    if not rows:
+        return rows
+
+    source = normalize_lang(source_lang) or 'auto'
+    learning = normalize_lang(learning_lang) or ''
+    mother = normalize_lang(mother_lang) or 'id'
+
+    pending = []
+    for row in rows:
+        contoh = row.get('contoh')
+        if not isinstance(contoh, dict) or 'text_book' in contoh:
+            continue
+        book = str(contoh.get('source_text') or '').strip()
+        if not book:
+            continue
+        if target_layer == 'mother':
+            if learning and learning != source and learning != mother:
+                pending.append(book)
+        else:
+            if mother and mother != source and mother != learning:
+                pending.append(book)
+    translated = {}
+    if pending:
+        wanted = list(dict.fromkeys(pending))
+        pairs = zip(wanted, translate_texts(
+            wanted,
+            source,
+            learning if target_layer == 'mother' else mother,
+        ))
+        translated = dict(pairs)
+
+    for row in rows:
+        contoh = row.get('contoh')
+        if not isinstance(contoh, dict) or 'text_book' in contoh:
+            continue
+        book = str(contoh.get('source_text') or '').strip()
+        other = str(contoh.get('target_text') or '').strip()
+        if not book:
+            continue
+        layered = dict(contoh)
+        layered['text_book'] = book
+        if target_layer == 'mother':
+            layered['text_mother'] = other
+            if not learning or learning == mother:
+                layered['text_learning'] = other
+            elif learning == source:
+                layered['text_learning'] = book
+            else:
+                layered['text_learning'] = translated.get(book, '')
+        else:
+            layered['text_learning'] = book if learning == source else other
+            if not mother:
+                layered['text_mother'] = ''
+            elif mother == source:
+                layered['text_mother'] = book
+            elif mother == learning:
+                layered['text_mother'] = other
+            else:
+                layered['text_mother'] = translated.get(book, '')
+        row['contoh'] = layered
+    return rows
+

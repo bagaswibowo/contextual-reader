@@ -142,6 +142,11 @@ class TranslationViewSet(viewsets.ViewSet):
                 custom_base_url=custom_base_url, custom_api_key=custom_api_key, custom_model=custom_model
             )
             layers['mother'] = {'lang': mother_lang, 'text': mother_translation.indonesian_text}
+        # Same three names the word card uses for its examples, so the book
+        # examples render through one contract on the client.
+        layers['text_book'] = layers['book']['text']
+        layers['text_learning'] = layers['target']['text']
+        layers['text_mother'] = layers['mother']['text']
         return layers
 
     @action(detail=False, methods=['post'])

@@ -1443,6 +1443,26 @@ class SentenceAudioUrlTest(TestCase):
         self.assertIn('lang=id', audio['mother'])
         self.assertTrue(all(audio.values()))
 
+    @mock.patch('reader.translations.services.GoogleTranslateClient.translate_sentence')
+    def test_layers_response_uses_the_same_three_text_names(self, translate):
+        translate.side_effect = lambda text, target_lang='id', mother_lang='id': {
+            'indonesian_text': {'es': 'Hola mundo.', 'id': 'Halo dunia.'}.get(target_lang, text),
+            'transliteration': '', 'tense': '', 'structure': '', 'grammar_details': {}, 'notes': '',
+        }
+        response = self.client.post(
+            '/api/translations/sentence/',
+            {
+                'sentence_id': self.sentence.id, 'target_lang': 'es',
+                'mother_lang': 'id', 'engine': 'google', 'layers': True,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        layers = response.data['layers']
+        self.assertEqual(layers['text_book'], 'Hello world.')
+        self.assertEqual(layers['text_learning'], 'Hola mundo.')
+        self.assertEqual(layers['text_mother'], 'Halo dunia.')
+
 
 class AlternativeMeaningLayersTest(TestCase):
     """Arti Lainnya carries book, studied and mother-tongue readings."""
@@ -1617,6 +1637,196 @@ class ExampleLayersTest(TestCase):
 
         translate.assert_not_called()
         self.assertEqual(rows[0]['text_learning'], 'Dia istirahat.')
+
+
+class NestedExampleLayersTest(TestCase):
+    """Contoh tertanam di Arti Lainnya carries book, studied and mother text."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _rows(self):
+        return [{'contoh': {
+            'source_text': 'Put that light out!',
+            'target_text': 'Matikan lampu itu!',
+        }}]
+
+    def test_mother_list_adds_the_studied_reading(self):
+        from reader.translations.enrichment import build_nested_example_layers
+
+        rows = self._rows()
+
+        with mock.patch(
+            'reader.translations.enrichment.translate_texts',
+            return_value=['Tắt đèn đi!'],
+        ) as translate:
+            build_nested_example_layers(rows, 'en', 'vi', 'id', target_layer='mother')
+
+        contoh = rows[0]['contoh']
+        self.assertEqual(contoh['text_book'], 'Put that light out!')
+        self.assertEqual(contoh['text_learning'], 'Tắt đèn đi!')
+        self.assertEqual(contoh['text_mother'], 'Matikan lampu itu!')
+        # Old keys stay for older clients.
+        self.assertEqual(contoh['source_text'], 'Put that light out!')
+        self.assertEqual(contoh['target_text'], 'Matikan lampu itu!')
+        translate.assert_called_once()
+
+    def test_mother_list_reuses_book_text_when_studied_is_the_book_language(self):
+        from reader.translations.enrichment import build_nested_example_layers
+
+        rows = self._rows()
+
+        with mock.patch('reader.translations.enrichment.translate_texts') as translate:
+            build_nested_example_layers(rows, 'en', 'en', 'id', target_layer='mother')
+
+        translate.assert_not_called()
+        self.assertEqual(rows[0]['contoh']['text_learning'], 'Put that light out!')
+
+    def test_mother_list_reuses_mother_text_when_studied_is_the_mother_tongue(self):
+        from reader.translations.enrichment import build_nested_example_layers
+
+        rows = self._rows()
+
+        with mock.patch('reader.translations.enrichment.translate_texts') as translate:
+            build_nested_example_layers(rows, 'en', 'id', 'id', target_layer='mother')
+
+        translate.assert_not_called()
+        self.assertEqual(rows[0]['contoh']['text_learning'], 'Matikan lampu itu!')
+
+    def test_learning_list_adds_the_mother_reading(self):
+        from reader.translations.enrichment import build_nested_example_layers
+
+        rows = [{'contoh': {
+            'source_text': 'Put that light out!',
+            'target_text': 'Tắt đèn đi!',
+        }}]
+
+        with mock.patch(
+            'reader.translations.enrichment.translate_texts',
+            return_value=['Matikan lampu itu!'],
+        ):
+            build_nested_example_layers(rows, 'en', 'vi', 'id', target_layer='learning')
+
+        contoh = rows[0]['contoh']
+        self.assertEqual(contoh['text_book'], 'Put that light out!')
+        self.assertEqual(contoh['text_learning'], 'Tắt đèn đi!')
+        self.assertEqual(contoh['text_mother'], 'Matikan lampu itu!')
+
+    def test_rows_with_three_layers_are_left_alone(self):
+        from reader.translations.enrichment import build_nested_example_layers
+
+        contoh = {
+            'source_text': 'Uso real de romper',
+            'target_text': 'Pemakaian nyata romper',
+            'text_book': 'Real use of break',
+            'text_learning': 'Uso real de romper',
+            'text_mother': 'Pemakaian nyata romper',
+        }
+        rows = [{'contoh': dict(contoh)}]
+
+        with mock.patch('reader.translations.enrichment.translate_texts') as translate:
+            build_nested_example_layers(rows, 'en', 'es', 'id', target_layer='learning')
+
+        translate.assert_not_called()
+        self.assertEqual(rows[0]['contoh'], contoh)
+
+
+class NestedExampleIntegrationTest(TestCase):
+    """A real lookup sends three layers on the nested examples too."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _free(self):
+        return {
+            'part_of_speech': 'verb',
+            'senses': [
+                {'meaning': 'separate into pieces', 'examples': ['He broke the glass.'], 'synonyms': []},
+                {'meaning': 'a pause from work', 'examples': ['She took a short break.'], 'synonyms': []},
+            ],
+            'synonyms': [], 'phonetic_ipa': '', 'source': 'free-dictionary',
+        }
+
+    def _google(self):
+        table = {
+            ('separate into pieces', 'id'): 'memecahkan',
+            ('a pause from work', 'id'): 'istirahat',
+            ('He broke the glass.', 'id'): 'Dia memecahkan gelas itu.',
+            ('She took a short break.', 'id'): 'Dia istirahat sebentar.',
+            ('separate into pieces', 'es'): 'romper',
+            ('a pause from work', 'es'): 'descanso',
+            ('He broke the glass.', 'es'): 'Él rompió el vaso.',
+            ('She took a short break.', 'es'): 'Ella tomó un descanso corto.',
+            ('memecahkan', 'es'): 'romper',
+            ('istirahat', 'es'): 'descanso',
+        }
+
+        def fake(url, params=None, **kwargs):
+            response = mock.Mock()
+            response.status_code = 200
+            query = (params or {}).get('q')
+            lang = (params or {}).get('tl')
+            if (params or {}).get('dt') == 't':
+                response.json.return_value = [[[table.get((query, lang), ''), query, None, None, 10]]]
+            elif lang == 'es':
+                response.json.return_value = [
+                    [['romper', 'break', None, None, 10]],
+                    [['verb', ['romper', 'descanso'], [
+                        ['romper', ['break'], None, 0.5],
+                        ['descanso', ['break'], None, 0.1],
+                    ]]],
+                    'en',
+                ]
+            else:
+                response.json.return_value = [
+                    [['memecahkan', 'break', None, None, 10]],
+                    [['verb', ['memecahkan', 'istirahat'], [
+                        ['memecahkan', ['break'], None, 0.5],
+                        ['istirahat', ['break'], None, 0.1],
+                    ]]],
+                    'en',
+                ]
+            return response
+
+        return fake
+
+    def _lookup(self):
+        from reader.translations.dictionary import lookup
+
+        with mock.patch(
+            'reader.translations.dictionary._fetch_free_dictionary', return_value=self._free()
+        ), mock.patch(
+            'reader.translations.provider.requests.get', side_effect=self._google()
+        ), mock.patch(
+            'reader.translations.enrichment.fetch_tatoeba_examples', return_value=[]
+        ):
+            return lookup('break', 'en', mother_lang='id', target_lang='es')
+
+    def test_mother_list_nested_example_carries_three_layers(self):
+        payload = self._lookup()
+        rows = payload['arti_lain']
+        self.assertTrue(rows)
+        contoh = rows[0]['contoh']
+        self.assertEqual(contoh['source_text'], 'She took a short break.')
+        self.assertEqual(contoh['target_text'], 'Dia istirahat sebentar.')
+        self.assertEqual(contoh['text_book'], 'She took a short break.')
+        self.assertEqual(contoh['text_learning'], 'Ella tomó un descanso corto.')
+        self.assertEqual(contoh['text_mother'], 'Dia istirahat sebentar.')
+
+    def test_panel_list_nested_example_carries_three_layers(self):
+        payload = self._lookup()
+        rows = payload['arti_lain_bahasa_pilihan']
+        self.assertTrue(rows)
+        contoh = rows[0]['contoh']
+        self.assertEqual(contoh['source_text'], 'She took a short break.')
+        self.assertEqual(contoh['target_text'], 'Ella tomó un descanso corto.')
+        self.assertEqual(contoh['text_book'], 'She took a short break.')
+        self.assertEqual(contoh['text_learning'], 'Ella tomó un descanso corto.')
+        self.assertEqual(contoh['text_mother'], 'Dia istirahat sebentar.')
 
 
 class DictionaryThreeLayerTest(TestCase):

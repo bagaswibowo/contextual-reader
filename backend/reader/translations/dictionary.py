@@ -203,6 +203,7 @@ def serialize_entry(
         build_example_layers,
         build_examples,
         build_meaning_layers,
+        build_nested_example_layers,
         fetch_tatoeba_examples,
         fetch_word_enrichment,
         source_definitions,
@@ -372,6 +373,15 @@ def serialize_entry(
         except Exception:
             pass
 
+        # Rows without a corpus sentence keep the nested dictionary example, so
+        # it gets the same three text layers as every other example.
+        try:
+            rows = build_nested_example_layers(
+                rows, entry.lang, target_lang, mother_lang, target_layer='learning',
+            )
+        except Exception:
+            pass
+
         # The studied-language example list is written in the studied language
         # with a mother-tongue caption, so its book layer is a real translation
         # of the same sentence, not a copy of another layer.
@@ -433,12 +443,21 @@ def serialize_entry(
         # The mother-tongue list carries ``makna`` as the mother reading, so the
         # studied layer is translated from the book sense, never copied over.
         try:
-            return build_meaning_layers(
+            rows = build_meaning_layers(
                 rows, entry.lang, mother_lang, target_lang, makna_layer='mother',
                 other_words=studied_by_book,
             )
         except Exception:
-            return rows
+            pass
+        # The nested example in this list is a book sentence with its mother
+        # reading, so it gets the studied layer too, from a real translation.
+        try:
+            rows = build_nested_example_layers(
+                rows, entry.lang, target_lang, mother_lang, target_layer='mother',
+            )
+        except Exception:
+            pass
+        return rows
 
     def mother_definitions():
         try:
