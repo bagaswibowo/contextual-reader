@@ -144,33 +144,33 @@ def _translate_token(clean: str, source: str, target: str) -> Dict:
     return result
 
 def _batch_targets(tokens: List[str], source: str, target: str) -> Dict[str, str]:
-    """Translate every token in one newline-joined request.
+    """Translate every token in one request joined by the batch marker.
 
-    The provider keeps one line per segment, so the answer splits back into the
-    same tokens in the same order. A sentence of twenty tokens is then one call
-    instead of twenty, which is what used to leave half of the tokens empty when
-    the proxy throttled the burst.
+    The provider reads the marker as a boundary it must copy, so the answer
+    splits back into one reading per token in the same order. A sentence of
+    twenty tokens is then one call instead of twenty, which is what used to
+    leave half of the tokens empty when the proxy throttled the burst.
     """
     if not tokens:
         return {}
 
     payload = translate_query({
-        'sl': source, 'tl': target, 'dt': 't', 'q': '\n'.join(tokens),
+        'sl': source, 'tl': target, 'dt': 't', 'q': ' ||| '.join(tokens),
     })
     if not is_translate_payload(payload):
         return {}
 
-    segments = [
-        str(segment[0]).replace('\n', ' ').strip()
-        for segment in payload[0]
+    translated = ''.join(
+        segment[0] for segment in payload[0]
         if isinstance(segment, list) and segment and isinstance(segment[0], str)
-    ]
-    if len(segments) != len(tokens):
-        # The split did not come back one line per token, so nothing here can be
-        # trusted to its row: the caller falls back to per-token calls.
+    )
+    parts = [part.strip() for part in translated.split('|||')]
+    if len(parts) != len(tokens):
+        # The split did not come back one reading per token, so nothing here
+        # can be trusted to its row: the caller falls back to per-token calls.
         return {}
 
-    return dict(zip(tokens, segments))
+    return dict(zip(tokens, parts))
 
 def _translate_targets(tokens: List[str], source: str, target: str) -> Dict[str, Dict]:
     """One card layer: token -> {'target', 'alternatives'} for every token."""

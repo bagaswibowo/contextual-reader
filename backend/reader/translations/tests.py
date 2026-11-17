@@ -715,13 +715,13 @@ class InterlinearBatchTest(TestCase):
     def test_tokens_come_back_in_order_from_one_call(self, translate_query, sentence):
         sentence.return_value = {'source_text': 'She reads books now.', 'target_text': 'Dia membaca buku sekarang.'}
 
-        german = {'She': 'Sie', 'reads': 'liest', 'books': 'Bücher', 'now': 'jetzt'}
-
         def fake_query(params):
-            if '\n' in str(params.get('q') or ''):
-                tokens = str(params['q']).split('\n')
-                segments = [[german.get(token, token) + '\n', token, None, None, 10] for token in tokens]
-                return [segments]
+            query = str(params.get('q') or '')
+            if ' ||| ' in query:
+                tokens = query.split(' ||| ')
+                german = {'She': 'Sie', 'reads': 'liest', 'books': 'Bücher', 'now': 'jetzt'}
+                joined = ' ||| '.join(german.get(token, token) for token in tokens)
+                return [[[joined, query, None, None, 10]]]
             if (params.get('dt') or '') == 'bd':
                 return [[['x', 'x', None, None, 10]], [['noun', ['das Buch'], []]]]
             return [[[german.get(params['q'], params['q']), params['q'], None, None, 10]], []]
@@ -743,7 +743,7 @@ class InterlinearBatchTest(TestCase):
         # One batched call for the whole layer, not one per token.
         batch_calls = [
             call for call in translate_query.call_args_list
-            if '\n' in str(call.kwargs.get('q') or call.args[0].get('q') or '')
+            if ' ||| ' in str(call.kwargs.get('q') or call.args[0].get('q') or '')
         ]
         self.assertEqual(len(batch_calls), 1)
 
@@ -782,9 +782,10 @@ class InterlinearBatchTest(TestCase):
         sentence.return_value = {'source_text': 'It was silent wood.', 'target_text': 'Hutan sunyi.'}
 
         def fake_query(params):
-            if '\n' in str(params.get('q') or ''):
-                tokens = str(params['q']).split('\n')
-                return [[[token + '\n', token, None, None, 10] for token in tokens]]
+            query = str(params.get('q') or '')
+            if ' ||| ' in query:
+                tokens = query.split(' ||| ')
+                return [[[(' ||| '.join(tokens) + ' ||| '), query, None, None, 10]]]
             if (params.get('dt') or '') == 'bd':
                 token = params['q']
                 return [[['x', 'x', None, None, 10]], [['noun', ['alt for ' + token], []]]]
@@ -826,6 +827,16 @@ class InterlinearEndpointTest(TestCase):
         }
 
         def fake_query(params):
+            query = str(params.get('q') or '')
+            if ' ||| ' in query:
+                tokens = query.split(' ||| ')
+                mapped = [
+                    {'She': 'Dia', 'reads': 'membaca', 'books': 'buku'}.get(token, token)
+                    for token in tokens
+                ]
+                return [[[(' ||| '.join(mapped) + ' ||| '), query, None, None, 10]]]
+            if (params.get('dt') or '') == 'bd':
+                return [[['x', 'x', None, None, 10]], [['verb', ['membaca keras'], []]]]
             word = params.get('q')
             return [
                 [[{'She': 'Dia', 'reads': 'membaca', 'books.': 'buku.'}.get(word, word), word, None, None, 10]],
@@ -1481,6 +1492,12 @@ class InterlinearMotherLayerTest(TestCase):
         }
 
         def fake_query(params):
+            query = str(params.get('q') or '')
+            if ' ||| ' in query:
+                tokens = query.split(' ||| ')
+                tl = params.get('tl')
+                mapped = [translations.get((tl, token), token) for token in tokens]
+                return [[[(' ||| '.join(mapped) + ' ||| '), query, None, None, 10]]]
             value = translations.get((params.get('tl'), params.get('q')), params.get('q'))
             return [[[value, value, None, None, 10]], []]
 
