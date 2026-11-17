@@ -35,8 +35,9 @@ PROXY_RETRY_DELAY = 0.6
 PROXY_MAX_WAIT = 5.0
 # One call may retry, but not for longer than this: the card is built from a
 # handful of calls at once, and a single throttled one must not hold the whole
-# card for half a minute.
-PROXY_BUDGET_SECONDS = 3.0
+# card for half a minute. A card that lost a layer this way is not cached, so
+# the next open retries it.
+PROXY_BUDGET_SECONDS = 2.0
 
 # The proxy throttles a burst and asks for a pause between requests, so only a
 # few may be in flight; the rest wait for a slot. Three keeps a cold card's
