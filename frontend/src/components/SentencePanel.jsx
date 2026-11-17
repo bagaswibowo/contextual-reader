@@ -469,13 +469,20 @@ export function SentencePanel({
                     key={`${row.source}-${index}`}
                     type="button"
                     onClick={() => onOpenWord && onOpenWord(row.source)}
+                    aria-label={
+                      !row.target && !row.mother
+                        ? `Buka arti kata ${row.source}; terjemahan per kata belum tersedia`
+                        : undefined
+                    }
                     className="min-h-[44px] rounded-xl border border-[var(--cr-border-subtle)] bg-[var(--cr-bg-surface)] px-2 py-1 text-left hover:border-[var(--cr-text-accent)]"
                     title={row.alternatives?.length ? `Arti lain: ${row.alternatives.join(', ')}` : row.source}
                   >
                     <span className="block text-[max(12px,0.8em)] font-bold leading-tight text-[var(--cr-text-primary)]">{row.source}</span>
-                    <span className="block text-[max(12px,0.8em)] font-semibold leading-tight text-[var(--cr-text-accent)]">
-                      {row.target || '-'}
-                    </span>
+                    {row.target && (
+                      <span className="block text-[max(12px,0.8em)] font-semibold leading-tight text-[var(--cr-text-accent)]">
+                        {row.target}
+                      </span>
+                    )}
                     {row.mother && row.mother !== row.target && (
                       <span className="block text-[max(12px,0.8em)] font-normal leading-tight text-[var(--cr-text-tertiary)]">
                         {row.mother}
