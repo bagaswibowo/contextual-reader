@@ -8,7 +8,7 @@ echo "[Entrypoint] Contextual Reader Backend Bootstrapping..."
 
 # 1. Setup directories
 echo "[Entrypoint] Setup directories..."
-mkdir -p /app/db_data /app/media /app/logs /app/staticfiles
+mkdir -p /app/db_data /app/db_data/cache /app/media /app/logs /app/staticfiles
 
 # 2. Run migrations (jika DB kosong)
 echo "[Entrypoint] Check migration status..."

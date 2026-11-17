@@ -14,6 +14,7 @@ import time
 from typing import Dict, Optional
 
 import requests
+from django.core.cache import cache
 
 GOOGLE_TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single'
 REQUEST_HEADERS = {
@@ -37,6 +38,12 @@ PROXY_MAX_WAIT = 5.0
 # couple may be in flight; the rest wait for a slot. Direct Google calls stay
 # unlimited.
 _PROXY_SLOTS = threading.Semaphore(2)
+
+# Google answers 429 to the data-centre address this app runs on, so every
+# client name fails the same way. The block is remembered for a few minutes:
+# three doomed attempts per call cost more than the proxy call they replace.
+DIRECT_BLOCK_KEY = 'translate:direct-blocked'
+DIRECT_BLOCK_SECONDS = 600
 
 # Languages written in Latin script: Google's reading field is an IPA-style
 # respelling there, while for other scripts it is a romanization.
@@ -64,8 +71,26 @@ def is_latin_script(lang: str) -> bool:
     return normalize_lang(lang) in LATIN_SCRIPT_LANGS
 
 
+def _direct_blocked() -> bool:
+    try:
+        return bool(cache.get(DIRECT_BLOCK_KEY))
+    except Exception:
+        return False
+
+
+def _remember_direct_block() -> None:
+    try:
+        cache.set(DIRECT_BLOCK_KEY, 1, timeout=DIRECT_BLOCK_SECONDS)
+    except Exception:
+        pass
+
+
 def translate_query(params: Dict) -> Optional[list]:
     """Call the translate endpoint, rotating client names; never raises."""
+    if _direct_blocked():
+        return translate_query_via_reader(params)
+
+    throttled = False
     for client_name in CLIENT_NAMES:
         attempt = dict(params)
         attempt['client'] = client_name
@@ -76,10 +101,17 @@ def translate_query(params: Dict) -> Optional[list]:
                 headers=REQUEST_HEADERS,
                 timeout=5,
             )
-            if response.status_code == 200:
-                return response.json()
         except Exception:
             continue
+        if response.status_code == 200:
+            return response.json()
+        if response.status_code == 429:
+            # One client name is throttled for the whole address, so the other
+            # names would only spend their own timeout on the same answer.
+            throttled = True
+            break
+    if throttled:
+        _remember_direct_block()
     return translate_query_via_reader(params)
 
 

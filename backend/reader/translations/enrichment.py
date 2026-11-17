@@ -42,7 +42,10 @@ MAX_EXAMPLES = 4
 MAX_TRANSLATIONS = 8
 
 TATOEBA_SEARCH_URL = 'https://tatoeba.org/en/api_v0/search'
-TATOEBA_TIMEOUT = 6
+# Tatoeba is the slowest upstream and answers nothing for most words, so one
+# short attempt keeps the card inside its budget. The empty answer is cached, so
+# the next open pays nothing.
+TATOEBA_TIMEOUT = (1.5, 2.5)
 TATOEBA_CACHE_TTL = 86400
 # Tatoeba's bot filter rejects generic browser user agents from servers; an
 # honest, descriptive agent gets through and is the polite thing to send.
@@ -578,15 +581,19 @@ def fetch_tatoeba_examples(
                 timeout=TATOEBA_TIMEOUT,
             )
         except requests.RequestException:
-            response = None
-        if response is not None and response.status_code == 200:
+            # A slow or unreachable corpus is not worth a second wait: the card
+            # shows its dictionary examples instead.
+            break
+        if response.status_code == 200:
             try:
                 payload = response.json()
             except ValueError:
                 payload = None
             break
+        if response.status_code != 503:
+            break
         if attempt == 0:
-            time.sleep(0.4)
+            time.sleep(0.2)
 
     rows = payload.get('results') if isinstance(payload, dict) else None
     if not isinstance(rows, list):

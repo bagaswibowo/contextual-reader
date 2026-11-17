@@ -16,12 +16,14 @@ derived data: losing it only costs one extra upstream call.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import timedelta
 from typing import Dict
 from urllib.parse import quote
 
 import requests
+from django.core.cache import cache
 from django.utils import timezone
 
 from .models import DictionaryEntry
@@ -29,6 +31,9 @@ from .provider import REQUEST_HEADERS, is_latin_script, normalize_lang
 from .services import GoogleTranslateClient
 
 DICTIONARY_CACHE_TTL = timedelta(days=7)
+# A built card is reused as-is: every layer inside it already came from an
+# upstream call, so a repeat open costs no provider request at all.
+DICTIONARY_CARD_TTL = 86400
 FREE_DICTIONARY_URL = 'https://api.dictionaryapi.dev/api/v2/entries/{lang}/{word}'
 MAX_SENSES = 8
 MAX_SYNONYMS = 12
@@ -624,6 +629,56 @@ def serialize_entry(
     }
 
 
+def _card_cache_key(
+    entry: DictionaryEntry, mother_lang: str, target_lang: str, context: str
+) -> str:
+    """Key for one built card, so the same panel view never rebuilds it.
+
+    The entry's ``fetched_at`` is part of the key: when a provider refresh
+    replaces the senses, the old card must not answer for the new entry.
+    """
+    from .enrichment import CACHE_VERSION
+
+    digest = hashlib.sha256(
+        '|'.join([
+            entry.lang,
+            mother_lang,
+            target_lang,
+            entry.word.lower(),
+            entry.fetched_at.isoformat() if entry.fetched_at else '',
+            context or '',
+        ]).encode()
+    ).hexdigest()[:32]
+    return f'dict_card:{CACHE_VERSION}:{digest}'
+
+
+def _serialized_card(
+    entry: DictionaryEntry,
+    context: str,
+    mother_lang: str,
+    target_lang: str,
+    stale: bool = False,
+) -> dict:
+    """Return the card from the shared cache, building it only on a miss."""
+    if stale:
+        # A stale card is a one-off fallback for a failing provider, so it is
+        # served but never kept: the next attempt should retry upstream.
+        return serialize_entry(
+            entry, context=context, stale=True, mother_lang=mother_lang, target_lang=target_lang
+        )
+
+    key = _card_cache_key(entry, mother_lang, target_lang, context)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    payload = serialize_entry(
+        entry, context=context, mother_lang=mother_lang, target_lang=target_lang
+    )
+    cache.set(key, payload, timeout=DICTIONARY_CARD_TTL)
+    return payload
+
+
 def lookup(
     word: str,
     lang: str,
@@ -641,7 +696,9 @@ def lookup(
 
     entry = DictionaryEntry.objects.filter(word_lower=word_lower, lang=lang).first()
     if entry and entry.fetched_at >= now - DICTIONARY_CACHE_TTL:
-        return serialize_entry(entry, context=context, mother_lang=mother_lang, target_lang=target_lang)
+        return _serialized_card(
+            entry, context, mother_lang, target_lang
+        )
 
     try:
         data = _fetch_free_dictionary(word, lang)
@@ -651,7 +708,9 @@ def lookup(
         except DictionaryProviderError as exc:
             if entry:
                 # Serving stale data is better than failing the reading flow.
-                return serialize_entry(entry, context=context, stale=True, mother_lang=mother_lang, target_lang=target_lang)
+                return _serialized_card(
+                    entry, context, mother_lang, target_lang, stale=True
+                )
             raise DictionaryNotFound(f'No dictionary entry found for "{word}" ({lang})') from exc
 
     defaults = {
@@ -669,4 +728,4 @@ def lookup(
         lang=lang,
         defaults=defaults,
     )
-    return serialize_entry(entry, context=context, mother_lang=mother_lang, target_lang=target_lang)
+    return _serialized_card(entry, context, mother_lang, target_lang)

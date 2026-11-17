@@ -1083,10 +1083,17 @@ class TatoebaExampleTest(TestCase):
         get.side_effect = requests_module.RequestException('down')
 
         self.assertEqual(fetch_tatoeba_examples('romper', 'es', 'id'), [])
+        # A slow corpus is not asked twice: the second wait would stall the card.
+        self.assertEqual(get.call_count, 1)
 
 
 class StudiedLanguageExampleTest(TestCase):
     """The Arti tab carries example sentences in the studied language."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
 
     @mock.patch('reader.translations.enrichment.fetch_tatoeba_examples')
     @mock.patch('reader.translations.provider.requests.get')
@@ -1973,6 +1980,11 @@ class DictionaryThreeLayerTest(TestCase):
 class TranslateReaderProxyTest(TestCase):
     """A blocked server repeats the query through the reading proxy."""
 
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
     def _blocked(self):
         response = mock.Mock()
         response.status_code = 429
@@ -1990,11 +2002,49 @@ class TranslateReaderProxyTest(TestCase):
             'Title: \n\nMarkdown Content:\n'
             '[[["merusak","break",null,null,10]],[]]'
         )
-        get.side_effect = [blocked, blocked, blocked, proxied]
+        get.side_effect = [blocked, proxied]
 
         with override_settings(TRANSLATE_READER_PROXY='https://reader.example'):
             payload = translate_query({'sl': 'en', 'tl': 'id', 'dt': 't', 'q': 'break'})
 
+        self.assertEqual(payload[0][0][0], 'merusak')
+
+    @mock.patch('reader.translations.provider.requests.get')
+    def test_one_throttled_answer_stops_the_client_rotation(self, get):
+        from django.core.cache import cache
+        from django.test import override_settings
+        from reader.translations.provider import DIRECT_BLOCK_KEY, translate_query
+
+        proxied = mock.Mock()
+        proxied.status_code = 200
+        proxied.text = 'Markdown Content:\n[[["merusak","break",null,null,10]],[]]'
+        get.side_effect = [self._blocked(), proxied]
+
+        with override_settings(TRANSLATE_READER_PROXY='https://reader.example'):
+            translate_query({'sl': 'en', 'tl': 'id', 'dt': 't', 'q': 'break'})
+
+        # One direct attempt learns the block; the other client names would only
+        # repeat the same 429.
+        self.assertEqual(get.call_count, 2)
+        self.assertTrue(cache.get(DIRECT_BLOCK_KEY))
+
+    @mock.patch('reader.translations.provider.requests.get')
+    def test_a_remembered_block_skips_the_direct_endpoint(self, get):
+        from django.core.cache import cache
+        from django.test import override_settings
+        from reader.translations.provider import DIRECT_BLOCK_KEY, translate_query
+
+        cache.set(DIRECT_BLOCK_KEY, 1, timeout=60)
+        proxied = mock.Mock()
+        proxied.status_code = 200
+        proxied.text = 'Markdown Content:\n[[["merusak","break",null,null,10]],[]]'
+        get.return_value = proxied
+
+        with override_settings(TRANSLATE_READER_PROXY='https://reader.example'):
+            payload = translate_query({'sl': 'en', 'tl': 'id', 'dt': 't', 'q': 'break'})
+
+        self.assertEqual(get.call_count, 1)
+        self.assertTrue(get.call_args.args[0].startswith('https://reader.example'))
         self.assertEqual(payload[0][0][0], 'merusak')
 
     def test_throttle_reply_states_how_long_to_wait(self):
@@ -2028,7 +2078,54 @@ class TranslateReaderProxyTest(TestCase):
         blocked_page = mock.Mock()
         blocked_page.status_code = 200
         blocked_page.text = 'Markdown Content:\nOur systems have detected unusual traffic'
-        get.side_effect = [blocked, blocked, blocked, blocked_page]
+        get.side_effect = [blocked, blocked_page]
 
         with override_settings(TRANSLATE_READER_PROXY='https://reader.example'):
             self.assertIsNone(translate_query({'sl': 'en', 'tl': 'id', 'q': 'break'}))
+
+
+class DictionaryCardCacheTest(TestCase):
+    """The second open of one card must not repeat a single upstream call."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from reader.translations.models import DictionaryEntry
+
+        cache.clear()
+        self.entry = DictionaryEntry.objects.create(
+            word='wanderlust',
+            word_lower='wanderlust',
+            lang='en',
+            part_of_speech='noun',
+            senses=[{'meaning': 'a strong desire to travel', 'examples': [], 'synonyms': []}],
+            synonyms=[],
+            source='free-dictionary',
+        )
+
+    @mock.patch('reader.translations.dictionary.serialize_entry')
+    def test_repeat_lookup_serves_the_built_card(self, serialize_entry):
+        from reader.translations.dictionary import lookup
+
+        serialize_entry.return_value = {'word': 'wanderlust', 'examples': []}
+
+        first = lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+        second = lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+
+        self.assertEqual(serialize_entry.call_count, 1)
+        self.assertEqual(first, second)
+
+    @mock.patch('reader.translations.dictionary.serialize_entry')
+    def test_each_panel_language_gets_its_own_card(self, serialize_entry):
+        from reader.translations.dictionary import lookup
+
+        serialize_entry.side_effect = lambda entry, **kwargs: {'target': kwargs.get('target_lang')}
+
+        german = lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+        vietnamese = lookup('wanderlust', 'en', mother_lang='id', target_lang='vi')
+        german_again = lookup('wanderlust', 'en', mother_lang='id', target_lang='de')
+
+        self.assertEqual(german, {'target': 'de'})
+        self.assertEqual(vietnamese, {'target': 'vi'})
+        self.assertEqual(german_again, {'target': 'de'})
+        self.assertEqual(serialize_entry.call_count, 2)
+

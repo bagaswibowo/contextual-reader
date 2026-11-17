@@ -184,13 +184,27 @@ SUPPORTED_FORMATS = env_list('SUPPORTED_FORMATS', ['epub', 'txt', 'pdf', 'md', '
 DATA_UPLOAD_MAX_MEMORY_SIZE = env_int('DATA_UPLOAD_MAX_MEMORY_SIZE', 25 * 1024 * 1024)
 FILE_UPLOAD_MAX_MEMORY_SIZE = env_int('FILE_UPLOAD_MAX_MEMORY_SIZE', int(2.5 * 1024 * 1024))
 
-# Cache configuration (LocMemCache fallback)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'contextual-reader-cache',
+# Cache configuration. LocMemCache lives inside one process, so each gunicorn
+# worker repeats every upstream call and loses its entries on restart. A
+# deployment sets CACHE_DIR to a shared directory and all workers read the same
+# entries; without it the per-process cache keeps local runs and tests simple.
+CACHE_DIR = env('CACHE_DIR', '')
+if CACHE_DIR:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': CACHE_DIR,
+            'TIMEOUT': 300,
+            'OPTIONS': {'MAX_ENTRIES': 4000},
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'contextual-reader-cache',
+        }
+    }
 
 # OmniRoute configuration. OMNIROUTE_URL is kept as a legacy alias so existing
 # deployments do not silently lose their endpoint; both names now resolve from
