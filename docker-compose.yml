@@ -1,13 +1,15 @@
 version: '3.8'
 
 services:
-  backend:
-    image: bwbagaswibowo/contextual-reader:${BACKEND_IMAGE_TAG:-backend}
+  app:
+    image: bwbagaswibowo/contextual-reader:${TAG:-main}
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: contextual-reader-backend
+    container_name: contextual-reader-app
     restart: unless-stopped
+    ports:
+      - "8088:80"
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=${DEBUG}
@@ -32,7 +34,7 @@ services:
       - backend_media:/app/media
       - ./logs:/app/logs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/core/health/"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:80/api/core/health/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -40,44 +42,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1G
+          cpus: '1.5'
+          memory: 1280M
         reservations:
-          cpus: '0.5'
-          memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-    networks:
-      - reader-net
-
-  frontend:
-    image: bwbagaswibowo/contextual-reader:${FRONTEND_IMAGE_TAG:-frontend}
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: contextual-reader-frontend
-    restart: unless-stopped
-    ports:
-      - "8088:80"
-    depends_on:
-      - backend
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
+          cpus: '0.75'
+          memory: 640M
     logging:
       driver: "json-file"
       options:
@@ -88,7 +57,7 @@ services:
 
   cftunnel-reader:
     profiles: ['tunnel']
-    image: cloudflare/cloudflared:2024.12.1  # Pin versi tag
+    image: cloudflare/cloudflared:2024.12.1
     container_name: cftunnel-reader
     restart: unless-stopped
     environment:

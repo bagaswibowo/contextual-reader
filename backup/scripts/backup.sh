@@ -26,9 +26,17 @@ echo "========================================="
 echo "Contextual Reader Backup - ${BACKUP_DATE}"
 echo "========================================="
 
+# Deteksi container app/backend
+CONTAINER_NAME="contextual-reader-app"
+if ! docker ps --format '{{.Names}}' | grep -q "^contextual-reader-app$"; then
+  if docker ps --format '{{.Names}}' | grep -q "^contextual-reader-backend$"; then
+    CONTAINER_NAME="contextual-reader-backend"
+  fi
+fi
+
 # 1. Backup Database SQLite (gunakan .backup untuk aman)
 echo "[1/5] Membuat backup database SQLite..."
-docker-compose exec -T backend sh -c "
+docker exec -T "$CONTAINER_NAME" sh -c "
   sqlite3 /app/db_data/db.sqlite3 '.backup /tmp/backup.sqlite3' &&
   cp /tmp/backup.sqlite3 /app/db_data/db.sqlite3.bak
 " || {
@@ -38,7 +46,7 @@ docker-compose exec -T backend sh -c "
 
 # Copy ke lokal untuk tar
 echo "[2/5] Menyalin database ke lokal..."
-docker cp contextual-reader-backend:${DB_SOURCE} "$LOCAL_DB_PATH" || {
+docker cp ${CONTAINER_NAME}:${DB_SOURCE} "$LOCAL_DB_PATH" || {
   echo "ERROR: Gagal copy database dari container"
   exit 1
 }
@@ -46,7 +54,7 @@ docker cp contextual-reader-backend:${DB_SOURCE} "$LOCAL_DB_PATH" || {
 # 2. Backup Volume Media
 echo "[3/5] Membuat arsip media..."
 mkdir -p "${BACKUP_DIR}/media/${BACKUP_DATE}"
-docker cp contextual-reader-backend:${MEDIA_SOURCE} "${BACKUP_DIR}/media/${BACKUP_DATE}/"
+docker cp ${CONTAINER_NAME}:${MEDIA_SOURCE} "${BACKUP_DIR}/media/${BACKUP_DATE}/"
 
 # 3. Kompresi
 echo "[4/5] Membuat tar.gz..."

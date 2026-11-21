@@ -146,7 +146,7 @@ jobs:
           LLM_ALLOWED_HOSTS: localhost
         run: |
           cd contextual-reader
-          docker compose up -d backend frontend
+          docker compose up -d app
 
       - name: Wait for services
         run: |

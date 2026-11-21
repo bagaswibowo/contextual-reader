@@ -72,46 +72,24 @@ echo "🐳 Building Docker images..."
 docker compose build
 
 echo "🐳 Recreating services without downtime..."
-docker compose up -d --no-deps --force-recreate backend
+docker compose up -d --no-deps --force-recreate app
 
 echo "⏳ Checking container health..."
 MAX_RETRIES=30
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if docker compose ps backend | grep -q "healthy"; then
-    echo "✅ Backend is healthy"
+  if docker compose ps app | grep -q "healthy"; then
+    echo "✅ App is healthy"
     break
   fi
   RETRY_COUNT=$((RETRY_COUNT + 1))
-  echo "⏳ Waiting for backend to be healthy... ($RETRY_COUNT/$MAX_RETRIES)"
+  echo "⏳ Waiting for app to be healthy... ($RETRY_COUNT/$MAX_RETRIES)"
   sleep 2
 done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-  echo "❌ Backend health check failed. Rollback in progress..."
-  docker compose up -d --no-deps --force-recreate backend
-  echo "❌ Deployment failed. Manual rollback required."
-  exit 1
-fi
-
-echo "⏳ Recreating frontend..."
-docker compose up -d --no-deps --force-recreate frontend
-
-echo "⏳ Checking frontend health..."
-RETRY_COUNT=0
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if docker compose ps frontend | grep -q "healthy"; then
-    echo "✅ Frontend is healthy"
-    break
-  fi
-  RETRY_COUNT=$((RETRY_COUNT + 1))
-  echo "⏳ Waiting for frontend to be healthy... ($RETRY_COUNT/$MAX_RETRIES)"
-  sleep 2
-done
-
-if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-  echo "❌ Frontend health check failed. Rollback in progress..."
-  docker compose up -d --no-deps --force-recreate backend frontend
+  echo "❌ App health check failed. Rollback in progress..."
+  docker compose up -d --no-deps --force-recreate app
   echo "❌ Deployment failed. Manual rollback required."
   exit 1
 fi
