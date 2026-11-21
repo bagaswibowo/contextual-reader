@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    image: bwbagaswibowo/contextual-reader-backend:${IMAGE_TAG:-latest}
+    image: bwbagaswibowo/contextual-reader:${BACKEND_IMAGE_TAG:-backend}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -54,7 +54,7 @@ services:
       - reader-net
 
   frontend:
-    image: bwbagaswibowo/contextual-reader-frontend:${IMAGE_TAG:-latest}
+    image: bwbagaswibowo/contextual-reader:${FRONTEND_IMAGE_TAG:-frontend}
     build:
       context: ./frontend
       dockerfile: Dockerfile
